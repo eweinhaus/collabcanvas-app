@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1760382043686" clover="3.2.0">
+  <project timestamp="1760382043686" name="All files">
+    <metrics statements="58" coveredstatements="58" conditionals="18" coveredconditionals="17" methods="10" coveredmethods="10" elements="86" coveredelements="85" complexity="0" loc="58" ncloc="58" packages="2" files="3" classes="3"/>
+    <package name="components.auth">
+      <metrics statements="14" coveredstatements="14" conditionals="14" coveredconditionals="13" methods="2" coveredmethods="2"/>
+      <file name="LoginButton.jsx" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/components/auth/LoginButton.jsx">
+        <metrics statements="7" coveredstatements="7" conditionals="10" coveredconditionals="9" methods="1" coveredmethods="1"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="5" count="25" type="stmt"/>
+        <line num="7" count="25" type="cond" truecount="2" falsecount="0"/>
+        <line num="8" count="13" type="stmt"/>
+        <line num="16" count="12" type="cond" truecount="2" falsecount="0"/>
+        <line num="17" count="6" type="stmt"/>
+        <line num="34" count="6" type="stmt"/>
+      </file>
+      <file name="PrivateRoute.jsx" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/components/auth/PrivateRoute.jsx">
+        <metrics statements="7" coveredstatements="7" conditionals="4" coveredconditionals="4" methods="1" coveredmethods="1"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="5" count="11" type="stmt"/>
+        <line num="7" count="11" type="cond" truecount="2" falsecount="0"/>
+        <line num="8" count="6" type="stmt"/>
+        <line num="16" count="5" type="cond" truecount="2" falsecount="0"/>
+        <line num="17" count="2" type="stmt"/>
+        <line num="27" count="3" type="stmt"/>
+      </file>
+    </package>
+    <package name="context">
+      <metrics statements="44" coveredstatements="44" conditionals="4" coveredconditionals="4" methods="8" coveredmethods="8"/>
+      <file name="AuthContext.jsx" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/context/AuthContext.jsx">
+        <metrics statements="44" coveredstatements="44" conditionals="4" coveredconditionals="4" methods="8" coveredmethods="8"/>
+        <line num="9" count="3" type="stmt"/>
+        <line num="11" count="3" type="stmt"/>
+        <line num="12" count="59" type="stmt"/>
+        <line num="13" count="59" type="cond" truecount="2" falsecount="0"/>
+        <line num="14" count="2" type="stmt"/>
+        <line num="16" count="57" type="stmt"/>
+        <line num="19" count="3" type="stmt"/>
+        <line num="20" count="58" type="stmt"/>
+        <line num="21" count="58" type="stmt"/>
+        <line num="22" count="58" type="stmt"/>
+        <line num="24" count="58" type="stmt"/>
+        <line num="26" count="25" type="stmt"/>
+        <line num="29" count="20" type="cond" truecount="2" falsecount="0"/>
+        <line num="31" count="10" type="stmt"/>
+        <line num="39" count="10" type="stmt"/>
+        <line num="41" count="20" type="stmt"/>
+        <line num="42" count="20" type="stmt"/>
+        <line num="45" count="1" type="stmt"/>
+        <line num="46" count="1" type="stmt"/>
+        <line num="47" count="1" type="stmt"/>
+        <line num="52" count="25" type="stmt"/>
+        <line num="55" count="58" type="stmt"/>
+        <line num="56" count="5" type="stmt"/>
+        <line num="57" count="5" type="stmt"/>
+        <line num="58" count="5" type="stmt"/>
+        <line num="59" count="5" type="stmt"/>
+        <line num="60" count="3" type="stmt"/>
+        <line num="66" count="3" type="stmt"/>
+        <line num="68" count="1" type="stmt"/>
+        <line num="69" count="1" type="stmt"/>
+        <line num="70" count="1" type="stmt"/>
+        <line num="72" count="4" type="stmt"/>
+        <line num="76" count="58" type="stmt"/>
+        <line num="77" count="4" type="stmt"/>
+        <line num="78" count="4" type="stmt"/>
+        <line num="79" count="4" type="stmt"/>
+        <line num="80" count="4" type="stmt"/>
+        <line num="81" count="3" type="stmt"/>
+        <line num="83" count="1" type="stmt"/>
+        <line num="84" count="1" type="stmt"/>
+        <line num="85" count="1" type="stmt"/>
+        <line num="87" count="4" type="stmt"/>
+        <line num="91" count="58" type="stmt"/>
+        <line num="99" count="58" type="stmt"/>
+      </file>
+    </package>
+  </project>
+</coverage>
