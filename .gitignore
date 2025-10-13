@@ -32,6 +32,10 @@ dist-ssr
 firebase.json
 .firebase/
 
+# Markdown files (except README.md)
+*.md
+!README.md
+
 planning/
 md_files/
 .cursorrules

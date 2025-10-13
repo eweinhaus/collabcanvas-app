@@ -1,0 +1,21 @@
+.text-editor {
+  position: absolute;
+  border: 2px solid #4ECDC4;
+  padding: 4px;
+  margin: 0;
+  outline: none;
+  resize: none;
+  background: white;
+  font-family: Arial, sans-serif;
+  line-height: 1.2;
+  min-width: 100px;
+  min-height: 30px;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.text-editor:focus {
+  border-color: #45B7D1;
+}
+
