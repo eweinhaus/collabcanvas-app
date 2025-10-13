@@ -15,7 +15,7 @@ import './Canvas.css';
 
 const Canvas = ({ showGrid = false }) => {
   const stageRef = useRef(null);
-  const { state } = useCanvas();
+  const { state, firestoreActions } = useCanvas();
   const actions = useCanvasActions();
   const [editingTextId, setEditingTextId] = useState(null);
   const [editingText, setEditingText] = useState('');
@@ -72,7 +72,7 @@ const Canvas = ({ showGrid = false }) => {
         const y = (pointerPosition.y - position.y) / scale;
         
         const newShape = createShape(currentTool, x, y);
-        actions.addShape(newShape);
+        firestoreActions.addShape(newShape);
         
         // Optionally clear tool after creating shape (comment out to keep tool active)
         // actions.setCurrentTool(null);
@@ -94,7 +94,7 @@ const Canvas = ({ showGrid = false }) => {
 
   const handleFinishEdit = useCallback(() => {
     if (editingTextId) {
-      actions.updateShape(editingTextId, { text: editingText || 'Double-click to edit' });
+      firestoreActions.updateShapeText(editingTextId, editingText || 'Double-click to edit');
       setEditingTextId(null);
       setEditingText('');
     }
@@ -109,7 +109,7 @@ const Canvas = ({ showGrid = false }) => {
       // Delete selected shape
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         e.preventDefault();
-        actions.deleteShape(selectedId);
+        firestoreActions.deleteShape(selectedId);
       }
       
       // Escape to clear selection and tool
@@ -170,7 +170,7 @@ const Canvas = ({ showGrid = false }) => {
                   }
                 }}
                 onChange={(newAttrs) => {
-                  actions.updateShape(shape.id, newAttrs);
+                  firestoreActions.updateShape(shape.id, newAttrs);
                 }}
                 onStartEdit={handleStartEdit}
               />

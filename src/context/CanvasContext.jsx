@@ -3,7 +3,9 @@
  * Manages shapes, selection, current tool, pan, and zoom
  */
 
-import { createContext, useContext, useReducer, useMemo } from 'react';
+import { createContext, useContext, useReducer, useMemo, useEffect, useRef } from 'react';
+import { getAllShapes, subscribeToShapes, createShape as fsCreateShape, updateShape as fsUpdateShape, deleteShape as fsDeleteShape, updateShapeText as fsUpdateShapeText } from '../services/firestoreService';
+import { throttle } from '../utils/throttle';
 
 const CanvasContext = createContext(null);
 
@@ -26,6 +28,7 @@ export const CANVAS_ACTIONS = {
   SET_SCALE: 'SET_SCALE',
   SET_POSITION: 'SET_POSITION',
   SET_STAGE_SIZE: 'SET_STAGE_SIZE',
+  APPLY_SERVER_CHANGE: 'APPLY_SERVER_CHANGE',
 };
 
 // Initial state
@@ -69,6 +72,24 @@ const canvasReducer = (state, action) => {
         ...state,
         shapes: action.payload,
       };
+    
+    case CANVAS_ACTIONS.APPLY_SERVER_CHANGE: {
+      const incoming = action.payload;
+      const TOLERANCE_MS = 100;
+      const existing = state.shapes.find(s => s.id === incoming.id);
+      if (!existing) {
+        return { ...state, shapes: [...state.shapes, incoming] };
+      }
+      const existingTs = existing.updatedAt ?? 0;
+      const serverTs = incoming.updatedAt ?? 0;
+      if (serverTs > existingTs + TOLERANCE_MS) {
+        return {
+          ...state,
+          shapes: state.shapes.map(s => (s.id === incoming.id ? { ...s, ...incoming } : s)),
+        };
+      }
+      return state;
+    }
       
     case CANVAS_ACTIONS.SET_SELECTED_ID:
       return {
@@ -118,9 +139,104 @@ const canvasReducer = (state, action) => {
  */
 export const CanvasProvider = ({ children }) => {
   const [state, dispatch] = useReducer(canvasReducer, initialState);
+  const unsubscribeRef = useRef(null);
+  const throttledUpdatesRef = useRef({});
+
+  // Initial load then subscribe
+  useEffect(() => {
+    let isMounted = true;
+
+    (async () => {
+      try {
+        const initial = await getAllShapes();
+        if (isMounted) {
+          dispatch({ type: CANVAS_ACTIONS.SET_SHAPES, payload: initial });
+        }
+
+        // Subscribe to live updates
+        unsubscribeRef.current = subscribeToShapes({
+          onChange: ({ type, shape }) => {
+            if (type === 'removed') {
+              // Remove locally
+              dispatch({ type: CANVAS_ACTIONS.DELETE_SHAPE, payload: shape.id });
+              return;
+            }
+            dispatch({ type: CANVAS_ACTIONS.APPLY_SERVER_CHANGE, payload: shape });
+          },
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to initialize Firestore sync', err);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+      // cancel throttles
+      Object.values(throttledUpdatesRef.current).forEach((t) => t?.cancel?.());
+      throttledUpdatesRef.current = {};
+    };
+  }, []);
 
   // Memoize context value to prevent unnecessary re-renders
-  const value = useMemo(() => ({ state, dispatch }), [state]);
+  const firestoreActions = useMemo(() => {
+    const ensureThrottler = (id) => {
+      if (!throttledUpdatesRef.current[id]) {
+        throttledUpdatesRef.current[id] = throttle((shapeId, updates) => {
+          fsUpdateShape(shapeId, updates).catch((err) => {
+            // eslint-disable-next-line no-console
+            console.error('Failed to update shape in Firestore', err);
+          });
+        }, 100);
+      }
+      return throttledUpdatesRef.current[id];
+    };
+
+    return {
+      addShape: async (shape) => {
+        // optimistic
+        dispatch({ type: CANVAS_ACTIONS.ADD_SHAPE, payload: { ...shape, updatedAt: Date.now() } });
+        try {
+          await fsCreateShape(shape);
+        } catch (err) {
+          // rollback
+          dispatch({ type: CANVAS_ACTIONS.DELETE_SHAPE, payload: shape.id });
+          // eslint-disable-next-line no-console
+          console.error('Failed to create shape in Firestore', err);
+        }
+      },
+      updateShape: (id, updates) => {
+        // optimistic
+        dispatch({ type: CANVAS_ACTIONS.UPDATE_SHAPE, payload: { id, updates: { ...updates, updatedAt: Date.now() } } });
+        const throttler = ensureThrottler(id);
+        throttler(id, updates);
+      },
+      updateShapeText: (id, text) => {
+        // optimistic
+        dispatch({ type: CANVAS_ACTIONS.UPDATE_SHAPE, payload: { id, updates: { text, updatedAt: Date.now() } } });
+        fsUpdateShapeText(id, text).catch((err) => {
+          // eslint-disable-next-line no-console
+          console.error('Failed to update shape text in Firestore', err);
+        });
+      },
+      deleteShape: async (id) => {
+        // optimistic
+        dispatch({ type: CANVAS_ACTIONS.DELETE_SHAPE, payload: id });
+        try {
+          await fsDeleteShape(id);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Failed to delete shape in Firestore', err);
+        }
+      },
+    };
+  }, []);
+
+  const value = useMemo(() => ({ state, dispatch, firestoreActions }), [state, firestoreActions]);
 
   return (
     <CanvasContext.Provider value={value}>
