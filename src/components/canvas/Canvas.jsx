@@ -8,9 +8,11 @@ import { Stage, Layer } from 'react-konva';
 import { useCanvas, useCanvasActions } from '../../context/CanvasContext';
 import { calculateNewScale, calculateZoomPosition } from '../../utils/canvas';
 import { createShape } from '../../utils/shapes';
+import { useRealtimeCursor } from '../../hooks/useRealtimeCursor';
 import Shape from './Shape';
 import GridBackground from './GridBackground';
 import TextEditor from './TextEditor';
+import RemoteCursor from './RemoteCursor';
 import './Canvas.css';
 
 const Canvas = ({ showGrid = false }) => {
@@ -19,6 +21,7 @@ const Canvas = ({ showGrid = false }) => {
   const actions = useCanvasActions();
   const [editingTextId, setEditingTextId] = useState(null);
   const [editingText, setEditingText] = useState('');
+  const { remoteCursors, publishLocalCursor, clearLocalCursor } = useRealtimeCursor();
 
   const { shapes, selectedId, currentTool, scale, position, stageSize } = state;
 
@@ -81,7 +84,36 @@ const Canvas = ({ showGrid = false }) => {
         actions.clearSelection();
       }
     }
-  }, [currentTool, actions, scale, position]);
+  }, [currentTool, actions, scale, position, firestoreActions]);
+
+  const handlePointerMove = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+    // Convert to canvas coordinates (same space as shapes)
+    const x = (pointer.x - position.x) / scale;
+    const y = (pointer.y - position.y) / scale;
+    publishLocalCursor({ x, y, scaleOverride: scale });
+  }, [position.x, position.y, scale, publishLocalCursor]);
+
+  const handlePointerLeave = useCallback(() => {
+    clearLocalCursor();
+  }, [clearLocalCursor]);
+
+  // Handle cursor updates during stage drag (Chrome compatibility)
+  const handleStageDrag = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+    // Update position during drag
+    const newPos = stage.position();
+    // Convert to canvas coordinates with updated position
+    const x = (pointer.x - newPos.x) / scale;
+    const y = (pointer.y - newPos.y) / scale;
+    publishLocalCursor({ x, y, scaleOverride: scale });
+  }, [scale, publishLocalCursor]);
 
   // Handle text editing
   const handleStartEdit = useCallback((shapeId) => {
@@ -137,6 +169,11 @@ const Canvas = ({ showGrid = false }) => {
         onWheel={handleWheel}
         onClick={handleStageClick}
         onTap={handleStageClick}
+        onMouseMove={handlePointerMove}
+        onTouchMove={handlePointerMove}
+        onDragMove={handleStageDrag}
+        onMouseLeave={handlePointerLeave}
+        onTouchEnd={handlePointerLeave}
       >
         {/* Grid background layer (optional) */}
         {showGrid && (
@@ -173,6 +210,22 @@ const Canvas = ({ showGrid = false }) => {
                   firestoreActions.updateShape(shape.id, newAttrs);
                 }}
                 onStartEdit={handleStartEdit}
+              />
+            );
+          })}
+        </Layer>
+
+        {/* Remote cursors layer */}
+        <Layer listening={false}>
+          {remoteCursors.map((cursor) => {
+            if (cursor?.x == null || cursor?.y == null) return null;
+            return (
+              <RemoteCursor
+                key={cursor.uid}
+                x={cursor.x}
+                y={cursor.y}
+                color={cursor.color}
+                label={cursor.name}
               />
             );
           })}

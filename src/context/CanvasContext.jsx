@@ -3,9 +3,12 @@
  * Manages shapes, selection, current tool, pan, and zoom
  */
 
-import { createContext, useContext, useReducer, useMemo, useEffect, useRef } from 'react';
+import { createContext, useContext, useReducer, useMemo, useEffect, useRef, useCallback } from 'react';
 import { getAllShapes, subscribeToShapes, createShape as fsCreateShape, updateShape as fsUpdateShape, deleteShape as fsDeleteShape, updateShapeText as fsUpdateShapeText } from '../services/firestoreService';
 import { throttle } from '../utils/throttle';
+import { setCursorPosition, subscribeToCursors, removeCursor, registerDisconnectCleanup } from '../services/realtimeCursorService';
+
+const DEFAULT_BOARD_ID = 'default';
 
 const CanvasContext = createContext(null);
 
@@ -29,6 +32,7 @@ export const CANVAS_ACTIONS = {
   SET_POSITION: 'SET_POSITION',
   SET_STAGE_SIZE: 'SET_STAGE_SIZE',
   APPLY_SERVER_CHANGE: 'APPLY_SERVER_CHANGE',
+  SET_REMOTE_CURSORS: 'SET_REMOTE_CURSORS',
 };
 
 // Initial state
@@ -39,6 +43,7 @@ const initialState = {
   scale: 1,
   position: { x: 0, y: 0 },
   stageSize: { width: window.innerWidth, height: window.innerHeight },
+  remoteCursors: [],
 };
 
 // Reducer
@@ -127,6 +132,12 @@ const canvasReducer = (state, action) => {
         ...state,
         stageSize: action.payload,
       };
+
+    case CANVAS_ACTIONS.SET_REMOTE_CURSORS:
+      return {
+        ...state,
+        remoteCursors: action.payload,
+      };
       
     default:
       return state;
@@ -141,6 +152,51 @@ export const CanvasProvider = ({ children }) => {
   const [state, dispatch] = useReducer(canvasReducer, initialState);
   const unsubscribeRef = useRef(null);
   const throttledUpdatesRef = useRef({});
+  const cursorUnsubscribeRef = useRef(null);
+  const cursorDisconnectCancelRef = useRef(null);
+
+  const setupCursorDisconnect = useCallback(({ uid, boardId = DEFAULT_BOARD_ID } = {}) => {
+    if (cursorDisconnectCancelRef.current) {
+      cursorDisconnectCancelRef.current();
+      cursorDisconnectCancelRef.current = null;
+    }
+    if (!uid) return;
+    cursorDisconnectCancelRef.current = registerDisconnectCleanup({ uid, boardId });
+  }, []);
+
+  const publishCursor = useCallback(({ uid, boardId = DEFAULT_BOARD_ID, ...rest }) => {
+    if (!uid) return Promise.resolve();
+    return setCursorPosition({ uid, boardId, ...rest }).catch((err) => {
+      console.error('Failed to set cursor position', err);
+    });
+  }, []);
+
+  const stopCursorSubscription = useCallback(() => {
+    if (cursorUnsubscribeRef.current) {
+      cursorUnsubscribeRef.current();
+      cursorUnsubscribeRef.current = null;
+    }
+  }, []);
+
+  const startCursorSubscription = useCallback(({
+    boardId = DEFAULT_BOARD_ID,
+    uid,
+    onUpdate,
+    onError,
+  } = {}) => {
+    stopCursorSubscription();
+    const unsubscribe = subscribeToCursors({
+      boardId,
+      excludeUid: uid,
+      onUpdate: (cursors) => {
+        dispatch({ type: CANVAS_ACTIONS.SET_REMOTE_CURSORS, payload: cursors });
+        onUpdate?.(cursors);
+      },
+      onError,
+    });
+    cursorUnsubscribeRef.current = unsubscribe;
+    return unsubscribe;
+  }, [stopCursorSubscription]);
 
   // Initial load then subscribe
   useEffect(() => {
@@ -176,11 +232,16 @@ export const CanvasProvider = ({ children }) => {
         unsubscribeRef.current();
         unsubscribeRef.current = null;
       }
+      stopCursorSubscription();
+      if (cursorDisconnectCancelRef.current) {
+        cursorDisconnectCancelRef.current();
+        cursorDisconnectCancelRef.current = null;
+      }
       // cancel throttles
       Object.values(throttledUpdatesRef.current).forEach((t) => t?.cancel?.());
       throttledUpdatesRef.current = {};
     };
-  }, []);
+  }, [stopCursorSubscription]);
 
   // Memoize context value to prevent unnecessary re-renders
   const firestoreActions = useMemo(() => {
@@ -236,7 +297,18 @@ export const CanvasProvider = ({ children }) => {
     };
   }, []);
 
-  const value = useMemo(() => ({ state, dispatch, firestoreActions }), [state, firestoreActions]);
+  const value = useMemo(() => ({
+    state,
+    dispatch,
+    firestoreActions,
+    cursor: {
+      publishCursor,
+      startCursorSubscription,
+      stopCursorSubscription,
+      setupCursorDisconnect,
+      removeCursor,
+    },
+  }), [state, firestoreActions, publishCursor, startCursorSubscription, stopCursorSubscription, setupCursorDisconnect]);
 
   return (
     <CanvasContext.Provider value={value}>
