@@ -14,4 +14,13 @@ if (!global.crypto) {
   };
 }
 
+// Shim import.meta.env for Jest environment
+if (!global.import) {
+  global.import = { meta: { env: {} } };
+} else if (!global.import.meta) {
+  global.import.meta = { env: {} };
+} else if (!global.import.meta.env) {
+  global.import.meta.env = {};
+}
+
 

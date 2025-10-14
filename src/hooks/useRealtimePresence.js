@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useCanvas } from '../context/CanvasContext';
 import { useAuth } from '../context/AuthContext';
-import { setPresence, removePresence, registerDisconnectCleanup } from '../services/presenceService';
+import { setPresence, removePresence, registerDisconnectCleanup, startPresenceHeartbeat } from '../services/presenceService';
 import { getColorForUser, getInitials } from '../utils/cursorColors';
 
 export function useRealtimePresence({ boardId = 'default' } = {}) {
@@ -18,14 +18,22 @@ export function useRealtimePresence({ boardId = 'default' } = {}) {
   }, [boardId, startPresenceSubscription, user?.displayName, user?.email, user?.uid]);
 
   useEffect(() => {
-    setup();
+    let stopHeartbeat = () => {};
+    setup().then(() => {
+      if (user?.uid) {
+        const color = getColorForUser(user.uid);
+        const name = user.displayName || getInitials(user.displayName, user.email);
+        stopHeartbeat = startPresenceHeartbeat({ uid: user.uid, boardId, name, color });
+      }
+    });
     return () => {
       stopPresenceSubscription();
+      stopHeartbeat();
       if (user?.uid) {
         removePresence({ uid: user.uid, boardId }).catch(() => {});
       }
     };
-  }, [boardId, setup, stopPresenceSubscription, user?.uid]);
+  }, [boardId, setup, stopPresenceSubscription, user?.uid, user?.displayName, user?.email]);
 }
 
 

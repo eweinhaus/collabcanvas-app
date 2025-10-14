@@ -1,4 +1,5 @@
 import { ref, onValue, set, remove, onDisconnect, serverTimestamp } from 'firebase/database';
+import toast from 'react-hot-toast';
 import { realtimeDB } from './firebase';
 
 const DEFAULT_BOARD_ID = 'default';
@@ -33,6 +34,7 @@ export function setPresence({
   return set(presenceRef(uid, boardId), payload).catch((err) => {
     // eslint-disable-next-line no-console
     console.error('[presenceService] Error setting presence:', err);
+    toast.error('Failed to update presence status.');
     throw err;
   });
 }
@@ -63,6 +65,7 @@ export function subscribeToPresence({
     (error) => {
       // eslint-disable-next-line no-console
       console.error('[presenceService] Subscription error:', error);
+      toast.error('Failed to load online users.');
       onError?.(error);
     }
   );
@@ -105,6 +108,22 @@ export function registerDisconnectCleanup({ uid, boardId = DEFAULT_BOARD_ID } = 
     // eslint-disable-next-line no-console
     console.log('[presenceService] Cancelling disconnect cleanup:', { uid, boardId });
     disconnect.cancel().catch(() => {});
+  };
+}
+
+// Optional heartbeat to keep RTDB connection alive for backgrounded tabs
+let heartbeatInterval = null;
+export function startPresenceHeartbeat({ uid, boardId = DEFAULT_BOARD_ID, name = null, color = null, intervalMs = 30000 } = {}) {
+  if (!uid) return () => {};
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  heartbeatInterval = setInterval(() => {
+    setPresence({ uid, boardId, name, color });
+  }, intervalMs);
+  return () => {
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
   };
 }
 

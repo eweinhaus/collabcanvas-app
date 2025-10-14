@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1760382947482" clover="3.2.0">
-  <project timestamp="1760382947483" name="All files">
-    <metrics statements="236" coveredstatements="150" conditionals="103" coveredconditionals="41" methods="60" coveredmethods="38" elements="399" coveredelements="229" complexity="0" loc="236" ncloc="236" packages="4" files="11" classes="11"/>
+<coverage generated="1760405401398" clover="3.2.0">
+  <project timestamp="1760405401399" name="All files">
+    <metrics statements="367" coveredstatements="295" conditionals="190" coveredconditionals="108" methods="89" coveredmethods="67" elements="646" coveredelements="470" complexity="0" loc="367" ncloc="367" packages="6" files="14" classes="14"/>
     <package name="components.auth">
       <metrics statements="14" coveredstatements="14" conditionals="14" coveredconditionals="13" methods="2" coveredmethods="2"/>
       <file name="LoginButton.jsx" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/components/auth/LoginButton.jsx">
@@ -26,261 +26,407 @@
       </file>
     </package>
     <package name="components.canvas">
-      <metrics statements="104" coveredstatements="39" conditionals="57" coveredconditionals="11" methods="23" coveredmethods="11"/>
-      <file name="Canvas.jsx" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/components/canvas/Canvas.jsx">
-        <metrics statements="47" coveredstatements="17" conditionals="22" coveredconditionals="3" methods="12" coveredmethods="6"/>
-        <line num="15" count="1" type="cond" truecount="1" falsecount="0"/>
-        <line num="16" count="18" type="stmt"/>
-        <line num="17" count="18" type="stmt"/>
-        <line num="18" count="18" type="stmt"/>
-        <line num="20" count="18" type="stmt"/>
-        <line num="23" count="18" type="stmt"/>
-        <line num="24" count="10" type="stmt"/>
-        <line num="25" count="0" type="stmt"/>
-        <line num="31" count="10" type="stmt"/>
-        <line num="32" count="10" type="stmt"/>
-        <line num="36" count="18" type="stmt"/>
-        <line num="37" count="0" type="stmt"/>
-        <line num="39" count="0" type="stmt"/>
-        <line num="40" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="42" count="0" type="stmt"/>
-        <line num="43" count="0" type="stmt"/>
-        <line num="45" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="47" count="0" type="stmt"/>
-        <line num="50" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="51" count="0" type="stmt"/>
-        <line num="53" count="0" type="stmt"/>
-        <line num="54" count="0" type="stmt"/>
-        <line num="59" count="18" type="stmt"/>
-        <line num="61" count="8" type="cond" truecount="0" falsecount="2"/>
-        <line num="62" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="64" count="0" type="stmt"/>
-        <line num="65" count="0" type="stmt"/>
-        <line num="68" count="0" type="stmt"/>
-        <line num="69" count="0" type="stmt"/>
-        <line num="71" count="0" type="stmt"/>
-        <line num="72" count="0" type="stmt"/>
-        <line num="78" count="0" type="stmt"/>
-        <line num="84" count="18" type="stmt"/>
-        <line num="85" count="10" type="stmt"/>
-        <line num="87" count="0" type="cond" truecount="0" falsecount="5"/>
-        <line num="88" count="0" type="stmt"/>
-        <line num="89" count="0" type="stmt"/>
-        <line num="93" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="94" count="0" type="stmt"/>
-        <line num="95" count="0" type="stmt"/>
-        <line num="99" count="10" type="stmt"/>
-        <line num="100" count="10" type="stmt"/>
-        <line num="103" count="18" type="stmt"/>
-        <line num="133" count="0" type="stmt"/>
-        <line num="139" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="140" count="0" type="stmt"/>
-        <line num="144" count="0" type="stmt"/>
+      <metrics statements="8" coveredstatements="8" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
+      <file name="RemoteCursor.jsx" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/components/canvas/RemoteCursor.jsx">
+        <metrics statements="8" coveredstatements="8" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="5" count="1" type="stmt"/>
+        <line num="7" count="1" type="stmt"/>
+        <line num="8" count="6" type="stmt"/>
+        <line num="9" count="6" type="stmt"/>
+        <line num="10" count="6" type="stmt"/>
+        <line num="12" count="6" type="stmt"/>
       </file>
-      <file name="GridBackground.jsx" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/components/canvas/GridBackground.jsx">
-        <metrics statements="11" coveredstatements="11" conditionals="4" coveredconditionals="2" methods="1" coveredmethods="1"/>
-        <line num="8" count="1" type="cond" truecount="2" falsecount="2"/>
-        <line num="9" count="1" type="stmt"/>
-        <line num="12" count="1" type="stmt"/>
-        <line num="13" count="1" type="stmt"/>
-        <line num="14" count="1" type="stmt"/>
-        <line num="15" count="1" type="stmt"/>
-        <line num="18" count="1" type="stmt"/>
-        <line num="19" count="21" type="stmt"/>
-        <line num="30" count="1" type="stmt"/>
-        <line num="31" count="16" type="stmt"/>
-        <line num="41" count="1" type="stmt"/>
+    </package>
+    <package name="components.collaboration">
+      <metrics statements="10" coveredstatements="10" conditionals="14" coveredconditionals="5" methods="5" coveredmethods="5"/>
+      <file name="PresenceList.jsx" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/components/collaboration/PresenceList.jsx">
+        <metrics statements="6" coveredstatements="6" conditionals="3" coveredconditionals="1" methods="3" coveredmethods="3"/>
+        <line num="5" count="1" type="cond" truecount="0" falsecount="1"/>
+        <line num="6" count="1" type="stmt"/>
+        <line num="7" count="1" type="stmt"/>
+        <line num="8" count="1" type="stmt"/>
+        <line num="11" count="1" type="stmt"/>
+        <line num="19" count="2" type="stmt"/>
       </file>
-      <file name="Shape.jsx" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/components/canvas/Shape.jsx">
-        <metrics statements="36" coveredstatements="1" conditionals="25" coveredconditionals="0" methods="6" coveredmethods="0"/>
-        <line num="10" count="1" type="stmt"/>
-        <line num="11" count="0" type="stmt"/>
-        <line num="12" count="0" type="stmt"/>
-        <line num="15" count="0" type="stmt"/>
-        <line num="16" count="0" type="cond" truecount="0" falsecount="5"/>
-        <line num="17" count="0" type="stmt"/>
-        <line num="18" count="0" type="stmt"/>
-        <line num="22" count="0" type="stmt"/>
-        <line num="23" count="0" type="stmt"/>
-        <line num="29" count="0" type="stmt"/>
-        <line num="30" count="0" type="stmt"/>
-        <line num="31" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="33" count="0" type="stmt"/>
-        <line num="34" count="0" type="stmt"/>
-        <line num="37" count="0" type="stmt"/>
-        <line num="38" count="0" type="stmt"/>
-        <line num="40" count="0" type="stmt"/>
-        <line num="47" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="48" count="0" type="stmt"/>
-        <line num="49" count="0" type="stmt"/>
-        <line num="50" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="51" count="0" type="stmt"/>
-        <line num="52" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="53" count="0" type="stmt"/>
-        <line num="56" count="0" type="stmt"/>
-        <line num="60" count="0" type="stmt"/>
-        <line num="61" count="0" type="stmt"/>
-        <line num="70" count="0" type="cond" truecount="0" falsecount="4"/>
-        <line num="72" count="0" type="stmt"/>
-        <line num="87" count="0" type="stmt"/>
-        <line num="100" count="0" type="stmt"/>
-        <line num="113" count="0" type="stmt"/>
-        <line num="117" count="0" type="stmt"/>
-        <line num="125" count="0" type="cond" truecount="0" falsecount="4"/>
-        <line num="126" count="0" type="stmt"/>
-        <line num="128" count="0" type="stmt"/>
-      </file>
-      <file name="Toolbar.jsx" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/components/canvas/Toolbar.jsx">
-        <metrics statements="10" coveredstatements="10" conditionals="6" coveredconditionals="6" methods="4" coveredmethods="4"/>
-        <line num="10" count="1" type="stmt"/>
-        <line num="11" count="22" type="stmt"/>
-        <line num="12" count="22" type="stmt"/>
-        <line num="13" count="22" type="stmt"/>
-        <line num="15" count="22" type="stmt"/>
-        <line num="22" count="22" type="stmt"/>
-        <line num="23" count="12" type="stmt"/>
-        <line num="26" count="22" type="stmt"/>
-        <line num="31" count="88" type="stmt"/>
-        <line num="34" count="12" type="stmt"/>
+      <file name="UserAvatar.jsx" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/components/collaboration/UserAvatar.jsx">
+        <metrics statements="4" coveredstatements="4" conditionals="11" coveredconditionals="4" methods="2" coveredmethods="2"/>
+        <line num="4" count="3" type="cond" truecount="2" falsecount="2"/>
+        <line num="7" count="4" type="cond" truecount="1" falsecount="1"/>
+        <line num="11" count="3" type="stmt"/>
+        <line num="19" count="3" type="stmt"/>
       </file>
     </package>
     <package name="context">
-      <metrics statements="83" coveredstatements="62" conditionals="21" coveredconditionals="6" methods="25" coveredmethods="15"/>
+      <metrics statements="63" coveredstatements="60" conditionals="16" coveredconditionals="13" methods="10" coveredmethods="8"/>
       <file name="AuthContext.jsx" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/context/AuthContext.jsx">
-        <metrics statements="44" coveredstatements="44" conditionals="4" coveredconditionals="4" methods="8" coveredmethods="8"/>
-        <line num="9" count="3" type="stmt"/>
+        <metrics statements="63" coveredstatements="60" conditionals="16" coveredconditionals="13" methods="10" coveredmethods="8"/>
         <line num="11" count="3" type="stmt"/>
-        <line num="12" count="59" type="stmt"/>
-        <line num="13" count="59" type="cond" truecount="2" falsecount="0"/>
-        <line num="14" count="2" type="stmt"/>
-        <line num="16" count="57" type="stmt"/>
-        <line num="19" count="3" type="stmt"/>
-        <line num="20" count="58" type="stmt"/>
-        <line num="21" count="58" type="stmt"/>
+        <line num="13" count="3" type="stmt"/>
+        <line num="14" count="59" type="stmt"/>
+        <line num="15" count="59" type="cond" truecount="2" falsecount="0"/>
+        <line num="16" count="2" type="stmt"/>
+        <line num="18" count="57" type="stmt"/>
+        <line num="21" count="3" type="stmt"/>
         <line num="22" count="58" type="stmt"/>
+        <line num="23" count="58" type="stmt"/>
         <line num="24" count="58" type="stmt"/>
-        <line num="26" count="25" type="stmt"/>
-        <line num="29" count="20" type="cond" truecount="2" falsecount="0"/>
-        <line num="31" count="10" type="stmt"/>
-        <line num="39" count="10" type="stmt"/>
-        <line num="41" count="20" type="stmt"/>
-        <line num="42" count="20" type="stmt"/>
-        <line num="45" count="1" type="stmt"/>
-        <line num="46" count="1" type="stmt"/>
-        <line num="47" count="1" type="stmt"/>
-        <line num="52" count="25" type="stmt"/>
-        <line num="55" count="58" type="stmt"/>
-        <line num="56" count="5" type="stmt"/>
-        <line num="57" count="5" type="stmt"/>
-        <line num="58" count="5" type="stmt"/>
-        <line num="59" count="5" type="stmt"/>
-        <line num="60" count="3" type="stmt"/>
-        <line num="66" count="3" type="stmt"/>
+        <line num="25" count="58" type="stmt"/>
+        <line num="27" count="58" type="stmt"/>
+        <line num="29" count="25" type="stmt"/>
+        <line num="32" count="20" type="cond" truecount="2" falsecount="0"/>
+        <line num="34" count="10" type="stmt"/>
+        <line num="41" count="10" type="stmt"/>
+        <line num="42" count="10" type="cond" truecount="2" falsecount="0"/>
+        <line num="43" count="10" type="stmt"/>
+        <line num="45" count="10" type="cond" truecount="1" falsecount="1"/>
+        <line num="46" count="0" type="stmt"/>
+        <line num="47" count="0" type="stmt"/>
+        <line num="49" count="10" type="stmt"/>
+        <line num="52" count="10" type="stmt"/>
+        <line num="53" count="10" type="stmt"/>
+        <line num="54" count="10" type="cond" truecount="2" falsecount="0"/>
+        <line num="55" count="1" type="stmt"/>
+        <line num="56" count="1" type="stmt"/>
+        <line num="58" count="10" type="cond" truecount="1" falsecount="1"/>
+        <line num="59" count="0" type="stmt"/>
+        <line num="62" count="20" type="stmt"/>
+        <line num="63" count="20" type="stmt"/>
+        <line num="66" count="1" type="stmt"/>
+        <line num="67" count="1" type="stmt"/>
         <line num="68" count="1" type="stmt"/>
-        <line num="69" count="1" type="stmt"/>
-        <line num="70" count="1" type="stmt"/>
-        <line num="72" count="4" type="stmt"/>
+        <line num="73" count="25" type="stmt"/>
         <line num="76" count="58" type="stmt"/>
-        <line num="77" count="4" type="stmt"/>
-        <line num="78" count="4" type="stmt"/>
-        <line num="79" count="4" type="stmt"/>
-        <line num="80" count="4" type="stmt"/>
+        <line num="77" count="5" type="stmt"/>
+        <line num="78" count="5" type="stmt"/>
+        <line num="79" count="5" type="stmt"/>
+        <line num="80" count="5" type="stmt"/>
         <line num="81" count="3" type="stmt"/>
+        <line num="87" count="3" type="stmt"/>
+        <line num="89" count="1" type="stmt"/>
+        <line num="90" count="1" type="stmt"/>
+        <line num="91" count="1" type="stmt"/>
+        <line num="93" count="4" type="stmt"/>
+        <line num="97" count="58" type="stmt"/>
+        <line num="98" count="4" type="stmt"/>
+        <line num="99" count="4" type="stmt"/>
+        <line num="100" count="4" type="stmt"/>
+        <line num="101" count="4" type="stmt"/>
+        <line num="102" count="3" type="stmt"/>
+        <line num="103" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="104" count="2" type="stmt"/>
+        <line num="105" count="2" type="stmt"/>
+        <line num="108" count="3" type="cond" truecount="1" falsecount="1"/>
+        <line num="109" count="3" type="stmt"/>
+        <line num="112" count="1" type="stmt"/>
+        <line num="113" count="1" type="stmt"/>
+        <line num="114" count="1" type="stmt"/>
+        <line num="116" count="4" type="stmt"/>
+        <line num="120" count="58" type="stmt"/>
+        <line num="128" count="58" type="stmt"/>
+      </file>
+    </package>
+    <package name="services">
+      <metrics statements="167" coveredstatements="117" conditionals="99" coveredconditionals="50" methods="48" coveredmethods="32"/>
+      <file name="firestoreService.js" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/services/firestoreService.js">
+        <metrics statements="71" coveredstatements="41" conditionals="48" coveredconditionals="18" methods="16" coveredmethods="11"/>
+        <line num="20" count="1" type="stmt"/>
+        <line num="23" count="1" type="cond" truecount="0" falsecount="1"/>
+        <line num="24" count="2" type="stmt"/>
+        <line num="26" count="1" type="cond" truecount="0" falsecount="1"/>
+        <line num="27" count="2" type="stmt"/>
+        <line num="30" count="1" type="stmt"/>
+        <line num="31" count="1" type="stmt"/>
+        <line num="32" count="1" type="stmt"/>
+        <line num="33" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="34" count="0" type="stmt"/>
+        <line num="36" count="0" type="stmt"/>
+        <line num="47" count="1" type="stmt"/>
+        <line num="48" count="1" type="stmt"/>
+        <line num="49" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="51" count="1" type="cond" truecount="0" falsecount="2"/>
+        <line num="52" count="1" type="stmt"/>
+        <line num="65" count="1" type="stmt"/>
+        <line num="66" count="1" type="stmt"/>
+        <line num="67" count="1" type="stmt"/>
+        <line num="69" count="0" type="stmt"/>
+        <line num="70" count="0" type="stmt"/>
+        <line num="72" count="0" type="stmt"/>
+        <line num="73" count="0" type="stmt"/>
+        <line num="76" count="1" type="stmt"/>
+        <line num="77" count="1" type="stmt"/>
+        <line num="82" count="0" type="stmt"/>
+        <line num="83" count="0" type="stmt"/>
+        <line num="84" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="85" count="0" type="stmt"/>
+        <line num="86" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="87" count="0" type="stmt"/>
+        <line num="91" count="1" type="stmt"/>
+        <line num="92" count="1" type="stmt"/>
+        <line num="93" count="1" type="stmt"/>
+        <line num="94" count="1" type="stmt"/>
+        <line num="95" count="1" type="stmt"/>
+        <line num="96" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="98" count="1" type="stmt"/>
+        <line num="102" count="1" type="stmt"/>
+        <line num="103" count="1" type="stmt"/>
+        <line num="105" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="106" count="2" type="cond" truecount="3" falsecount="1"/>
+        <line num="107" count="2" type="stmt"/>
+        <line num="110" count="1" type="stmt"/>
+        <line num="111" count="1" type="stmt"/>
+        <line num="115" count="0" type="stmt"/>
+        <line num="116" count="0" type="stmt"/>
+        <line num="117" count="0" type="stmt"/>
+        <line num="121" count="0" type="stmt"/>
+        <line num="122" count="0" type="stmt"/>
+        <line num="127" count="0" type="stmt"/>
+        <line num="137" count="1" type="stmt"/>
+        <line num="138" count="1" type="stmt"/>
+        <line num="139" count="1" type="stmt"/>
+        <line num="142" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="143" count="1" type="stmt"/>
+        <line num="144" count="1" type="stmt"/>
+        <line num="146" count="1" type="stmt"/>
+        <line num="147" count="0" type="stmt"/>
+        <line num="148" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="150" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="151" count="0" type="stmt"/>
+        <line num="152" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="153" count="0" type="stmt"/>
+        <line num="154" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="155" count="0" type="stmt"/>
+        <line num="156" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="158" count="0" type="stmt"/>
+        <line num="162" count="0" type="stmt"/>
+        <line num="165" count="1" type="stmt"/>
+        <line num="168" count="1" type="stmt"/>
+      </file>
+      <file name="presenceService.js" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/services/presenceService.js">
+        <metrics statements="48" coveredstatements="35" conditionals="25" coveredconditionals="12" methods="16" coveredmethods="10"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="6" count="1" type="cond" truecount="1" falsecount="0"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="9" count="1" type="cond" truecount="0" falsecount="1"/>
+        <line num="10" count="2" type="stmt"/>
+        <line num="19" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="20" count="0" type="stmt"/>
+        <line num="21" count="0" type="stmt"/>
+        <line num="23" count="1" type="stmt"/>
+        <line num="32" count="1" type="stmt"/>
+        <line num="33" count="1" type="stmt"/>
+        <line num="35" count="0" type="stmt"/>
+        <line num="36" count="0" type="stmt"/>
+        <line num="47" count="1" type="stmt"/>
+        <line num="48" count="1" type="stmt"/>
+        <line num="49" count="1" type="stmt"/>
+        <line num="52" count="1" type="stmt"/>
+        <line num="53" count="1" type="stmt"/>
+        <line num="54" count="2" type="stmt"/>
+        <line num="55" count="2" type="cond" truecount="1" falsecount="1"/>
+        <line num="56" count="2" type="cond" truecount="4" falsecount="0"/>
+        <line num="57" count="1" type="stmt"/>
+        <line num="60" count="1" type="stmt"/>
+        <line num="61" count="1" type="stmt"/>
+        <line num="65" count="0" type="stmt"/>
+        <line num="66" count="0" type="stmt"/>
+        <line num="70" count="1" type="stmt"/>
+        <line num="72" count="1" type="stmt"/>
+        <line num="73" count="1" type="stmt"/>
+        <line num="78" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="79" count="0" type="stmt"/>
+        <line num="80" count="0" type="stmt"/>
         <line num="83" count="1" type="stmt"/>
         <line num="84" count="1" type="stmt"/>
-        <line num="85" count="1" type="stmt"/>
-        <line num="87" count="4" type="stmt"/>
-        <line num="91" count="58" type="stmt"/>
-        <line num="99" count="58" type="stmt"/>
-      </file>
-      <file name="CanvasContext.jsx" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/context/CanvasContext.jsx">
-        <metrics statements="39" coveredstatements="18" conditionals="17" coveredconditionals="2" methods="17" coveredmethods="7"/>
-        <line num="8" count="1" type="stmt"/>
-        <line num="11" count="1" type="stmt"/>
-        <line num="32" count="1" type="stmt"/>
-        <line num="42" count="1" type="stmt"/>
-        <line num="43" count="12" type="cond" truecount="1" falsecount="10"/>
-        <line num="45" count="0" type="stmt"/>
-        <line num="51" count="0" type="stmt"/>
-        <line num="54" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="61" count="0" type="stmt"/>
-        <line num="63" count="0" type="stmt"/>
-        <line num="68" count="0" type="stmt"/>
-        <line num="74" count="0" type="stmt"/>
-        <line num="80" count="0" type="stmt"/>
-        <line num="86" count="12" type="stmt"/>
+        <line num="86" count="0" type="stmt"/>
+        <line num="87" count="0" type="stmt"/>
+        <line num="92" count="1" type="cond" truecount="1" falsecount="1"/>
         <line num="93" count="0" type="stmt"/>
-        <line num="99" count="0" type="stmt"/>
-        <line num="105" count="0" type="stmt"/>
-        <line num="111" count="0" type="stmt"/>
-        <line num="119" count="1" type="stmt"/>
-        <line num="120" count="25" type="stmt"/>
-        <line num="123" count="25" type="stmt"/>
-        <line num="125" count="25" type="stmt"/>
-        <line num="136" count="1" type="stmt"/>
-        <line num="137" count="80" type="stmt"/>
-        <line num="138" count="80" type="cond" truecount="1" falsecount="1"/>
-        <line num="139" count="0" type="stmt"/>
-        <line num="141" count="80" type="stmt"/>
-        <line num="147" count="1" type="stmt"/>
-        <line num="148" count="40" type="stmt"/>
-        <line num="150" count="40" type="stmt"/>
-        <line num="151" count="0" type="stmt"/>
-        <line num="152" count="0" type="stmt"/>
-        <line num="153" count="0" type="stmt"/>
-        <line num="154" count="0" type="stmt"/>
-        <line num="155" count="0" type="stmt"/>
-        <line num="156" count="12" type="stmt"/>
-        <line num="157" count="0" type="stmt"/>
-        <line num="158" count="0" type="stmt"/>
-        <line num="159" count="0" type="stmt"/>
+        <line num="94" count="0" type="stmt"/>
+        <line num="97" count="1" type="stmt"/>
+        <line num="98" count="1" type="stmt"/>
+        <line num="99" count="1" type="stmt"/>
+        <line num="100" count="1" type="stmt"/>
+        <line num="102" count="0" type="stmt"/>
+        <line num="104" count="1" type="stmt"/>
+        <line num="106" count="1" type="stmt"/>
+        <line num="107" count="1" type="stmt"/>
+        <line num="111" count="1" type="stmt"/>
+      </file>
+      <file name="realtimeCursorService.js" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/services/realtimeCursorService.js">
+        <metrics statements="48" coveredstatements="41" conditionals="26" coveredconditionals="20" methods="16" coveredmethods="11"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="6" count="1" type="cond" truecount="1" falsecount="0"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="9" count="1" type="cond" truecount="0" falsecount="1"/>
+        <line num="10" count="3" type="stmt"/>
+        <line num="22" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="23" count="1" type="stmt"/>
+        <line num="24" count="1" type="stmt"/>
+        <line num="26" count="1" type="stmt"/>
+        <line num="36" count="1" type="stmt"/>
+        <line num="37" count="1" type="stmt"/>
+        <line num="38" count="0" type="stmt"/>
+        <line num="39" count="0" type="stmt"/>
+        <line num="49" count="2" type="stmt"/>
+        <line num="50" count="2" type="stmt"/>
+        <line num="51" count="2" type="stmt"/>
+        <line num="54" count="1" type="stmt"/>
+        <line num="55" count="1" type="stmt"/>
+        <line num="56" count="2" type="stmt"/>
+        <line num="57" count="2" type="cond" truecount="1" falsecount="1"/>
+        <line num="58" count="2" type="cond" truecount="4" falsecount="0"/>
+        <line num="59" count="1" type="stmt"/>
+        <line num="61" count="1" type="stmt"/>
+        <line num="62" count="1" type="stmt"/>
+        <line num="65" count="0" type="stmt"/>
+        <line num="66" count="0" type="stmt"/>
+        <line num="70" count="2" type="stmt"/>
+        <line num="71" count="1" type="stmt"/>
+        <line num="72" count="1" type="stmt"/>
+        <line num="77" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="78" count="1" type="stmt"/>
+        <line num="79" count="1" type="stmt"/>
+        <line num="81" count="1" type="stmt"/>
+        <line num="82" count="1" type="stmt"/>
+        <line num="83" count="0" type="stmt"/>
+        <line num="84" count="0" type="stmt"/>
+        <line num="89" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="90" count="1" type="stmt"/>
+        <line num="91" count="1" type="stmt"/>
+        <line num="93" count="1" type="stmt"/>
+        <line num="94" count="1" type="stmt"/>
+        <line num="95" count="1" type="stmt"/>
+        <line num="96" count="1" type="stmt"/>
+        <line num="97" count="0" type="stmt"/>
+        <line num="99" count="1" type="stmt"/>
+        <line num="100" count="1" type="stmt"/>
+        <line num="101" count="1" type="stmt"/>
+        <line num="105" count="1" type="stmt"/>
       </file>
     </package>
     <package name="utils">
-      <metrics statements="35" coveredstatements="35" conditionals="11" coveredconditionals="11" methods="10" coveredmethods="10"/>
+      <metrics statements="105" coveredstatements="86" conditionals="47" coveredconditionals="27" methods="23" coveredmethods="19"/>
       <file name="canvas.js" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/utils/canvas.js">
         <metrics statements="12" coveredstatements="12" conditionals="2" coveredconditionals="2" methods="3" coveredmethods="3"/>
-        <line num="6" count="2" type="stmt"/>
-        <line num="7" count="2" type="stmt"/>
-        <line num="8" count="2" type="stmt"/>
-        <line num="15" count="2" type="stmt"/>
+        <line num="6" count="1" type="stmt"/>
+        <line num="7" count="1" type="stmt"/>
+        <line num="8" count="1" type="stmt"/>
+        <line num="15" count="1" type="stmt"/>
         <line num="16" count="16" type="stmt"/>
-        <line num="25" count="2" type="stmt"/>
+        <line num="25" count="1" type="stmt"/>
         <line num="26" count="6" type="cond" truecount="2" falsecount="0"/>
         <line num="27" count="6" type="stmt"/>
         <line num="28" count="6" type="stmt"/>
-        <line num="40" count="2" type="stmt"/>
+        <line num="40" count="1" type="stmt"/>
         <line num="41" count="4" type="stmt"/>
         <line num="46" count="4" type="stmt"/>
       </file>
       <file name="colors.js" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/utils/colors.js">
         <metrics statements="7" coveredstatements="7" conditionals="0" coveredconditionals="0" methods="3" coveredmethods="3"/>
-        <line num="6" count="3" type="stmt"/>
-        <line num="23" count="3" type="stmt"/>
+        <line num="6" count="5" type="stmt"/>
+        <line num="23" count="5" type="stmt"/>
         <line num="24" count="61" type="stmt"/>
-        <line num="32" count="3" type="stmt"/>
+        <line num="32" count="5" type="stmt"/>
         <line num="33" count="5" type="stmt"/>
-        <line num="41" count="3" type="stmt"/>
+        <line num="41" count="5" type="stmt"/>
         <line num="42" count="10" type="stmt"/>
+      </file>
+      <file name="cursorColors.js" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/utils/cursorColors.js">
+        <metrics statements="21" coveredstatements="15" conditionals="16" coveredconditionals="6" methods="3" coveredmethods="2"/>
+        <line num="3" count="3" type="stmt"/>
+        <line num="6" count="10" type="cond" truecount="1" falsecount="1"/>
+        <line num="7" count="10" type="cond" truecount="2" falsecount="0"/>
+        <line num="8" count="3" type="stmt"/>
+        <line num="9" count="3" type="stmt"/>
+        <line num="10" count="24" type="stmt"/>
+        <line num="11" count="24" type="stmt"/>
+        <line num="13" count="3" type="stmt"/>
+        <line num="14" count="3" type="stmt"/>
+        <line num="15" count="3" type="stmt"/>
+        <line num="16" count="3" type="stmt"/>
+        <line num="20" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="21" count="0" type="stmt"/>
+        <line num="22" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="23" count="0" type="stmt"/>
+        <line num="25" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="27" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="28" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="29" count="1" type="stmt"/>
+        <line num="31" count="0" type="stmt"/>
+        <line num="35" count="0" type="stmt"/>
       </file>
       <file name="shapes.js" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/utils/shapes.js">
         <metrics statements="16" coveredstatements="16" conditionals="9" coveredconditionals="9" methods="4" coveredmethods="4"/>
-        <line num="9" count="2" type="stmt"/>
-        <line num="16" count="2" type="stmt"/>
-        <line num="17" count="2" type="stmt"/>
-        <line num="18" count="2" type="stmt"/>
-        <line num="27" count="2" type="cond" truecount="1" falsecount="0"/>
+        <line num="9" count="1" type="stmt"/>
+        <line num="16" count="1" type="stmt"/>
+        <line num="17" count="1" type="stmt"/>
+        <line num="18" count="1" type="stmt"/>
+        <line num="27" count="1" type="cond" truecount="1" falsecount="0"/>
         <line num="28" count="5" type="stmt"/>
-        <line num="50" count="2" type="cond" truecount="1" falsecount="0"/>
+        <line num="50" count="1" type="cond" truecount="1" falsecount="0"/>
         <line num="51" count="4" type="stmt"/>
-        <line num="73" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="73" count="1" type="cond" truecount="2" falsecount="0"/>
         <line num="74" count="5" type="stmt"/>
-        <line num="95" count="2" type="cond" truecount="1" falsecount="0"/>
+        <line num="95" count="1" type="cond" truecount="1" falsecount="0"/>
         <line num="96" count="5" type="cond" truecount="4" falsecount="0"/>
         <line num="98" count="2" type="stmt"/>
         <line num="100" count="1" type="stmt"/>
         <line num="102" count="1" type="stmt"/>
         <line num="104" count="1" type="stmt"/>
+      </file>
+      <file name="throttle.js" path="/Users/ethan/Desktop/Github/Gauntlet/CollabCanvas/collabcanvas-app/src/utils/throttle.js">
+        <metrics statements="49" coveredstatements="36" conditionals="20" coveredconditionals="10" methods="10" coveredmethods="7"/>
+        <line num="7" count="2" type="stmt"/>
+        <line num="8" count="2" type="stmt"/>
+        <line num="9" count="2" type="stmt"/>
+        <line num="10" count="2" type="stmt"/>
+        <line num="12" count="2" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="14" count="4" type="stmt"/>
+        <line num="15" count="4" type="stmt"/>
+        <line num="16" count="4" type="stmt"/>
+        <line num="20" count="5" type="stmt"/>
+        <line num="21" count="5" type="stmt"/>
+        <line num="22" count="5" type="stmt"/>
+        <line num="23" count="5" type="stmt"/>
+        <line num="25" count="5" type="cond" truecount="4" falsecount="0"/>
+        <line num="26" count="2" type="cond" truecount="1" falsecount="1"/>
+        <line num="27" count="0" type="stmt"/>
+        <line num="28" count="0" type="stmt"/>
+        <line num="30" count="2" type="stmt"/>
+        <line num="31" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="32" count="2" type="stmt"/>
+        <line num="36" count="2" type="stmt"/>
+        <line num="37" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="38" count="0" type="stmt"/>
+        <line num="39" count="0" type="stmt"/>
+        <line num="41" count="0" type="stmt"/>
+        <line num="44" count="2" type="stmt"/>
+        <line num="45" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="46" count="1" type="stmt"/>
+        <line num="47" count="1" type="stmt"/>
+        <line num="51" count="2" type="stmt"/>
+        <line num="55" count="1" type="stmt"/>
+        <line num="56" count="1" type="stmt"/>
+        <line num="57" count="1" type="stmt"/>
+        <line num="60" count="2" type="stmt"/>
+        <line num="61" count="2" type="stmt"/>
+        <line num="62" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="63" count="2" type="stmt"/>
+        <line num="64" count="1" type="stmt"/>
+        <line num="65" count="1" type="stmt"/>
+        <line num="69" count="1" type="stmt"/>
+        <line num="70" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="71" count="0" type="stmt"/>
+        <line num="72" count="0" type="stmt"/>
+        <line num="75" count="1" type="stmt"/>
+        <line num="76" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="77" count="0" type="stmt"/>
+        <line num="78" count="0" type="stmt"/>
+        <line num="79" count="0" type="stmt"/>
+        <line num="82" count="1" type="stmt"/>
       </file>
     </package>
   </project>

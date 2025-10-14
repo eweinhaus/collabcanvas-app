@@ -17,7 +17,13 @@ jest.mock('firebase/database', () => ({
 }));
 
 // Mock import.meta.env
-global.import = { meta: { env: {} } };
+if (!global.import) {
+  global.import = { meta: { env: {} } };
+} else if (!global.import.meta) {
+  global.import.meta = { env: {} };
+} else if (!global.import.meta.env) {
+  global.import.meta.env = {};
+}
 
 describe('Firebase Configuration', () => {
   test('Firebase modules can be imported', () => {

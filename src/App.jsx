@@ -1,11 +1,14 @@
+import { useState } from 'react'
 import './App.css'
-import LoginButton from './components/auth/LoginButton'
 import PrivateRoute from './components/auth/PrivateRoute'
 import Canvas from './components/canvas/Canvas'
 import Toolbar from './components/canvas/Toolbar'
-import PresenceList from './components/collaboration/PresenceList'
+import Header from './components/layout/Header'
+import Sidebar from './components/layout/Sidebar'
+import Spinner from './components/common/Spinner'
 import { useCanvas } from './context/CanvasContext'
 import { CanvasProvider } from './context/CanvasContext'
+import { useAuth } from './context/AuthContext'
 
 function App() {
   return (
@@ -16,20 +19,34 @@ function App() {
 }
 
 function AppShell() {
-  const { state: { onlineUsers } } = useCanvas();
+  const { state: { onlineUsers, loadingShapes } } = useCanvas();
+  const { loading: authLoading } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const handleMenuToggle = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  const isLoading = authLoading || loadingShapes;
+
   return (
     <div className="app">
-      <header className="app-header">
-        <h1>CollabCanvas</h1>
-        <LoginButton />
-      </header>
+      <Header onMenuToggle={handleMenuToggle} />
       <PrivateRoute>
         <main className="app-main">
-          <div className="app-main__canvas-area">
-            <Toolbar />
-            <Canvas showGrid={true} />
-          </div>
-          <PresenceList users={onlineUsers} />
+          {isLoading ? (
+            <div className="app-loading">
+              <Spinner message="Loading canvas..." />
+            </div>
+          ) : (
+            <>
+              <div className="app-main__canvas-area">
+                <Toolbar />
+                <Canvas showGrid={true} />
+              </div>
+              <Sidebar open={sidebarOpen} users={onlineUsers} />
+            </>
+          )}
         </main>
       </PrivateRoute>
     </div>

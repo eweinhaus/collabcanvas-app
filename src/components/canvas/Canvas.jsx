@@ -14,6 +14,8 @@ import Shape from './Shape';
 import GridBackground from './GridBackground';
 import TextEditor from './TextEditor';
 import RemoteCursor from './RemoteCursor';
+import ShortcutsModal from '../common/ShortcutsModal';
+import ColorPicker from './ColorPicker';
 import './Canvas.css';
 
 const Canvas = ({ showGrid = false, boardId = 'default' }) => {
@@ -22,9 +24,11 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
   const actions = useCanvasActions();
   const [editingTextId, setEditingTextId] = useState(null);
   const [editingText, setEditingText] = useState('');
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [colorPickerState, setColorPickerState] = useState({ isOpen: false, shapeId: null, x: 0, y: 0 });
   const { remoteCursors, publishLocalCursor, clearLocalCursor } = useRealtimeCursor({ boardId });
 
-  const { shapes, selectedId, currentTool, scale, position, stageSize } = state;
+  const { shapes, selectedId, currentTool, scale, position, stageSize, loadingShapes } = state;
 
   // Log remote cursors when they change
   useEffect(() => {
@@ -134,6 +138,21 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
     }
   }, [shapes]);
 
+  const handleColorChange = useCallback((shapeId, position) => {
+    setColorPickerState({
+      isOpen: true,
+      shapeId,
+      x: position.x,
+      y: position.y,
+    });
+  }, []);
+
+  const handleSelectColor = useCallback((color) => {
+    if (colorPickerState.shapeId) {
+      firestoreActions.updateShape(colorPickerState.shapeId, { fill: color });
+    }
+  }, [colorPickerState.shapeId, firestoreActions]);
+
   const handleFinishEdit = useCallback(() => {
     if (editingTextId) {
       firestoreActions.updateShapeText(editingTextId, editingText || 'Double-click to edit');
@@ -147,6 +166,13 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
     const handleKeyDown = (e) => {
       // Don't trigger shortcuts when editing text
       if (editingTextId) return;
+      
+      // Show shortcuts modal
+      if (e.key === '?' || (e.key === '/' && (e.metaKey || e.ctrlKey))) {
+        e.preventDefault();
+        setShowShortcuts(true);
+        return;
+      }
       
       // Delete selected shape
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
@@ -163,10 +189,15 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, actions, editingTextId]);
+  }, [selectedId, actions, editingTextId, firestoreActions]);
 
   return (
     <div className="canvas-container">
+      {loadingShapes && (
+        <div className="canvas-loading-overlay" role="status" aria-live="polite">
+          <div className="spinner" />
+        </div>
+      )}
       <Stage
         ref={stageRef}
         width={stageSize.width}
@@ -220,6 +251,7 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
                   firestoreActions.updateShape(shape.id, newAttrs);
                 }}
                 onStartEdit={handleStartEdit}
+                onColorChange={handleColorChange}
               />
             );
           })}
@@ -260,6 +292,14 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
           />
         );
       })()}
+      <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+      <ColorPicker
+        isOpen={colorPickerState.isOpen}
+        onClose={() => setColorPickerState({ isOpen: false, shapeId: null, x: 0, y: 0 })}
+        onSelectColor={handleSelectColor}
+        x={colorPickerState.x}
+        y={colorPickerState.y}
+      />
     </div>
   );
 };

@@ -28,6 +28,7 @@ const {
   subscribeToPresence,
   removePresence,
   registerDisconnectCleanup,
+  startPresenceHeartbeat,
   __testables,
 } = require('../presenceService');
 
@@ -81,6 +82,18 @@ describe('presenceService', () => {
   it('exposes test helpers', () => {
     expect(__testables.presenceRef('abc')).toEqual({ db: { name: 'mock-db' }, path: 'boards/default/presence/abc' });
     expect(__testables.presencesRef('room')).toEqual({ db: { name: 'mock-db' }, path: 'boards/room/presence' });
+  });
+
+  it('startPresenceHeartbeat schedules periodic setPresence and can stop', () => {
+    jest.useFakeTimers();
+    const clearSpy = jest.spyOn(global, 'clearInterval');
+    const cancel = startPresenceHeartbeat({ uid: 'u-heartbeat', boardId: 'default', name: 'Test User', color: '#ff0000', intervalMs: 1000 });
+    expect(database.set).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1000);
+    expect(database.set).toHaveBeenCalled();
+    cancel();
+    expect(clearSpy).toHaveBeenCalled();
+    jest.useRealTimers();
   });
 });
 

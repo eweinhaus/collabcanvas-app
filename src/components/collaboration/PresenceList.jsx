@@ -2,14 +2,14 @@ import { memo, useEffect } from 'react';
 import UserAvatar from './UserAvatar';
 import './PresenceList.css';
 
-const PresenceList = memo(function PresenceList({ users = [] }) {
+const PresenceList = memo(function PresenceList({ users = [], className = '' }) {
   useEffect(() => {
     console.log('[PresenceList] Component mounted');
     console.log('[PresenceList] Users prop:', users);
   }, [users]);
 
   return (
-    <div className="presence-list" aria-label="Online users">
+    <div className={`presence-list ${className}`} aria-label="Online users">
       <div className="presence-list__header">
         <span className="presence-list__title">Online</span>
         <span className="presence-list__count" aria-label={`Online users count: ${users.length}`}>{users.length}</span>

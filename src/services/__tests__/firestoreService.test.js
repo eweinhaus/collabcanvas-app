@@ -1,7 +1,7 @@
 import { serverTimestamp } from 'firebase/firestore';
 import * as ff from '../firestoreService';
 
-jest.mock('../firebase', () => ({ firestore: {} }));
+jest.mock('../firebase', () => ({ firestore: {}, auth: { currentUser: { uid: 'test-user' } } }));
 jest.mock('firebase/firestore', () => {
   const actual = jest.requireActual('firebase/firestore');
   return {
@@ -16,6 +16,11 @@ jest.mock('firebase/firestore', () => {
     setDoc: jest.fn(async () => {}),
     updateDoc: jest.fn(async () => {}),
     serverTimestamp: jest.fn(() => ({ __type: 'serverTimestamp' })),
+    runTransaction: jest.fn(async (_firestore, fn) => fn({
+      get: jest.fn(async () => ({ exists: () => false, data: () => null })),
+      set: jest.fn(),
+      update: jest.fn(),
+    })),
   };
 });
 

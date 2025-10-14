@@ -8,6 +8,7 @@ import { getAllShapes, subscribeToShapes, createShape as fsCreateShape, updateSh
 import { throttle } from '../utils/throttle';
 import { setCursorPosition, subscribeToCursors, removeCursor, registerDisconnectCleanup } from '../services/realtimeCursorService';
 import { subscribeToPresence } from '../services/presenceService';
+import { registerBeforeUnloadFlush } from '../utils/beforeUnloadFlush';
 
 const DEFAULT_BOARD_ID = 'default';
 
@@ -35,6 +36,7 @@ export const CANVAS_ACTIONS = {
   APPLY_SERVER_CHANGE: 'APPLY_SERVER_CHANGE',
   SET_REMOTE_CURSORS: 'SET_REMOTE_CURSORS',
   SET_ONLINE_USERS: 'SET_ONLINE_USERS',
+  SET_LOADING_SHAPES: 'SET_LOADING_SHAPES',
 };
 
 // Initial state
@@ -47,6 +49,7 @@ const initialState = {
   stageSize: { width: window.innerWidth, height: window.innerHeight },
   remoteCursors: [],
   onlineUsers: [],
+  loadingShapes: true,
 };
 
 // Reducer
@@ -147,6 +150,12 @@ const canvasReducer = (state, action) => {
         ...state,
         onlineUsers: action.payload,
       };
+
+    case CANVAS_ACTIONS.SET_LOADING_SHAPES:
+      return {
+        ...state,
+        loadingShapes: action.payload,
+      };
       
     default:
       return state;
@@ -164,6 +173,7 @@ export const CanvasProvider = ({ children }) => {
   const cursorUnsubscribeRef = useRef(null);
   const cursorDisconnectCancelRef = useRef(null);
   const presenceUnsubscribeRef = useRef(null);
+  const firstSnapshotReceivedRef = useRef(false);
 
   const setupCursorDisconnect = useCallback(({ uid, boardId = DEFAULT_BOARD_ID } = {}) => {
     if (cursorDisconnectCancelRef.current) {
@@ -241,13 +251,29 @@ export const CanvasProvider = ({ children }) => {
     return unsubscribe;
   }, [stopCursorSubscription]);
 
+  // Beforeunload flush
+  useEffect(() => {
+    const cleanup = registerBeforeUnloadFlush();
+    return cleanup;
+  }, []);
+
   // Initial load then subscribe
   useEffect(() => {
     let isMounted = true;
 
     (async () => {
       try {
-        const initial = await getAllShapes();
+        dispatch({ type: CANVAS_ACTIONS.SET_LOADING_SHAPES, payload: true });
+        let initial = await getAllShapes();
+        try {
+          initial = initial.map((s) => {
+            const bufRaw = sessionStorage.getItem(`editBuffer:${s.id}`);
+            if (!bufRaw) return s;
+            const buf = JSON.parse(bufRaw);
+            if (!buf || typeof buf.x !== 'number' || typeof buf.y !== 'number') return s;
+            return { ...s, x: buf.x, y: buf.y, updatedAt: Math.max(Date.now(), s.updatedAt ?? 0) };
+          });
+        } catch (_) {}
         if (isMounted) {
           dispatch({ type: CANVAS_ACTIONS.SET_SHAPES, payload: initial });
         }
@@ -255,6 +281,10 @@ export const CanvasProvider = ({ children }) => {
         // Subscribe to live updates
         unsubscribeRef.current = subscribeToShapes({
           onChange: ({ type, shape }) => {
+            if (!firstSnapshotReceivedRef.current) {
+              firstSnapshotReceivedRef.current = true;
+              dispatch({ type: CANVAS_ACTIONS.SET_LOADING_SHAPES, payload: false });
+            }
             if (type === 'removed') {
               // Remove locally
               dispatch({ type: CANVAS_ACTIONS.DELETE_SHAPE, payload: shape.id });
@@ -262,10 +292,17 @@ export const CanvasProvider = ({ children }) => {
             }
             dispatch({ type: CANVAS_ACTIONS.APPLY_SERVER_CHANGE, payload: shape });
           },
+          onReady: () => {
+            if (!firstSnapshotReceivedRef.current) {
+              firstSnapshotReceivedRef.current = true;
+              dispatch({ type: CANVAS_ACTIONS.SET_LOADING_SHAPES, payload: false });
+            }
+          },
         });
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Failed to initialize Firestore sync', err);
+        dispatch({ type: CANVAS_ACTIONS.SET_LOADING_SHAPES, payload: false });
       }
     })();
 
@@ -275,6 +312,7 @@ export const CanvasProvider = ({ children }) => {
         unsubscribeRef.current();
         unsubscribeRef.current = null;
       }
+      firstSnapshotReceivedRef.current = false;
       stopCursorSubscription();
       stopPresenceSubscription();
       if (cursorDisconnectCancelRef.current) {

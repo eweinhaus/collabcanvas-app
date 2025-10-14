@@ -3,6 +3,7 @@ import { CanvasProvider, useCanvas } from '../../context/CanvasContext';
 import * as svc from '../../services/firestoreService';
 
 jest.mock('../../services/firestoreService');
+jest.mock('../../services/firebase', () => ({ auth: {}, firestore: {}, realtimeDB: {}, googleProvider: {} }));
 
 const wrapper = ({ children }) => <CanvasProvider>{children}</CanvasProvider>;
 

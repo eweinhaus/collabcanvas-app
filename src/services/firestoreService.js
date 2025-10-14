@@ -7,6 +7,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  runTransaction,
   onSnapshot,
   query,
   where,
@@ -14,6 +15,7 @@ import {
   updateDoc,
   serverTimestamp,
 } from 'firebase/firestore';
+import toast from 'react-hot-toast';
 
 import { firestore, auth } from './firebase';
 
@@ -67,13 +69,26 @@ export async function createShape(shape, boardId = DEFAULT_BOARD_ID) {
     const payload = toFirestoreDoc(shape);
     // eslint-disable-next-line no-console
     console.log('[firestoreService] Creating shape:', { shapeId: shape.id, uid: auth.currentUser?.uid, payload });
-    await setDoc(ref, payload);
+    await runTransaction(firestore, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) {
+        tx.set(ref, payload);
+        return;
+      }
+      const existing = snap.data();
+      const existingUpdatedAt = existing?.updatedAt?.toMillis?.() ?? 0;
+      const now = Date.now();
+      if (now > existingUpdatedAt) {
+        tx.update(ref, payload);
+      }
+    });
     // eslint-disable-next-line no-console
     console.log('[firestoreService] Shape created successfully:', shape.id);
     return { id: shape.id };
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('[firestoreService] Error creating shape:', error);
+    toast.error('Failed to create shape. Please try again.');
     throw error;
   }
 }
@@ -131,12 +146,18 @@ export async function deleteShape(shapeId, boardId = DEFAULT_BOARD_ID) {
 export function subscribeToShapes({
   boardId = DEFAULT_BOARD_ID,
   onChange,
+  onReady,
   onError,
 } = {}) {
   const q = shapesCollectionRef(boardId);
+  let readyFired = false;
   const unsubscribe = onSnapshot(
     q,
     (snapshot) => {
+      if (!readyFired) {
+        readyFired = true;
+        onReady?.();
+      }
       snapshot.docChanges().forEach((change) => {
         const shape = fromFirestoreDoc(change.doc);
         if (!shape) return;

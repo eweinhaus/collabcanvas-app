@@ -19,6 +19,27 @@ jest.mock('react-konva', () => ({
   Line: () => <div data-testid="konva-line" />,
 }));
 
+// Mock firebase config to avoid import.meta.env in tests
+jest.mock('../../../services/firebase', () => ({
+  auth: {},
+  firestore: {},
+  realtimeDB: {},
+  googleProvider: {},
+}));
+
+// Mock hooks that require AuthProvider
+jest.mock('../../../hooks/useRealtimeCursor', () => ({
+  useRealtimeCursor: () => ({
+    remoteCursors: [],
+    publishLocalCursor: () => {},
+    clearLocalCursor: () => {},
+  }),
+}));
+
+jest.mock('../../../hooks/useRealtimePresence', () => ({
+  useRealtimePresence: () => {},
+}));
+
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { CanvasProvider, useCanvas, useCanvasActions, CANVAS_ACTIONS } from '../../../context/CanvasContext';
 import Toolbar from '../Toolbar';
@@ -198,8 +219,8 @@ describe('Canvas Context Integration Tests', () => {
       const { container } = renderWithProvider(<Canvas showGrid={false} />);
 
       const layers = container.querySelectorAll('[data-testid="konva-layer"]');
-      // Should have only 1 layer (main)
-      expect(layers.length).toBe(1);
+      // Without grid, we still render main + remote cursor layer
+      expect(layers.length).toBe(2);
     });
   });
 

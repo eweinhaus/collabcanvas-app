@@ -7,7 +7,7 @@ import { useRef, useEffect } from 'react';
 import { Rect, Circle, Text, Transformer } from 'react-konva';
 import { SHAPE_TYPES } from '../../utils/shapes';
 
-const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit }) => {
+const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit, onColorChange }) => {
   const shapeRef = useRef();
   const transformerRef = useRef();
 
@@ -19,11 +19,23 @@ const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit }) => {
     }
   }, [isSelected]);
 
+  const handleDragMove = (e) => {
+    try {
+      const x = e.target.x();
+      const y = e.target.y();
+      sessionStorage.setItem(`editBuffer:${shape.id}`, JSON.stringify({ x, y }));
+    } catch (_) {
+      // ignore session storage errors
+    }
+  };
+
   const handleDragEnd = (e) => {
-    onChange({
-      x: e.target.x(),
-      y: e.target.y(),
-    });
+    const x = e.target.x();
+    const y = e.target.y();
+    onChange({ x, y });
+    try {
+      sessionStorage.removeItem(`editBuffer:${shape.id}`);
+    } catch (_) {}
   };
 
   const handleTransformEnd = () => {
@@ -56,10 +68,15 @@ const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit }) => {
     onChange(updates);
   };
 
-  const handleDoubleClick = () => {
-    // Only allow editing for text shapes
+  const handleDoubleClick = (e) => {
     if (shape.type === SHAPE_TYPES.TEXT && onStartEdit) {
+      // Text shapes: open text editor
       onStartEdit(shape.id);
+    } else if (onColorChange) {
+      // Other shapes: open color picker
+      const stage = e.target.getStage();
+      const pointerPos = stage.getPointerPosition();
+      onColorChange(shape.id, pointerPos);
     }
   };
 
@@ -70,6 +87,7 @@ const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit }) => {
       onClick: onSelect,
       onTap: onSelect,
       draggable: shape.draggable !== false,
+      onDragMove: handleDragMove,
       onDragEnd: handleDragEnd,
       onTransformEnd: handleTransformEnd,
     };
