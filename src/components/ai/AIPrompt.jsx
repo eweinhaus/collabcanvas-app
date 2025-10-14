@@ -56,7 +56,7 @@ const AIPrompt = () => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="e.g., Create a blue circle at 200, 300"
+          placeholder="Ask AI to create something"
           className="ai-prompt__input"
           disabled={loading}
           autoComplete="off"
