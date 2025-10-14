@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import ColorPicker from '../ColorPicker';
 
-describe.skip('ColorPicker', () => {
+describe('ColorPicker', () => {
   const defaultProps = {
     isOpen: true,
     onClose: jest.fn(),
@@ -24,9 +24,9 @@ describe.skip('ColorPicker', () => {
   });
 
   it('renders all color swatches', () => {
-    const { container } = render(<ColorPicker {...defaultProps} />);
+    render(<ColorPicker {...defaultProps} />);
     
-    const swatches = container.querySelectorAll('.color-picker__swatch');
+    const swatches = document.querySelectorAll('.color-picker__swatch');
     expect(swatches.length).toBeGreaterThan(0);
   });
 
@@ -34,11 +34,11 @@ describe.skip('ColorPicker', () => {
     const onSelectColor = jest.fn();
     const onClose = jest.fn();
     
-    const { container } = render(
+    render(
       <ColorPicker {...defaultProps} onSelectColor={onSelectColor} onClose={onClose} />
     );
     
-    const firstSwatch = container.querySelector('.color-picker__swatch');
+    const firstSwatch = document.querySelector('.color-picker__swatch');
     fireEvent.click(firstSwatch);
     
     expect(onSelectColor).toHaveBeenCalledWith(expect.any(String));
@@ -65,9 +65,9 @@ describe.skip('ColorPicker', () => {
   });
 
   it('positions picker at provided x and y coordinates', () => {
-    const { container } = render(<ColorPicker {...defaultProps} x={200} y={300} />);
+    render(<ColorPicker {...defaultProps} x={200} y={300} />);
     
-    const picker = container.querySelector('.color-picker');
+    const picker = document.querySelector('.color-picker');
     expect(picker).toHaveStyle({ left: '200px', top: '300px' });
   });
 

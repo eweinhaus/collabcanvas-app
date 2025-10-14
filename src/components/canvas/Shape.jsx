@@ -97,6 +97,8 @@ const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit, onColorChan
         return (
           <Rect
             {...commonProps}
+            onDblClick={handleDoubleClick}
+            onDblTap={handleDoubleClick}
             x={shape.x}
             y={shape.y}
             width={shape.width}
@@ -112,6 +114,8 @@ const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit, onColorChan
         return (
           <Circle
             {...commonProps}
+            onDblClick={handleDoubleClick}
+            onDblTap={handleDoubleClick}
             x={shape.x}
             y={shape.y}
             radius={shape.radius}
