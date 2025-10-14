@@ -7,6 +7,14 @@ jest.mock('firebase/auth');
 jest.mock('../../services/firebase', () => ({
   auth: {},
   googleProvider: {},
+  realtimeDB: {},
+}));
+
+// Mock presence service
+jest.mock('../../services/presenceService', () => ({
+  setPresence: jest.fn(() => Promise.resolve()),
+  removePresence: jest.fn(() => Promise.resolve()),
+  registerDisconnectCleanup: jest.fn(() => () => {}),
 }));
 
 describe('AuthContext', () => {

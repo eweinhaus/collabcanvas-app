@@ -7,6 +7,7 @@ import { createContext, useContext, useReducer, useMemo, useEffect, useRef, useC
 import { getAllShapes, subscribeToShapes, createShape as fsCreateShape, updateShape as fsUpdateShape, deleteShape as fsDeleteShape, updateShapeText as fsUpdateShapeText } from '../services/firestoreService';
 import { throttle } from '../utils/throttle';
 import { setCursorPosition, subscribeToCursors, removeCursor, registerDisconnectCleanup } from '../services/realtimeCursorService';
+import { subscribeToPresence } from '../services/presenceService';
 
 const DEFAULT_BOARD_ID = 'default';
 
@@ -33,6 +34,7 @@ export const CANVAS_ACTIONS = {
   SET_STAGE_SIZE: 'SET_STAGE_SIZE',
   APPLY_SERVER_CHANGE: 'APPLY_SERVER_CHANGE',
   SET_REMOTE_CURSORS: 'SET_REMOTE_CURSORS',
+  SET_ONLINE_USERS: 'SET_ONLINE_USERS',
 };
 
 // Initial state
@@ -44,6 +46,7 @@ const initialState = {
   position: { x: 0, y: 0 },
   stageSize: { width: window.innerWidth, height: window.innerHeight },
   remoteCursors: [],
+  onlineUsers: [],
 };
 
 // Reducer
@@ -138,6 +141,12 @@ const canvasReducer = (state, action) => {
         ...state,
         remoteCursors: action.payload,
       };
+
+    case CANVAS_ACTIONS.SET_ONLINE_USERS:
+      return {
+        ...state,
+        onlineUsers: action.payload,
+      };
       
     default:
       return state;
@@ -154,6 +163,7 @@ export const CanvasProvider = ({ children }) => {
   const throttledUpdatesRef = useRef({});
   const cursorUnsubscribeRef = useRef(null);
   const cursorDisconnectCancelRef = useRef(null);
+  const presenceUnsubscribeRef = useRef(null);
 
   const setupCursorDisconnect = useCallback(({ uid, boardId = DEFAULT_BOARD_ID } = {}) => {
     if (cursorDisconnectCancelRef.current) {
@@ -195,6 +205,14 @@ export const CanvasProvider = ({ children }) => {
     if (cursorUnsubscribeRef.current) {
       cursorUnsubscribeRef.current();
       cursorUnsubscribeRef.current = null;
+    }
+  }, []);
+
+  const stopPresenceSubscription = useCallback(() => {
+    console.log('[CanvasContext] Stopping presence subscription');
+    if (presenceUnsubscribeRef.current) {
+      presenceUnsubscribeRef.current();
+      presenceUnsubscribeRef.current = null;
     }
   }, []);
 
@@ -258,6 +276,7 @@ export const CanvasProvider = ({ children }) => {
         unsubscribeRef.current = null;
       }
       stopCursorSubscription();
+      stopPresenceSubscription();
       if (cursorDisconnectCancelRef.current) {
         cursorDisconnectCancelRef.current();
         cursorDisconnectCancelRef.current = null;
@@ -266,7 +285,29 @@ export const CanvasProvider = ({ children }) => {
       Object.values(throttledUpdatesRef.current).forEach((t) => t?.cancel?.());
       throttledUpdatesRef.current = {};
     };
-  }, [stopCursorSubscription]);
+  }, [stopCursorSubscription, stopPresenceSubscription]);
+
+  // Presence subscription
+  const startPresenceSubscription = useCallback(({ boardId = DEFAULT_BOARD_ID, uid } = {}) => {
+    console.log('[CanvasContext] Starting presence subscription:', { boardId, uid });
+    if (presenceUnsubscribeRef.current) {
+      presenceUnsubscribeRef.current();
+      presenceUnsubscribeRef.current = null;
+    }
+    const unsubscribe = subscribeToPresence({
+      boardId,
+      excludeUid: uid,
+      onUpdate: (users) => {
+        console.log('[CanvasContext] Received presence update:', users.length, 'users');
+        dispatch({ type: CANVAS_ACTIONS.SET_ONLINE_USERS, payload: users });
+      },
+      onError: (err) => {
+        console.error('[CanvasContext] Presence subscription error:', err);
+      },
+    });
+    presenceUnsubscribeRef.current = unsubscribe;
+    return unsubscribe;
+  }, []);
 
   // Memoize context value to prevent unnecessary re-renders
   const firestoreActions = useMemo(() => {
@@ -333,7 +374,11 @@ export const CanvasProvider = ({ children }) => {
       setupCursorDisconnect,
       removeCursor: removeCursorCallback,
     },
-  }), [state, firestoreActions, publishCursor, startCursorSubscription, stopCursorSubscription, setupCursorDisconnect, removeCursorCallback]);
+    presence: {
+      startPresenceSubscription,
+      stopPresenceSubscription,
+    },
+  }), [state, firestoreActions, publishCursor, startCursorSubscription, stopCursorSubscription, setupCursorDisconnect, removeCursorCallback, startPresenceSubscription, stopPresenceSubscription]);
 
   return (
     <CanvasContext.Provider value={value}>

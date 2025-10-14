@@ -9,6 +9,7 @@ import { useCanvas, useCanvasActions } from '../../context/CanvasContext';
 import { calculateNewScale, calculateZoomPosition } from '../../utils/canvas';
 import { createShape } from '../../utils/shapes';
 import { useRealtimeCursor } from '../../hooks/useRealtimeCursor';
+import { useRealtimePresence } from '../../hooks/useRealtimePresence';
 import Shape from './Shape';
 import GridBackground from './GridBackground';
 import TextEditor from './TextEditor';
@@ -29,6 +30,9 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
   useEffect(() => {
     console.log('[Canvas] Remote cursors updated:', remoteCursors.length, 'cursors', remoteCursors);
   }, [remoteCursors]);
+
+  // Presence subscription lifecycle tied to Canvas mount
+  useRealtimePresence({ boardId });
 
   // Handle window resize
   useEffect(() => {
