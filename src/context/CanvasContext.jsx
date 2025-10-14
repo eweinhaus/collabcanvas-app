@@ -160,18 +160,38 @@ export const CanvasProvider = ({ children }) => {
       cursorDisconnectCancelRef.current();
       cursorDisconnectCancelRef.current = null;
     }
-    if (!uid) return;
+    if (!uid) {
+      console.warn('[CanvasContext] setupCursorDisconnect called without uid');
+      return;
+    }
+    console.log('[CanvasContext] Setting up cursor disconnect cleanup:', { uid, boardId });
     cursorDisconnectCancelRef.current = registerDisconnectCleanup({ uid, boardId });
   }, []);
 
   const publishCursor = useCallback(({ uid, boardId = DEFAULT_BOARD_ID, ...rest }) => {
-    if (!uid) return Promise.resolve();
+    if (!uid) {
+      console.warn('[CanvasContext] publishCursor called without uid');
+      return Promise.resolve();
+    }
+    console.log('[CanvasContext] Publishing cursor:', { uid, boardId, x: rest.x, y: rest.y });
     return setCursorPosition({ uid, boardId, ...rest }).catch((err) => {
-      console.error('Failed to set cursor position', err);
+      console.error('[CanvasContext] Failed to set cursor position', err);
+    });
+  }, []);
+
+  const removeCursorCallback = useCallback(({ uid, boardId = DEFAULT_BOARD_ID }) => {
+    if (!uid) {
+      console.warn('[CanvasContext] removeCursor called without uid');
+      return Promise.resolve();
+    }
+    console.log('[CanvasContext] Removing cursor:', { uid, boardId });
+    return removeCursor({ uid, boardId }).catch((err) => {
+      console.error('[CanvasContext] Failed to remove cursor', err);
     });
   }, []);
 
   const stopCursorSubscription = useCallback(() => {
+    console.log('[CanvasContext] Stopping cursor subscription');
     if (cursorUnsubscribeRef.current) {
       cursorUnsubscribeRef.current();
       cursorUnsubscribeRef.current = null;
@@ -184,15 +204,20 @@ export const CanvasProvider = ({ children }) => {
     onUpdate,
     onError,
   } = {}) => {
+    console.log('[CanvasContext] Starting cursor subscription:', { boardId, uid });
     stopCursorSubscription();
     const unsubscribe = subscribeToCursors({
       boardId,
       excludeUid: uid,
       onUpdate: (cursors) => {
+        console.log('[CanvasContext] Received cursor update:', cursors.length, 'cursors');
         dispatch({ type: CANVAS_ACTIONS.SET_REMOTE_CURSORS, payload: cursors });
         onUpdate?.(cursors);
       },
-      onError,
+      onError: (err) => {
+        console.error('[CanvasContext] Cursor subscription error:', err);
+        onError?.(err);
+      },
     });
     cursorUnsubscribeRef.current = unsubscribe;
     return unsubscribe;
@@ -306,9 +331,9 @@ export const CanvasProvider = ({ children }) => {
       startCursorSubscription,
       stopCursorSubscription,
       setupCursorDisconnect,
-      removeCursor,
+      removeCursor: removeCursorCallback,
     },
-  }), [state, firestoreActions, publishCursor, startCursorSubscription, stopCursorSubscription, setupCursorDisconnect]);
+  }), [state, firestoreActions, publishCursor, startCursorSubscription, stopCursorSubscription, setupCursorDisconnect, removeCursorCallback]);
 
   return (
     <CanvasContext.Provider value={value}>

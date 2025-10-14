@@ -19,7 +19,10 @@ export function setCursorPosition({
   color = null,
   lastActive = serverTimestamp(),
 } = {}) {
-  if (!uid) return Promise.resolve();
+  if (!uid) {
+    console.warn('[realtimeCursorService] setCursorPosition called without uid');
+    return Promise.resolve();
+  }
   const payload = {
     uid,
     x,
@@ -30,7 +33,11 @@ export function setCursorPosition({
     lastActive,
     updatedAt: serverTimestamp(),
   };
-  return set(cursorRef(uid, boardId), payload);
+  console.log('[realtimeCursorService] Setting cursor position:', { uid, boardId, x, y });
+  return set(cursorRef(uid, boardId), payload).catch((err) => {
+    console.error('[realtimeCursorService] Error setting cursor position:', err);
+    throw err;
+  });
 }
 
 export function subscribeToCursors({
@@ -39,6 +46,7 @@ export function subscribeToCursors({
   onUpdate,
   onError,
 } = {}) {
+  console.log('[realtimeCursorService] Subscribing to cursors:', { boardId, excludeUid });
   const refToUse = cursorsRef(boardId);
   const unsubscribe = onValue(
     refToUse,
@@ -50,25 +58,46 @@ export function subscribeToCursors({
         if (excludeUid && child.key === excludeUid) return;
         cursors.push({ uid: child.key, ...value });
       });
+      console.log('[realtimeCursorService] Cursor update received:', cursors.length, 'cursors');
       onUpdate?.(cursors);
     },
-    (error) => onError?.(error)
+    (error) => {
+      console.error('[realtimeCursorService] Subscription error:', error);
+      onError?.(error);
+    }
   );
 
-  return () => unsubscribe();
+  return () => {
+    console.log('[realtimeCursorService] Unsubscribing from cursors');
+    unsubscribe();
+  };
 }
 
 export function removeCursor({ uid, boardId = DEFAULT_BOARD_ID } = {}) {
-  if (!uid) return Promise.resolve();
-  return remove(cursorRef(uid, boardId));
+  if (!uid) {
+    console.warn('[realtimeCursorService] removeCursor called without uid');
+    return Promise.resolve();
+  }
+  console.log('[realtimeCursorService] Removing cursor:', { uid, boardId });
+  return remove(cursorRef(uid, boardId)).catch((err) => {
+    console.error('[realtimeCursorService] Error removing cursor:', err);
+    throw err;
+  });
 }
 
 export function registerDisconnectCleanup({ uid, boardId = DEFAULT_BOARD_ID } = {}) {
-  if (!uid) return () => {};
+  if (!uid) {
+    console.warn('[realtimeCursorService] registerDisconnectCleanup called without uid');
+    return () => {};
+  }
+  console.log('[realtimeCursorService] Registering disconnect cleanup:', { uid, boardId });
   const refToUse = cursorRef(uid, boardId);
   const disconnect = onDisconnect(refToUse);
-  disconnect.remove().catch(() => {});
+  disconnect.remove().catch((err) => {
+    console.error('[realtimeCursorService] Error setting disconnect handler:', err);
+  });
   return () => {
+    console.log('[realtimeCursorService] Cancelling disconnect cleanup:', { uid, boardId });
     disconnect.cancel().catch(() => {});
   };
 }

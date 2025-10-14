@@ -15,15 +15,20 @@ import TextEditor from './TextEditor';
 import RemoteCursor from './RemoteCursor';
 import './Canvas.css';
 
-const Canvas = ({ showGrid = false }) => {
+const Canvas = ({ showGrid = false, boardId = 'default' }) => {
   const stageRef = useRef(null);
   const { state, firestoreActions } = useCanvas();
   const actions = useCanvasActions();
   const [editingTextId, setEditingTextId] = useState(null);
   const [editingText, setEditingText] = useState('');
-  const { remoteCursors, publishLocalCursor, clearLocalCursor } = useRealtimeCursor();
+  const { remoteCursors, publishLocalCursor, clearLocalCursor } = useRealtimeCursor({ boardId });
 
   const { shapes, selectedId, currentTool, scale, position, stageSize } = state;
+
+  // Log remote cursors when they change
+  useEffect(() => {
+    console.log('[Canvas] Remote cursors updated:', remoteCursors.length, 'cursors', remoteCursors);
+  }, [remoteCursors]);
 
   // Handle window resize
   useEffect(() => {
@@ -94,6 +99,7 @@ const Canvas = ({ showGrid = false }) => {
     // Convert to canvas coordinates (same space as shapes)
     const x = (pointer.x - position.x) / scale;
     const y = (pointer.y - position.y) / scale;
+    // Note: logging throttled to avoid console spam - actual publish is throttled
     publishLocalCursor({ x, y, scaleOverride: scale });
   }, [position.x, position.y, scale, publishLocalCursor]);
 
