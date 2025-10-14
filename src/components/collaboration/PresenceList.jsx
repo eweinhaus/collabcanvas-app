@@ -2,7 +2,7 @@ import { memo } from 'react';
 import UserAvatar from './UserAvatar';
 import './PresenceList.css';
 
-const PresenceList = memo(function PresenceList({ users = [], className = '' }) {
+const PresenceList = memo(function PresenceList({ users = [], className = '', currentUserId = null }) {
   return (
     <div className={`presence-list ${className}`} aria-label="Online users">
       <div className="presence-list__header">
@@ -13,7 +13,7 @@ const PresenceList = memo(function PresenceList({ users = [], className = '' }) 
         {users.map((u) => (
           <li key={u.uid} className="presence-list__item">
             <UserAvatar name={u.name} color={u.color} size={24} />
-            <span className="presence-list__name">{u.name || 'Anonymous'}</span>
+            <span className="presence-list__name">{(u.name || 'Anonymous') + (currentUserId && u.uid === currentUserId ? ' (You)' : '')}</span>
           </li>
         ))}
       </ul>

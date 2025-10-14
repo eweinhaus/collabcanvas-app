@@ -1,11 +1,8 @@
 .presence-list {
-  width: 240px;
-  min-width: 240px;
-  max-width: 240px;
-  border-left: 1px solid #e5e7eb;
-  padding: 12px;
-  background: #ffffff;
-  overflow-y: auto;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  overflow-x: hidden; /* Prevent horizontal scroll */
   flex-shrink: 0;
 }
 
@@ -14,7 +11,10 @@
   align-items: center;
   justify-content: space-between;
   font-weight: 600;
+  font-size: 13px;
+  color: #6b7280;
   margin-bottom: 8px;
+  padding: 0 4px;
 }
 
 .presence-list__items {
@@ -38,6 +38,11 @@
 .presence-list__name {
   font-size: 14px;
   color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .presence-list__count {

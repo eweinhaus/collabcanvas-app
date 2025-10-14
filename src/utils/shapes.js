@@ -10,12 +10,14 @@ export const SHAPE_TYPES = {
   RECT: 'rect',
   CIRCLE: 'circle',
   TEXT: 'text',
+  TRIANGLE: 'triangle',
 };
 
 // Default dimensions
 export const DEFAULT_RECT_SIZE = { width: 100, height: 100 };
 export const DEFAULT_CIRCLE_RADIUS = 50;
 export const DEFAULT_TEXT_SIZE = 16;
+export const DEFAULT_TRIANGLE_SIZE = { width: 100, height: 100 };
 
 /**
  * Create a new rectangle shape
@@ -66,6 +68,31 @@ export const createCircle = (x, y, overrides = {}) => {
 };
 
 /**
+ * Create a new triangle shape (isosceles, centered at x,y)
+ * Uses width/height similar to rect for consistency
+ */
+export const createTriangle = (x, y, overrides = {}) => {
+  const width = overrides.width || DEFAULT_TRIANGLE_SIZE.width;
+  const height = overrides.height || DEFAULT_TRIANGLE_SIZE.height;
+  // Centered at (x,y): we store x,y as top-left like rect for consistency with existing shapes
+  // Keep same convention as rectangle: x,y represent top-left; Shape component will render accordingly
+  return {
+    id: uuidv4(),
+    type: SHAPE_TYPES.TRIANGLE,
+    x: x - width / 2,
+    y: y - height / 2,
+    width,
+    height,
+    rotation: 0,
+    fill: getRandomColor(),
+    stroke: '#000000',
+    strokeWidth: 2,
+    draggable: true,
+    ...overrides,
+  };
+};
+
+/**
  * Create a new text shape
  * @param {number} x - X position (approximately centered)
  * @param {number} y - Y position (vertically centered)
@@ -107,6 +134,8 @@ export const createShape = (type, x, y, overrides = {}) => {
       return createCircle(x, y, overrides);
     case SHAPE_TYPES.TEXT:
       return createText(x, y, 'Double-click to edit', overrides);
+    case SHAPE_TYPES.TRIANGLE:
+      return createTriangle(x, y, overrides);
     default:
       throw new Error(`Unknown shape type: ${type}`);
   }

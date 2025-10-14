@@ -4,7 +4,7 @@
  */
 
 import { useRef, useEffect } from 'react';
-import { Rect, Circle, Text, Transformer } from 'react-konva';
+import { Rect, Circle, Text, Line, Transformer } from 'react-konva';
 import { SHAPE_TYPES } from '../../utils/shapes';
 
 const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit, onColorChange }) => {
@@ -65,6 +65,9 @@ const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit, onColorChan
       updates.radius = Math.max(5, node.radius() * Math.max(scaleX, scaleY));
     } else if (shape.type === SHAPE_TYPES.TEXT) {
       updates.fontSize = Math.max(5, node.fontSize() * scaleX);
+    } else if (shape.type === SHAPE_TYPES.TRIANGLE) {
+      updates.width = Math.max(5, node.width() * scaleX);
+      updates.height = Math.max(5, node.height() * scaleY);
     }
 
     onChange(updates);
@@ -141,6 +144,33 @@ const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit, onColorChan
             fontFamily="Arial"
           />
         );
+
+      case SHAPE_TYPES.TRIANGLE: {
+        const w = shape.width;
+        const h = shape.height;
+        // Define points relative to the Line's x/y position (not absolute coordinates)
+        // This ensures the triangle transforms correctly with the Transformer
+        const points = [
+          w / 2, 0,     // top center (relative to shape.x, shape.y)
+          w, h,         // bottom right
+          0, h,         // bottom left
+        ];
+        return (
+          <Line
+            {...commonProps}
+            onDblClick={handleDoubleClick}
+            onDblTap={handleDoubleClick}
+            x={shape.x}
+            y={shape.y}
+            points={points}
+            closed
+            fill={shape.fill}
+            stroke={shape.stroke}
+            strokeWidth={shape.strokeWidth}
+            rotation={shape.rotation || 0}
+          />
+        );
+      }
 
       default:
         return null;

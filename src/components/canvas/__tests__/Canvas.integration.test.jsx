@@ -169,6 +169,7 @@ describe('Canvas Context Integration Tests', () => {
       expect(screen.getByTitle('Draw rectangle')).toBeInTheDocument();
       expect(screen.getByTitle('Draw circle')).toBeInTheDocument();
       expect(screen.getByTitle('Add text')).toBeInTheDocument();
+      expect(screen.getByTitle('Draw triangle')).toBeInTheDocument();
     });
 
     it('should highlight active tool', () => {
