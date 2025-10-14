@@ -240,8 +240,15 @@ describe('LoginButton Integration Tests', () => {
 
   describe('Loading States', () => {
     it('should display loading state during sign in', async () => {
+      const mockUser = {
+        uid: 'test-uid',
+        email: 'test@example.com',
+        displayName: 'Test User',
+        photoURL: 'https://example.com/photo.jpg',
+      };
+      
       signInWithPopup.mockImplementation(() => 
-        new Promise(resolve => setTimeout(resolve, 100))
+        new Promise(resolve => setTimeout(() => resolve({ user: mockUser }), 100))
       );
 
       render(

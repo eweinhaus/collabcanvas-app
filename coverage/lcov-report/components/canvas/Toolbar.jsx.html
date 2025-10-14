@@ -117,7 +117,9 @@
 <a name='L52'></a><a href='#L52'>52</a>
 <a name='L53'></a><a href='#L53'>53</a>
 <a name='L54'></a><a href='#L54'>54</a>
-<a name='L55'></a><a href='#L55'>55</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -127,30 +129,32 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">22x</span>
-<span class="cline-any cline-yes">22x</span>
-<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">22x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">22x</span>
-<span class="cline-any cline-yes">12x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">88x</span>
+<span class="cline-any cline-yes">80x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -186,10 +190,10 @@ const Toolbar = () =&gt; {
   const { currentTool } = state;
 &nbsp;
   const tools = [
-    { id: null, label: 'Select', icon: '⬛', title: 'Select and move shapes (Esc)' },
-    { id: SHAPE_TYPES.RECT, label: 'Rectangle', icon: '▭', title: 'Draw rectangle' },
-    { id: SHAPE_TYPES.CIRCLE, label: 'Circle', icon: '●', title: 'Draw circle' },
-    { id: SHAPE_TYPES.TEXT, label: 'Text', icon: 'T', title: 'Add text' },
+    { id: null, label: 'Select', iconPath: '/icons/cursor.svg', title: 'Select and move shapes (Esc)' },
+    { id: SHAPE_TYPES.RECT, label: 'Rectangle', iconPath: '/icons/rectangle.svg', title: 'Draw rectangle' },
+    { id: SHAPE_TYPES.CIRCLE, label: 'Circle', iconPath: '/icons/circle.svg', title: 'Draw circle' },
+    { id: SHAPE_TYPES.TEXT, label: 'Text', iconPath: '/icons/text.svg', title: 'Add text' },
   ];
 &nbsp;
   const handleToolClick = (toolId) =&gt; {
@@ -197,7 +201,7 @@ const Toolbar = () =&gt; {
   };
 &nbsp;
   return (
-    &lt;div className="toolbar"&gt;
+    &lt;div className="toolbar" role="toolbar" aria-label="Drawing tools"&gt;
       &lt;div className="toolbar-title"&gt;Tools&lt;/div&gt;
       &lt;div className="toolbar-buttons"&gt;
         {tools.map((tool) =&gt; (
@@ -206,13 +210,15 @@ const Toolbar = () =&gt; {
             className={`toolbar-button ${currentTool === tool.id ? 'active' : ''}`}
             onClick={() =&gt; handleToolClick(tool.id)}
             title={tool.title}
+            aria-label={tool.title}
+            aria-pressed={currentTool === tool.id}
           &gt;
-            &lt;span className="toolbar-icon"&gt;{tool.icon}&lt;/span&gt;
+            &lt;img src={tool.iconPath} alt="" className="toolbar-icon" aria-hidden="true" /&gt;
             &lt;span className="toolbar-label"&gt;{tool.label}&lt;/span&gt;
           &lt;/button&gt;
         ))}
       &lt;/div&gt;
-      &lt;div className="toolbar-hint"&gt;
+      &lt;div className="toolbar-hint" aria-live="polite"&gt;
         {currentTool ? (
           &lt;span&gt;Click on canvas to add {currentTool}&lt;/span&gt;
         ) : (
@@ -232,7 +238,7 @@ export default Toolbar;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-10-13T19:15:47.411Z
+                at 2025-10-14T15:27:12.855Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

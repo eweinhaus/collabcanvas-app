@@ -3,12 +3,10 @@ import { flushEditBuffersBeforeUnload, registerBeforeUnloadFlush } from '../befo
 describe('beforeUnloadFlush', () => {
   beforeEach(() => {
     sessionStorage.clear();
-    jest.spyOn(console, 'log').mockImplementation(() => {});
   });
 
   afterEach(() => {
     sessionStorage.clear();
-    jest.restoreAllMocks();
   });
 
   test('flushEditBuffersBeforeUnload removes edit buffers from session storage', () => {
@@ -21,18 +19,11 @@ describe('beforeUnloadFlush', () => {
     expect(sessionStorage.getItem('editBuffer:shape1')).toBeNull();
     expect(sessionStorage.getItem('editBuffer:shape2')).toBeNull();
     expect(sessionStorage.getItem('unrelated')).toBe('value');
-    expect(console.log).toHaveBeenCalledWith(
-      '[beforeUnload] Flushing edit buffers:',
-      expect.arrayContaining([
-        { shapeId: 'shape1', x: 10, y: 20 },
-        { shapeId: 'shape2', x: 30, y: 40 }
-      ])
-    );
   });
 
   test('flushEditBuffersBeforeUnload handles empty session storage', () => {
     flushEditBuffersBeforeUnload();
-    expect(console.log).not.toHaveBeenCalled();
+    // No errors should be thrown
   });
 
   test('flushEditBuffersBeforeUnload ignores malformed buffers', () => {

@@ -3,7 +3,18 @@ import { CanvasProvider, useCanvas } from '../../context/CanvasContext';
 import * as svc from '../../services/firestoreService';
 
 jest.mock('../../services/firestoreService');
-jest.mock('../../services/firebase', () => ({ auth: {}, firestore: {}, realtimeDB: {}, googleProvider: {} }));
+jest.mock('../../services/firebase', () => ({ 
+  auth: { 
+    onAuthStateChanged: (callback) => {
+      // Immediately call with a mock user to simulate authenticated state
+      callback({ uid: 'test-user-123' });
+      return jest.fn(); // Return unsubscribe function
+    }
+  }, 
+  firestore: {}, 
+  realtimeDB: {}, 
+  googleProvider: {} 
+}));
 
 const wrapper = ({ children }) => <CanvasProvider>{children}</CanvasProvider>;
 

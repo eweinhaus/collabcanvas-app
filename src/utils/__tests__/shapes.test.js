@@ -28,13 +28,14 @@ describe('Shape Utilities', () => {
   });
 
   describe('createRectangle', () => {
-    it('should create a rectangle with default properties', () => {
+    it('should create a rectangle with default properties centered at given position', () => {
       const rect = createRectangle(100, 200);
       
       expect(rect).toHaveProperty('id');
       expect(rect.type).toBe(SHAPE_TYPES.RECT);
-      expect(rect.x).toBe(100);
-      expect(rect.y).toBe(200);
+      // Rectangle is centered at (100, 200), so top-left is offset by half the dimensions
+      expect(rect.x).toBe(50); // 100 - 100/2
+      expect(rect.y).toBe(150); // 200 - 100/2
       expect(rect.width).toBe(DEFAULT_RECT_SIZE.width);
       expect(rect.height).toBe(DEFAULT_RECT_SIZE.height);
       expect(rect.fill).toMatch(/^#[0-9A-F]{6}$/i);
@@ -43,11 +44,12 @@ describe('Shape Utilities', () => {
       expect(rect.draggable).toBe(true);
     });
 
-    it('should accept override properties', () => {
+    it('should accept override properties and center accordingly', () => {
       const rect = createRectangle(100, 200, { width: 150, fill: '#FF0000' });
       
       expect(rect.width).toBe(150);
       expect(rect.fill).toBe('#FF0000');
+      expect(rect.x).toBe(25); // 100 - 150/2
       expect(rect.height).toBe(DEFAULT_RECT_SIZE.height); // unchanged
     });
 
@@ -90,23 +92,30 @@ describe('Shape Utilities', () => {
   });
 
   describe('createText', () => {
-    it('should create a text shape with default properties', () => {
+    it('should create a text shape with default properties centered at given position', () => {
       const text = createText(100, 200);
       
       expect(text).toHaveProperty('id');
       expect(text.type).toBe(SHAPE_TYPES.TEXT);
-      expect(text.x).toBe(100);
-      expect(text.y).toBe(200);
+      // Text is centered at (100, 200) with estimated positioning
+      // Default text "Double-click to edit" (20 chars including spaces), fontSize 16
+      // Estimated width: 20 * 16 * 0.6 = 192, so x = 100 - 96 = 4
+      // y offset: 200 - 16/2 = 192
+      expect(text.x).toBe(4);
+      expect(text.y).toBe(192);
       expect(text.text).toBe('Double-click to edit');
       expect(text.fontSize).toBe(DEFAULT_TEXT_SIZE);
       expect(text.fill).toBe('#000000');
       expect(text.draggable).toBe(true);
     });
 
-    it('should accept custom text content', () => {
+    it('should accept custom text content and center accordingly', () => {
       const text = createText(100, 200, 'Hello World');
       
       expect(text.text).toBe('Hello World');
+      // "Hello World" (11 chars), fontSize 16
+      // Estimated width: 11 * 16 * 0.6 = 105.6, so x = 100 - 52.8 = 47.2
+      expect(text.x).toBeCloseTo(47.2, 1);
     });
 
     it('should accept override properties', () => {
@@ -130,8 +139,9 @@ describe('Shape Utilities', () => {
       const shape = createShape(SHAPE_TYPES.RECT, 100, 200);
       
       expect(shape.type).toBe(SHAPE_TYPES.RECT);
-      expect(shape.x).toBe(100);
-      expect(shape.y).toBe(200);
+      // Rectangle is centered, so position is offset
+      expect(shape.x).toBe(50); // 100 - 100/2
+      expect(shape.y).toBe(150); // 200 - 100/2
       expect(shape.width).toBeDefined();
     });
 

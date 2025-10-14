@@ -38,7 +38,6 @@ export function useRealtimeCursor({ boardId } = {}) {
   const publishLocalCursor = useCallback(
     ({ x, y, scaleOverride }) => {
       if (!user?.uid) {
-        console.warn('[useRealtimeCursor] Cannot publish cursor: no user.uid');
         return;
       }
       const color = getColorForUser(user.uid);
@@ -52,7 +51,6 @@ export function useRealtimeCursor({ boardId } = {}) {
         name,
         color,
       };
-      console.log('[useRealtimeCursor] Publishing local cursor:', { x, y, boardId, uid: user.uid });
       localCursorRef.current = cursorPayload;
       const throttledFn = ensureThrottledPublish();
       throttledFn(cursorPayload);
@@ -61,7 +59,6 @@ export function useRealtimeCursor({ boardId } = {}) {
   );
 
   const clearLocalCursor = useCallback(async () => {
-    console.log('[useRealtimeCursor] Clearing local cursor');
     throttledPublishRef.current?.cancel?.();
     if (user?.uid) {
       await removeCursor({ uid: user.uid, boardId });
@@ -71,14 +68,11 @@ export function useRealtimeCursor({ boardId } = {}) {
 
   useEffect(() => {
     if (!user?.uid) {
-      console.log('[useRealtimeCursor] No user.uid, skipping cursor setup');
       return undefined;
     }
-    console.log('[useRealtimeCursor] Setting up cursor for user:', user.uid, 'boardId:', boardId);
     setupCursorDisconnect({ uid: user.uid, boardId });
     startCursorSubscription({ boardId, uid: user.uid });
     return () => {
-      console.log('[useRealtimeCursor] Cleaning up cursor for user:', user.uid);
       stopCursorSubscription();
       removeCursor({ uid: user.uid, boardId }).catch(() => {});
     };

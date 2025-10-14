@@ -19,17 +19,12 @@ jest.mock('../../../services/presenceService', () => ({
 }));
 
 describe('PrivateRoute', () => {
-  let authStateChangeCallback;
   let mockUnsubscribe;
 
   beforeEach(() => {
     mockUnsubscribe = jest.fn();
-    authStateChangeCallback = null;
 
-    onAuthStateChanged.mockImplementation((auth, callback) => {
-      authStateChangeCallback = callback;
-      return mockUnsubscribe;
-    });
+    onAuthStateChanged.mockImplementation(() => mockUnsubscribe);
 
     jest.clearAllMocks();
   });
@@ -51,7 +46,6 @@ describe('PrivateRoute', () => {
 
   it('should show login prompt when user is not authenticated', async () => {
     onAuthStateChanged.mockImplementation((auth, callback) => {
-      authStateChangeCallback = callback;
       callback(null); // No user
       return mockUnsubscribe;
     });
@@ -81,7 +75,6 @@ describe('PrivateRoute', () => {
     };
 
     onAuthStateChanged.mockImplementation((auth, callback) => {
-      authStateChangeCallback = callback;
       callback(mockUser);
       return mockUnsubscribe;
     });
@@ -110,7 +103,6 @@ describe('PrivateRoute', () => {
     };
 
     onAuthStateChanged.mockImplementation((auth, callback) => {
-      authStateChangeCallback = callback;
       callback(mockUser);
       return mockUnsubscribe;
     });

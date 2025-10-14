@@ -182,37 +182,32 @@ export const CanvasProvider = ({ children }) => {
       cursorDisconnectCancelRef.current = null;
     }
     if (!uid) {
-      console.warn('[CanvasContext] setupCursorDisconnect called without uid');
       return;
     }
-    console.log('[CanvasContext] Setting up cursor disconnect cleanup:', { uid, boardId });
     cursorDisconnectCancelRef.current = registerDisconnectCleanup({ uid, boardId });
   }, []);
 
   const publishCursor = useCallback(({ uid, boardId = DEFAULT_BOARD_ID, ...rest }) => {
     if (!uid) {
-      console.warn('[CanvasContext] publishCursor called without uid');
       return Promise.resolve();
     }
-    console.log('[CanvasContext] Publishing cursor:', { uid, boardId, x: rest.x, y: rest.y });
     return setCursorPosition({ uid, boardId, ...rest }).catch((err) => {
+      // eslint-disable-next-line no-console
       console.error('[CanvasContext] Failed to set cursor position', err);
     });
   }, []);
 
   const removeCursorCallback = useCallback(({ uid, boardId = DEFAULT_BOARD_ID }) => {
     if (!uid) {
-      console.warn('[CanvasContext] removeCursor called without uid');
       return Promise.resolve();
     }
-    console.log('[CanvasContext] Removing cursor:', { uid, boardId });
     return removeCursor({ uid, boardId }).catch((err) => {
+      // eslint-disable-next-line no-console
       console.error('[CanvasContext] Failed to remove cursor', err);
     });
   }, []);
 
   const stopCursorSubscription = useCallback(() => {
-    console.log('[CanvasContext] Stopping cursor subscription');
     if (cursorUnsubscribeRef.current) {
       cursorUnsubscribeRef.current();
       cursorUnsubscribeRef.current = null;
@@ -220,7 +215,6 @@ export const CanvasProvider = ({ children }) => {
   }, []);
 
   const stopPresenceSubscription = useCallback(() => {
-    console.log('[CanvasContext] Stopping presence subscription');
     if (presenceUnsubscribeRef.current) {
       presenceUnsubscribeRef.current();
       presenceUnsubscribeRef.current = null;
@@ -233,17 +227,16 @@ export const CanvasProvider = ({ children }) => {
     onUpdate,
     onError,
   } = {}) => {
-    console.log('[CanvasContext] Starting cursor subscription:', { boardId, uid });
     stopCursorSubscription();
     const unsubscribe = subscribeToCursors({
       boardId,
       excludeUid: uid,
       onUpdate: (cursors) => {
-        console.log('[CanvasContext] Received cursor update:', cursors.length, 'cursors');
         dispatch({ type: CANVAS_ACTIONS.SET_REMOTE_CURSORS, payload: cursors });
         onUpdate?.(cursors);
       },
       onError: (err) => {
+        // eslint-disable-next-line no-console
         console.error('[CanvasContext] Cursor subscription error:', err);
         onError?.(err);
       },
@@ -266,17 +259,14 @@ export const CanvasProvider = ({ children }) => {
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       if (!user) {
         // User not authenticated, clear shapes and wait
-        console.log('[CanvasContext] User not authenticated, skipping shape load');
         dispatch({ type: CANVAS_ACTIONS.SET_LOADING_SHAPES, payload: false });
         return;
       }
 
       // User is authenticated, proceed with loading shapes
-      console.log('[CanvasContext] User authenticated, loading shapes...');
       try {
         dispatch({ type: CANVAS_ACTIONS.SET_LOADING_SHAPES, payload: true });
         let initial = await getAllShapes();
-        console.log('[CanvasContext] Loaded initial shapes:', initial.length);
         try {
           initial = initial.map((s) => {
             const bufRaw = sessionStorage.getItem(`editBuffer:${s.id}`);
@@ -340,7 +330,6 @@ export const CanvasProvider = ({ children }) => {
 
   // Presence subscription
   const startPresenceSubscription = useCallback(({ boardId = DEFAULT_BOARD_ID, uid } = {}) => {
-    console.log('[CanvasContext] Starting presence subscription:', { boardId, uid });
     if (presenceUnsubscribeRef.current) {
       presenceUnsubscribeRef.current();
       presenceUnsubscribeRef.current = null;
@@ -349,10 +338,10 @@ export const CanvasProvider = ({ children }) => {
       boardId,
       excludeUid: uid,
       onUpdate: (users) => {
-        console.log('[CanvasContext] Received presence update:', users.length, 'users');
         dispatch({ type: CANVAS_ACTIONS.SET_ONLINE_USERS, payload: users });
       },
       onError: (err) => {
+        // eslint-disable-next-line no-console
         console.error('[CanvasContext] Presence subscription error:', err);
       },
     });

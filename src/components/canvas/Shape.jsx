@@ -24,7 +24,7 @@ const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit, onColorChan
       const x = e.target.x();
       const y = e.target.y();
       sessionStorage.setItem(`editBuffer:${shape.id}`, JSON.stringify({ x, y }));
-    } catch (_) {
+    } catch {
       // ignore session storage errors
     }
   };
@@ -35,7 +35,9 @@ const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit, onColorChan
     onChange({ x, y });
     try {
       sessionStorage.removeItem(`editBuffer:${shape.id}`);
-    } catch (_) {}
+    } catch {
+      // ignore session storage errors
+    }
   };
 
   const handleTransformEnd = () => {

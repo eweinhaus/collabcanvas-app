@@ -19,19 +19,22 @@ export const DEFAULT_TEXT_SIZE = 16;
 
 /**
  * Create a new rectangle shape
- * @param {number} x - X position
- * @param {number} y - Y position
+ * @param {number} x - X position (center of rectangle)
+ * @param {number} y - Y position (center of rectangle)
  * @param {Object} overrides - Additional properties to override defaults
  * @returns {Object} Rectangle shape object
  */
 export const createRectangle = (x, y, overrides = {}) => {
+  const width = overrides.width || DEFAULT_RECT_SIZE.width;
+  const height = overrides.height || DEFAULT_RECT_SIZE.height;
+  
   return {
     id: uuidv4(),
     type: SHAPE_TYPES.RECT,
-    x,
-    y,
-    width: DEFAULT_RECT_SIZE.width,
-    height: DEFAULT_RECT_SIZE.height,
+    x: x - width / 2,  // Center the rectangle at cursor position
+    y: y - height / 2,
+    width,
+    height,
     fill: getRandomColor(),
     stroke: '#000000',
     strokeWidth: 2,
@@ -64,20 +67,24 @@ export const createCircle = (x, y, overrides = {}) => {
 
 /**
  * Create a new text shape
- * @param {number} x - X position
- * @param {number} y - Y position
+ * @param {number} x - X position (approximately centered)
+ * @param {number} y - Y position (vertically centered)
  * @param {string} text - Text content
  * @param {Object} overrides - Additional properties to override defaults
  * @returns {Object} Text shape object
  */
 export const createText = (x, y, text = 'Double-click to edit', overrides = {}) => {
+  const fontSize = overrides.fontSize || DEFAULT_TEXT_SIZE;
+  // Estimate text width (rough approximation: 0.6 * fontSize per character)
+  const estimatedWidth = text.length * fontSize * 0.6;
+  
   return {
     id: uuidv4(),
     type: SHAPE_TYPES.TEXT,
-    x,
-    y,
+    x: x - estimatedWidth / 2,  // Center horizontally at cursor
+    y: y - fontSize / 2,         // Center vertically at cursor
     text,
-    fontSize: DEFAULT_TEXT_SIZE,
+    fontSize,
     fill: '#000000',
     draggable: true,
     ...overrides,
