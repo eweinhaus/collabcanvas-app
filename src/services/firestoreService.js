@@ -62,10 +62,20 @@ const fromFirestoreDoc = (docSnap) => {
 
 // CRUD operations
 export async function createShape(shape, boardId = DEFAULT_BOARD_ID) {
-  const ref = shapeDocRef(shape.id, boardId);
-  const payload = toFirestoreDoc(shape);
-  await setDoc(ref, payload);
-  return { id: shape.id };
+  try {
+    const ref = shapeDocRef(shape.id, boardId);
+    const payload = toFirestoreDoc(shape);
+    // eslint-disable-next-line no-console
+    console.log('[firestoreService] Creating shape:', { shapeId: shape.id, uid: auth.currentUser?.uid, payload });
+    await setDoc(ref, payload);
+    // eslint-disable-next-line no-console
+    console.log('[firestoreService] Shape created successfully:', shape.id);
+    return { id: shape.id };
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[firestoreService] Error creating shape:', error);
+    throw error;
+  }
 }
 
 export async function getShape(shapeId, boardId = DEFAULT_BOARD_ID) {
