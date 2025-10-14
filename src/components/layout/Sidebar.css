@@ -1,14 +1,21 @@
 .sidebar {
   width: 280px;
   background-color: white;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
-  overflow-y: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
   transition: transform 0.3s ease;
-  flex-shrink: 0;
+  overflow-x: hidden; /* Prevent horizontal scroll */
+  overflow-y: auto;
+  /* Dynamic height based on content (number of users) */
+  position: fixed;
+  top: 80px; /* Match toolbar top position */
+  right: 20px; /* Same spacing as toolbar from left */
+  max-height: calc(100vh - 100px); /* Allow scroll if many users, but keep compact */
+  z-index: 100; /* Same as toolbar */
 }
 
 .sidebar__content {
-  padding: 16px;
+  padding: 12px;
 }
 
 .sidebar__presence {
@@ -19,11 +26,13 @@
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
-    top: 60px;
-    right: 0;
-    bottom: 0;
+    top: 70px; /* match toolbar mobile top */
+    right: 10px; /* Add right margin for mobile */
+    width: 240px; /* Narrower on mobile */
+    max-height: calc(100vh - 80px);
+    border-radius: 8px;
     z-index: 900;
-    transform: translateX(100%);
+    transform: translateX(calc(100% + 10px)); /* Account for right margin in transform */
   }
 
   .sidebar--open {
@@ -31,9 +40,10 @@
   }
 }
 
-/* Ensure presence list fits */
+/* Ensure presence list fits within sidebar */
 .sidebar .presence-list {
   box-shadow: none;
   border-radius: 0;
+  max-width: 100%;
 }
 

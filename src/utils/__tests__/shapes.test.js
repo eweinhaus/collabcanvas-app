@@ -12,9 +12,11 @@ import {
   DEFAULT_RECT_SIZE,
   DEFAULT_CIRCLE_RADIUS,
   DEFAULT_TEXT_SIZE,
+  DEFAULT_TRIANGLE_SIZE,
   createRectangle,
   createCircle,
   createText,
+  createTriangle,
   createShape,
 } from '../shapes';
 
@@ -24,6 +26,7 @@ describe('Shape Utilities', () => {
       expect(SHAPE_TYPES.RECT).toBe('rect');
       expect(SHAPE_TYPES.CIRCLE).toBe('circle');
       expect(SHAPE_TYPES.TEXT).toBe('text');
+      expect(SHAPE_TYPES.TRIANGLE).toBe('triangle');
     });
   });
 
@@ -134,6 +137,32 @@ describe('Shape Utilities', () => {
     });
   });
 
+  describe('createTriangle', () => {
+    it('should create a triangle with default properties centered at given position', () => {
+      const tri = createTriangle(200, 100);
+      expect(tri).toHaveProperty('id');
+      expect(tri.type).toBe(SHAPE_TYPES.TRIANGLE);
+      expect(tri.width).toBe(DEFAULT_TRIANGLE_SIZE.width);
+      expect(tri.height).toBe(DEFAULT_TRIANGLE_SIZE.height);
+      // Centering: x = 200 - 50, y = 100 - 50 by default sizes
+      expect(tri.x).toBe(200 - DEFAULT_TRIANGLE_SIZE.width / 2);
+      expect(tri.y).toBe(100 - DEFAULT_TRIANGLE_SIZE.height / 2);
+      expect(tri.fill).toMatch(/^#[0-9A-F]{6}$/i);
+      expect(tri.stroke).toBe('#000000');
+      expect(tri.strokeWidth).toBe(2);
+      expect(tri.draggable).toBe(true);
+    });
+
+    it('should accept override properties and center accordingly', () => {
+      const tri = createTriangle(300, 300, { width: 150, height: 60, fill: '#123456' });
+      expect(tri.width).toBe(150);
+      expect(tri.height).toBe(60);
+      expect(tri.fill).toBe('#123456');
+      expect(tri.x).toBe(225); // 300 - 150/2
+      expect(tri.y).toBe(270); // 300 - 60/2
+    });
+  });
+
   describe('createShape', () => {
     it('should create a rectangle when type is rect', () => {
       const shape = createShape(SHAPE_TYPES.RECT, 100, 200);
@@ -157,6 +186,13 @@ describe('Shape Utilities', () => {
       
       expect(shape.type).toBe(SHAPE_TYPES.TEXT);
       expect(shape.text).toBeDefined();
+    });
+
+    it('should create a triangle when type is triangle', () => {
+      const shape = createShape(SHAPE_TYPES.TRIANGLE, 100, 200);
+      expect(shape.type).toBe(SHAPE_TYPES.TRIANGLE);
+      expect(shape.width).toBeDefined();
+      expect(shape.height).toBeDefined();
     });
 
     it('should throw error for unknown shape type', () => {

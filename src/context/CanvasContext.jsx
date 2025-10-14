@@ -336,7 +336,7 @@ export const CanvasProvider = ({ children }) => {
     }
     const unsubscribe = subscribeToPresence({
       boardId,
-      excludeUid: uid,
+      excludeUid: null, // Include current user to show "(You)" label
       onUpdate: (users) => {
         dispatch({ type: CANVAS_ACTIONS.SET_ONLINE_USERS, payload: users });
       },

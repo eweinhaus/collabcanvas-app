@@ -1,11 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import Sidebar from '../Sidebar';
 
+// Mock AuthContext
+jest.mock('../../../context/AuthContext', () => ({
+  useAuth: jest.fn(() => ({ user: { uid: 'test-user-123' } })),
+}));
+
 // Mock PresenceList
 jest.mock('../../collaboration/PresenceList', () => {
-  return function PresenceList({ users, className }) {
+  return function PresenceList({ users, className, currentUserId }) {
     return (
-      <div data-testid="presence-list" className={className}>
+      <div data-testid="presence-list" className={className} data-current-user={currentUserId}>
         {users.length} users
       </div>
     );
