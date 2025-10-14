@@ -29,8 +29,12 @@ dist-ssr
 .env.production
 
 # Firebase
-firebase.json
 .firebase/
+
+# Test coverage and reports
+coverage/
+test-results/
+playwright-report/
 
 # Markdown files (except README.md)
 *.md
