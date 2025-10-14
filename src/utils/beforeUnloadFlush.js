@@ -22,13 +22,8 @@ export function flushEditBuffersBeforeUnload() {
       }
     });
 
-    // If there are buffers, signal they exist (actual flush handled by backend/service)
-    // For now, we just log and clear them since Firestore flush is async
+    // If there are buffers, clear session storage so they don't re-hydrate incorrectly
     if (buffers.length > 0) {
-      // eslint-disable-next-line no-console
-      console.log('[beforeUnload] Flushing edit buffers:', buffers);
-      
-      // Clear session storage so they don't re-hydrate incorrectly
       keys.forEach((key) => {
         if (key.startsWith('editBuffer:')) {
           sessionStorage.removeItem(key);

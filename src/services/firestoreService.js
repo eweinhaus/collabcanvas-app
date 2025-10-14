@@ -67,8 +67,6 @@ export async function createShape(shape, boardId = DEFAULT_BOARD_ID) {
   try {
     const ref = shapeDocRef(shape.id, boardId);
     const payload = toFirestoreDoc(shape);
-    // eslint-disable-next-line no-console
-    console.log('[firestoreService] Creating shape:', { shapeId: shape.id, uid: auth.currentUser?.uid, payload });
     await runTransaction(firestore, async (tx) => {
       const snap = await tx.get(ref);
       if (!snap.exists()) {
@@ -82,8 +80,6 @@ export async function createShape(shape, boardId = DEFAULT_BOARD_ID) {
         tx.update(ref, payload);
       }
     });
-    // eslint-disable-next-line no-console
-    console.log('[firestoreService] Shape created successfully:', shape.id);
     return { id: shape.id };
   } catch (error) {
     // eslint-disable-next-line no-console

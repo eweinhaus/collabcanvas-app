@@ -30,11 +30,6 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
 
   const { shapes, selectedId, currentTool, scale, position, stageSize, loadingShapes } = state;
 
-  // Log remote cursors when they change
-  useEffect(() => {
-    console.log('[Canvas] Remote cursors updated:', remoteCursors.length, 'cursors', remoteCursors);
-  }, [remoteCursors]);
-
   // Presence subscription lifecycle tied to Canvas mount
   useRealtimePresence({ boardId });
 

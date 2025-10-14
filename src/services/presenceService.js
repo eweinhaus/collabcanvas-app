@@ -18,7 +18,6 @@ export function setPresence({
   lastActive = serverTimestamp(),
 } = {}) {
   if (!uid) {
-    console.warn('[presenceService] setPresence called without uid');
     return Promise.resolve();
   }
   const payload = {
@@ -29,8 +28,6 @@ export function setPresence({
     status: 'online',
     updatedAt: serverTimestamp(),
   };
-  // eslint-disable-next-line no-console
-  console.log('[presenceService] Setting presence:', { uid, boardId });
   return set(presenceRef(uid, boardId), payload).catch((err) => {
     // eslint-disable-next-line no-console
     console.error('[presenceService] Error setting presence:', err);
@@ -45,8 +42,6 @@ export function subscribeToPresence({
   onUpdate,
   onError,
 } = {}) {
-  // eslint-disable-next-line no-console
-  console.log('[presenceService] Subscribing to presence:', { boardId, excludeUid });
   const refToUse = presencesRef(boardId);
   const unsubscribe = onValue(
     refToUse,
@@ -58,8 +53,6 @@ export function subscribeToPresence({
         if (excludeUid && child.key === excludeUid) return;
         users.push({ uid: child.key, ...value });
       });
-      // eslint-disable-next-line no-console
-      console.log('[presenceService] Presence update received:', users.length, 'users');
       onUpdate?.(users);
     },
     (error) => {
@@ -71,19 +64,14 @@ export function subscribeToPresence({
   );
 
   return () => {
-    // eslint-disable-next-line no-console
-    console.log('[presenceService] Unsubscribing from presence');
     unsubscribe();
   };
 }
 
 export function removePresence({ uid, boardId = DEFAULT_BOARD_ID } = {}) {
   if (!uid) {
-    console.warn('[presenceService] removePresence called without uid');
     return Promise.resolve();
   }
-  // eslint-disable-next-line no-console
-  console.log('[presenceService] Removing presence:', { uid, boardId });
   return remove(presenceRef(uid, boardId)).catch((err) => {
     // eslint-disable-next-line no-console
     console.error('[presenceService] Error removing presence:', err);
@@ -93,11 +81,8 @@ export function removePresence({ uid, boardId = DEFAULT_BOARD_ID } = {}) {
 
 export function registerDisconnectCleanup({ uid, boardId = DEFAULT_BOARD_ID } = {}) {
   if (!uid) {
-    console.warn('[presenceService] registerDisconnectCleanup called without uid');
     return () => {};
   }
-  // eslint-disable-next-line no-console
-  console.log('[presenceService] Registering disconnect cleanup:', { uid, boardId });
   const refToUse = presenceRef(uid, boardId);
   const disconnect = onDisconnect(refToUse);
   disconnect.remove().catch((err) => {
@@ -105,8 +90,6 @@ export function registerDisconnectCleanup({ uid, boardId = DEFAULT_BOARD_ID } = 
     console.error('[presenceService] Error setting disconnect handler:', err);
   });
   return () => {
-    // eslint-disable-next-line no-console
-    console.log('[presenceService] Cancelling disconnect cleanup:', { uid, boardId });
     disconnect.cancel().catch(() => {});
   };
 }

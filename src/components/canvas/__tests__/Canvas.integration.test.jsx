@@ -21,7 +21,13 @@ jest.mock('react-konva', () => ({
 
 // Mock firebase config to avoid import.meta.env in tests
 jest.mock('../../../services/firebase', () => ({
-  auth: {},
+  auth: {
+    onAuthStateChanged: (callback) => {
+      // Immediately call with a mock user to simulate authenticated state
+      callback({ uid: 'test-user-123' });
+      return jest.fn(); // Return unsubscribe function
+    }
+  },
   firestore: {},
   realtimeDB: {},
   googleProvider: {},
