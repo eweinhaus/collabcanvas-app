@@ -1,4 +1,5 @@
 import PresenceList from '../collaboration/PresenceList';
+import AIPrompt from '../ai/AIPrompt';
 import { useAuth } from '../../context/AuthContext';
 import './Sidebar.css';
 
@@ -7,6 +8,7 @@ const Sidebar = ({ open, users = [] }) => {
   return (
     <aside className={`sidebar ${open ? 'sidebar--open' : ''}`} role="complementary" aria-label="Sidebar">
       <div className="sidebar__content">
+        <AIPrompt />
         <PresenceList users={users} currentUserId={user?.uid || null} className="sidebar__presence" />
       </div>
     </aside>

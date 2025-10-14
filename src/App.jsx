@@ -6,14 +6,18 @@ import Toolbar from './components/canvas/Toolbar'
 import Header from './components/layout/Header'
 import Sidebar from './components/layout/Sidebar'
 import Spinner from './components/common/Spinner'
+import ToastContainer from './components/common/ToastContainer'
 import { useCanvas } from './context/CanvasContext'
 import { CanvasProvider } from './context/CanvasContext'
+import { AIProvider, useAI } from './context/AIContext'
 import { useAuth } from './context/AuthContext'
 
 function App() {
   return (
     <CanvasProvider>
-      <AppShell />
+      <AIProvider>
+        <AppShell />
+      </AIProvider>
     </CanvasProvider>
   )
 }
@@ -21,6 +25,7 @@ function App() {
 function AppShell() {
   const { state: { onlineUsers, loadingShapes } } = useCanvas();
   const { loading: authLoading } = useAuth();
+  const { toast } = useAI();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleMenuToggle = () => {
@@ -32,6 +37,7 @@ function AppShell() {
   return (
     <div className="app">
       <Header onMenuToggle={handleMenuToggle} />
+      <ToastContainer toasts={toast.toasts} onDismiss={toast.dismiss} />
       <PrivateRoute>
         <main className="app-main">
           {isLoading ? (

@@ -6,6 +6,13 @@ jest.mock('../../../context/AuthContext', () => ({
   useAuth: jest.fn(() => ({ user: { uid: 'test-user-123' } })),
 }));
 
+// Mock AIPrompt component
+jest.mock('../../ai/AIPrompt', () => {
+  return function AIPrompt() {
+    return <div data-testid="ai-prompt">AI Prompt</div>;
+  };
+});
+
 // Mock PresenceList
 jest.mock('../../collaboration/PresenceList', () => {
   return function PresenceList({ users, className, currentUserId }) {
@@ -24,6 +31,7 @@ describe('Sidebar', () => {
     const sidebar = screen.getByRole('complementary');
     expect(sidebar).toHaveClass('sidebar');
     expect(sidebar).not.toHaveClass('sidebar--open');
+    expect(screen.getByTestId('ai-prompt')).toBeInTheDocument();
   });
 
   it('renders with open state when open prop is true', () => {
@@ -31,6 +39,7 @@ describe('Sidebar', () => {
     
     const sidebar = screen.getByRole('complementary');
     expect(sidebar).toHaveClass('sidebar--open');
+    expect(screen.getByTestId('ai-prompt')).toBeInTheDocument();
   });
 
   it('renders PresenceList with users', () => {
