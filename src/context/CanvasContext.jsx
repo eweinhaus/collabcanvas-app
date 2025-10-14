@@ -9,6 +9,7 @@ import { throttle } from '../utils/throttle';
 import { setCursorPosition, subscribeToCursors, removeCursor, registerDisconnectCleanup } from '../services/realtimeCursorService';
 import { subscribeToPresence } from '../services/presenceService';
 import { registerBeforeUnloadFlush } from '../utils/beforeUnloadFlush';
+import { auth } from '../services/firebase';
 
 const DEFAULT_BOARD_ID = 'default';
 
@@ -257,14 +258,25 @@ export const CanvasProvider = ({ children }) => {
     return cleanup;
   }, []);
 
-  // Initial load then subscribe
+  // Initial load then subscribe - WAIT FOR AUTH FIRST
   useEffect(() => {
     let isMounted = true;
 
-    (async () => {
+    // Wait for auth to be ready before loading shapes
+    const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        // User not authenticated, clear shapes and wait
+        console.log('[CanvasContext] User not authenticated, skipping shape load');
+        dispatch({ type: CANVAS_ACTIONS.SET_LOADING_SHAPES, payload: false });
+        return;
+      }
+
+      // User is authenticated, proceed with loading shapes
+      console.log('[CanvasContext] User authenticated, loading shapes...');
       try {
         dispatch({ type: CANVAS_ACTIONS.SET_LOADING_SHAPES, payload: true });
         let initial = await getAllShapes();
+        console.log('[CanvasContext] Loaded initial shapes:', initial.length);
         try {
           initial = initial.map((s) => {
             const bufRaw = sessionStorage.getItem(`editBuffer:${s.id}`);
@@ -304,10 +316,11 @@ export const CanvasProvider = ({ children }) => {
         console.error('Failed to initialize Firestore sync', err);
         dispatch({ type: CANVAS_ACTIONS.SET_LOADING_SHAPES, payload: false });
       }
-    })();
+    });
 
     return () => {
       isMounted = false;
+      unsubscribeAuth();
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
         unsubscribeRef.current = null;
