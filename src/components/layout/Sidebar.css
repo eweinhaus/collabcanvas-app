@@ -16,10 +16,22 @@
 
 .sidebar__content {
   padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .sidebar__presence {
   width: 100%;
+}
+
+/* AI components spacing */
+.sidebar__content > * {
+  flex-shrink: 0;
+}
+
+.sidebar__content .ai-history {
+  margin-bottom: 0.5rem;
 }
 
 /* Mobile: slide-in behavior */

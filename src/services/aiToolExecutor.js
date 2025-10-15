@@ -7,6 +7,7 @@
 
 import { createShape, SHAPE_TYPES } from '../utils/shapes';
 import { normalizeColor } from '../utils/colorNormalizer';
+import { identifyShape } from '../utils/shapeIdentification';
 
 /**
  * Map AI tool shape types to canvas shape types
@@ -16,6 +17,77 @@ const TOOL_TYPE_TO_SHAPE_TYPE = {
   'rectangle': SHAPE_TYPES.RECT,
   'text': SHAPE_TYPES.TEXT,
   'triangle': SHAPE_TYPES.TRIANGLE,
+};
+
+/**
+ * Resolve shape ID from args (either explicit ID or descriptor)
+ * @param {Object} args - Tool arguments that may contain id, color, type, etc.
+ * @param {Object} canvasState - Canvas state with shapes array
+ * @returns {Object} { success, shapeId, shape, error }
+ */
+const resolveShapeId = (args, canvasState) => {
+  // If ID is explicitly provided, use it directly
+  if (args.id) {
+    const shape = canvasState.shapes.find((s) => s.id === args.id);
+    if (shape) {
+      return { success: true, shapeId: args.id, shape };
+    } else {
+      return { success: false, error: `Shape with ID "${args.id}" not found` };
+    }
+  }
+
+  // Otherwise, try to identify by descriptor
+  const descriptor = {
+    color: args.color,
+    type: args.type,
+    position: args.position,
+    index: args.index,
+  };
+
+  const result = identifyShape(canvasState.shapes, descriptor);
+  
+  if (result.success && result.shape) {
+    return {
+      success: true,
+      shapeId: result.shape.id,
+      shape: result.shape,
+    };
+  } else {
+    return {
+      success: false,
+      error: result.error || 'Could not identify shape',
+    };
+  }
+};
+
+/**
+ * Resolve multiple shape IDs for bulk operations
+ * @param {Object} args - Tool arguments
+ * @param {Object} canvasState - Canvas state with shapes array
+ * @returns {Object} { success, shapes, count, error }
+ */
+const resolveMultipleShapes = (args, canvasState) => {
+  const descriptor = {
+    color: args.color,
+    type: args.type,
+    all: true, // Always get all matches for bulk operations
+  };
+
+  const result = identifyShape(canvasState.shapes, descriptor);
+  
+  if (result.success && result.shapes && result.shapes.length > 0) {
+    return {
+      success: true,
+      shapes: result.shapes,
+      count: result.count,
+    };
+  } else {
+    return {
+      success: false,
+      error: result.error || 'Could not identify shapes',
+      count: 0,
+    };
+  }
 };
 
 /**
@@ -107,7 +179,7 @@ export const executeCreateShape = async (args, canvasActions) => {
  * Execute getCanvasState tool call
  * @param {Object} args - Tool call arguments (unused)
  * @param {Object} canvasState - Canvas state from context
- * @returns {Promise<Object>} Result with canvas state
+ * @returns {Promise<Object>} Result with canvas state (enhanced with full properties)
  */
 export const executeGetCanvasState = async (args, canvasState) => {
   try {
@@ -120,27 +192,34 @@ export const executeGetCanvasState = async (args, canvasState) => {
       return timeB - timeA; // Descending order (newest first)
     });
 
-    // Return simplified shape data with timestamps
-    const simplifiedShapes = sortedShapes.map((shape, index) => ({
+    // Return full shape data with all properties for context-aware identification
+    const enhancedShapes = sortedShapes.map((shape, index) => ({
       id: shape.id,
       type: shape.type,
       x: Math.round(shape.x),
       y: Math.round(shape.y),
-      color: shape.fill || shape.color,
+      fill: shape.fill,
+      stroke: shape.stroke,
+      color: shape.fill || shape.color, // Alias for easier access
       isRecent: index === 0, // Mark the most recent shape
+      rotation: shape.rotation || 0,
       ...(shape.radius && { radius: Math.round(shape.radius) }),
       ...(shape.width && { width: Math.round(shape.width) }),
       ...(shape.height && { height: Math.round(shape.height) }),
       ...(shape.text && { text: shape.text }),
+      ...(shape.fontSize && { fontSize: shape.fontSize }),
+      ...(shape.createdBy && { createdBy: shape.createdBy }),
+      ...(shape.updatedBy && { updatedBy: shape.updatedBy }),
       ...(shape.createdAt && { createdAt: shape.createdAt }),
+      ...(shape.updatedAt && { updatedAt: shape.updatedAt }),
     }));
 
     return {
       success: true,
       canvasState: {
         shapeCount: shapes.length,
-        shapes: simplifiedShapes,
-        mostRecentId: simplifiedShapes[0]?.id,
+        shapes: enhancedShapes,
+        mostRecentId: enhancedShapes[0]?.id,
       },
       message: `Canvas has ${shapes.length} shape(s)`,
     };
@@ -155,7 +234,7 @@ export const executeGetCanvasState = async (args, canvasState) => {
 
 /**
  * Execute moveShape tool call
- * @param {Object} args - Tool call arguments { id, x, y }
+ * @param {Object} args - Tool call arguments { id, x, y } or { color, type, x, y }
  * @param {Object} canvasActions - Canvas context actions
  * @param {Object} canvasState - Canvas state to verify shape exists
  * @returns {Promise<Object>} Result with success status
@@ -163,9 +242,6 @@ export const executeGetCanvasState = async (args, canvasState) => {
 export const executeMoveShape = async (args, canvasActions, canvasState) => {
   try {
     // Validate required parameters
-    if (!args.id) {
-      throw new Error('Shape ID is required');
-    }
     if (typeof args.x !== 'number' || typeof args.y !== 'number') {
       throw new Error('Valid x and y coordinates are required');
     }
@@ -173,14 +249,16 @@ export const executeMoveShape = async (args, canvasActions, canvasState) => {
       throw new Error('Coordinates must be non-negative (>= 0)');
     }
 
-    // Verify shape exists
-    const shape = canvasState.shapes.find((s) => s.id === args.id);
-    if (!shape) {
-      throw new Error(`Shape with ID "${args.id}" not found`);
+    // Resolve shape ID (from explicit ID or descriptor)
+    const resolution = resolveShapeId(args, canvasState);
+    if (!resolution.success) {
+      throw new Error(resolution.error);
     }
 
+    const { shapeId, shape } = resolution;
+
     // Update shape position
-    await canvasActions.updateShape(args.id, {
+    await canvasActions.updateShape(shapeId, {
       x: args.x,
       y: args.y,
     });
@@ -200,7 +278,7 @@ export const executeMoveShape = async (args, canvasActions, canvasState) => {
 
 /**
  * Execute updateShapeColor tool call
- * @param {Object} args - Tool call arguments { id, color }
+ * @param {Object} args - Tool call arguments { id, color } or { color, type, newColor }
  * @param {Object} canvasActions - Canvas context actions
  * @param {Object} canvasState - Canvas state to verify shape exists
  * @returns {Promise<Object>} Result with success status
@@ -208,35 +286,35 @@ export const executeMoveShape = async (args, canvasActions, canvasState) => {
 export const executeUpdateShapeColor = async (args, canvasActions, canvasState) => {
   try {
     // Validate required parameters
-    if (!args.id) {
-      throw new Error('Shape ID is required');
-    }
-    if (!args.color) {
+    const targetColor = args.newColor || args.color;
+    if (!targetColor) {
       throw new Error('Color is required');
     }
 
-    // Verify shape exists
-    const shape = canvasState.shapes.find((s) => s.id === args.id);
-    if (!shape) {
-      throw new Error(`Shape with ID "${args.id}" not found`);
+    // Resolve shape ID (from explicit ID or descriptor)
+    const resolution = resolveShapeId(args, canvasState);
+    if (!resolution.success) {
+      throw new Error(resolution.error);
     }
+
+    const { shapeId, shape } = resolution;
 
     // Normalize color
     let normalizedColor;
     try {
-      normalizedColor = normalizeColor(args.color);
+      normalizedColor = normalizeColor(targetColor);
     } catch (error) {
-      throw new Error(`Invalid color: ${args.color}. ${error.message}`);
+      throw new Error(`Invalid color: ${targetColor}. ${error.message}`);
     }
 
     // Update shape color
-    await canvasActions.updateShape(args.id, {
+    await canvasActions.updateShape(shapeId, {
       fill: normalizedColor,
     });
 
     return {
       success: true,
-      message: `Changed ${shape.type} color to ${args.color}`,
+      message: `Changed ${shape.type} color to ${targetColor}`,
     };
   } catch (error) {
     return {
@@ -249,26 +327,23 @@ export const executeUpdateShapeColor = async (args, canvasActions, canvasState) 
 
 /**
  * Execute deleteShape tool call
- * @param {Object} args - Tool call arguments { id }
+ * @param {Object} args - Tool call arguments { id } or { color, type }
  * @param {Object} canvasActions - Canvas context actions
  * @param {Object} canvasState - Canvas state to verify shape exists
  * @returns {Promise<Object>} Result with success status
  */
 export const executeDeleteShape = async (args, canvasActions, canvasState) => {
   try {
-    // Validate required parameters
-    if (!args.id) {
-      throw new Error('Shape ID is required');
+    // Resolve shape ID (from explicit ID or descriptor)
+    const resolution = resolveShapeId(args, canvasState);
+    if (!resolution.success) {
+      throw new Error(resolution.error);
     }
 
-    // Verify shape exists
-    const shape = canvasState.shapes.find((s) => s.id === args.id);
-    if (!shape) {
-      throw new Error(`Shape with ID "${args.id}" not found`);
-    }
+    const { shapeId, shape } = resolution;
 
     // Delete the shape
-    await canvasActions.deleteShape(args.id);
+    await canvasActions.deleteShape(shapeId);
 
     return {
       success: true,
@@ -285,7 +360,7 @@ export const executeDeleteShape = async (args, canvasActions, canvasState) => {
 
 /**
  * Execute rotateShape tool call
- * @param {Object} args - Tool call arguments { id, rotation }
+ * @param {Object} args - Tool call arguments { id, rotation } or { color, type, rotation }
  * @param {Object} canvasActions - Canvas context actions
  * @param {Object} canvasState - Canvas state to verify shape exists
  * @returns {Promise<Object>} Result with success status
@@ -293,9 +368,6 @@ export const executeDeleteShape = async (args, canvasActions, canvasState) => {
 export const executeRotateShape = async (args, canvasActions, canvasState) => {
   try {
     // Validate required parameters
-    if (!args.id) {
-      throw new Error('Shape ID is required');
-    }
     if (typeof args.rotation !== 'number') {
       throw new Error('Valid rotation angle is required');
     }
@@ -303,14 +375,16 @@ export const executeRotateShape = async (args, canvasActions, canvasState) => {
       throw new Error('Rotation must be between 0 and 359 degrees');
     }
 
-    // Verify shape exists
-    const shape = canvasState.shapes.find((s) => s.id === args.id);
-    if (!shape) {
-      throw new Error(`Shape with ID "${args.id}" not found`);
+    // Resolve shape ID (from explicit ID or descriptor)
+    const resolution = resolveShapeId(args, canvasState);
+    if (!resolution.success) {
+      throw new Error(resolution.error);
     }
 
+    const { shapeId, shape } = resolution;
+
     // Update shape rotation
-    await canvasActions.updateShape(args.id, {
+    await canvasActions.updateShape(shapeId, {
       rotation: args.rotation,
     });
 
