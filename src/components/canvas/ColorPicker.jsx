@@ -2,11 +2,29 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import './ColorPicker.css';
 
+// Color palette matching AI-supported color names
+// Users can create shapes with these colors and AI will recognize them by name
 const COLORS = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
-  '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B500', '#52B788',
-  '#E63946', '#A8DADC', '#457B9D', '#1D3557', '#F1FAEE',
-  '#264653', '#2A9D8F', '#E9C46A', '#F4A261', '#E76F51',
+  '#ff0000', // red
+  '#0000ff', // blue
+  '#008000', // green
+  '#ffff00', // yellow
+  '#ffa500', // orange
+  '#800080', // purple
+  '#ffc0cb', // pink
+  '#00ffff', // cyan
+  '#a52a2a', // brown
+  '#808080', // gray
+  '#000000', // black
+  '#ffffff', // white
+  '#ff00ff', // magenta
+  '#00ff00', // lime
+  '#1e90ff', // dodgerblue
+  '#ff69b4', // hotpink
+  '#dc143c', // crimson
+  '#32cd32', // limegreen
+  '#4682b4', // steelblue
+  '#9370db', // mediumpurple
 ];
 
 const ColorPicker = ({ isOpen, onClose, onSelectColor, x, y }) => {

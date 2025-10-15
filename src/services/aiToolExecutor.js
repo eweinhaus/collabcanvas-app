@@ -8,6 +8,8 @@
 import { createShape, SHAPE_TYPES } from '../utils/shapes';
 import { normalizeColor } from '../utils/colorNormalizer';
 import { identifyShape } from '../utils/shapeIdentification';
+import { generateGrid, DEFAULT_GRID_CONFIG } from '../utils/gridGenerator';
+import { batchCreateShapes, validateBatchSize } from '../utils/batchCreateShapes';
 
 /**
  * Map AI tool shape types to canvas shape types
@@ -245,9 +247,7 @@ export const executeMoveShape = async (args, canvasActions, canvasState) => {
     if (typeof args.x !== 'number' || typeof args.y !== 'number') {
       throw new Error('Valid x and y coordinates are required');
     }
-    if (args.x < 0 || args.y < 0) {
-      throw new Error('Coordinates must be non-negative (>= 0)');
-    }
+    // Note: Negative coordinates are now allowed for positioning shapes off-canvas
 
     // Resolve shape ID (from explicit ID or descriptor)
     const resolution = resolveShapeId(args, canvasState);
@@ -402,6 +402,102 @@ export const executeRotateShape = async (args, canvasActions, canvasState) => {
 };
 
 /**
+ * Execute createGrid tool call
+ * @param {Object} args - Tool call arguments { rows, cols, shapeType, color, originX, originY, spacing, size }
+ * @param {Object} canvasActions - Canvas context actions (not used for batch operations)
+ * @returns {Promise<Object>} Result with success status and created shapes
+ */
+export const executeCreateGrid = async (args, canvasActions) => {
+  try {
+    // Set defaults for optional parameters
+    const rows = args.rows;
+    const cols = args.cols;
+    const shapeType = args.shapeType;
+    const color = args.color;
+    const originX = args.originX ?? 200;
+    const originY = args.originY ?? 200;
+    const spacing = args.spacing ?? DEFAULT_GRID_CONFIG.spacing;
+    const size = args.size ?? DEFAULT_GRID_CONFIG.shapeSize;
+
+    // Validate required parameters
+    if (!rows || !cols || !shapeType || !color) {
+      throw new Error('rows, cols, shapeType, and color are required');
+    }
+
+    // Map tool shape type to canvas shape type
+    const TOOL_TYPE_TO_SHAPE_TYPE = {
+      'circle': SHAPE_TYPES.CIRCLE,
+      'rectangle': SHAPE_TYPES.RECT,
+      'text': SHAPE_TYPES.TEXT,
+      'triangle': SHAPE_TYPES.TRIANGLE,
+    };
+
+    const mappedShapeType = TOOL_TYPE_TO_SHAPE_TYPE[shapeType];
+    if (!mappedShapeType) {
+      throw new Error(`Unknown shape type: ${shapeType}`);
+    }
+
+    // Normalize color
+    let normalizedColor;
+    try {
+      normalizedColor = normalizeColor(color);
+    } catch (error) {
+      throw new Error(`Invalid color: ${color}. ${error.message}`);
+    }
+
+    // Calculate total shapes
+    const totalShapes = rows * cols;
+
+    // Validate batch size
+    const validation = validateBatchSize(totalShapes);
+    if (!validation.safe) {
+      throw new Error(validation.reason);
+    }
+
+    // Generate grid configuration
+    const shapeProps = {};
+    if (mappedShapeType === SHAPE_TYPES.CIRCLE) {
+      shapeProps.radius = size;
+    } else if (mappedShapeType === SHAPE_TYPES.RECT || mappedShapeType === SHAPE_TYPES.TRIANGLE) {
+      shapeProps.width = size * 2;
+      shapeProps.height = size * 2;
+    } else if (mappedShapeType === SHAPE_TYPES.TEXT) {
+      shapeProps.width = 100;
+      shapeProps.height = 30;
+      shapeProps.fontSize = 16;
+      // Text will be set by gridGenerator to show grid position
+    }
+
+    const gridConfigs = generateGrid({
+      rows,
+      cols,
+      spacing,
+      originX,
+      originY,
+      shapeType: mappedShapeType,
+      color: normalizedColor,
+      shapeProps,
+    });
+
+    // Batch create all shapes (uses Firestore batch writes internally)
+    const createdShapes = await batchCreateShapes(gridConfigs);
+
+    return {
+      success: true,
+      shapes: createdShapes,
+      count: createdShapes.length,
+      message: `Created ${rows}×${cols} grid of ${shapeType}s (${totalShapes} shapes)`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      message: `Failed to create grid: ${error.message}`,
+    };
+  }
+};
+
+/**
  * Execute a tool call from OpenAI
  * @param {string} toolName - Name of the tool to execute
  * @param {Object} args - Tool arguments
@@ -430,6 +526,9 @@ export const executeToolCall = async (toolName, args, context) => {
     case 'rotateShape':
       return await executeRotateShape(args, canvasActions, canvasState);
     
+    case 'createGrid':
+      return await executeCreateGrid(args, canvasActions);
+    
     default:
       return {
         success: false,
@@ -446,6 +545,7 @@ export default {
   executeUpdateShapeColor,
   executeDeleteShape,
   executeRotateShape,
+  executeCreateGrid,
   executeToolCall,
 };
 

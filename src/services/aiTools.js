@@ -28,13 +28,11 @@ export const createShapeTool = {
         },
         x: {
           type: 'number',
-          description: 'The x-coordinate position on the canvas (must be >= 0). Default: 200',
-          minimum: 0
+          description: 'The x-coordinate position on the canvas. Negative values place shapes off-canvas to the left/top. Default: 200'
         },
         y: {
           type: 'number',
-          description: 'The y-coordinate position on the canvas (must be >= 0). Default: 200',
-          minimum: 0
+          description: 'The y-coordinate position on the canvas. Negative values place shapes off-canvas to the left/top. Default: 200'
         },
         width: {
           type: 'number',
@@ -103,13 +101,11 @@ export const moveShapeTool = {
         },
         x: {
           type: 'number',
-          description: 'The new x-coordinate position on the canvas (must be >= 0)',
-          minimum: 0
+          description: 'The new x-coordinate position on the canvas. Negative values place shapes off-canvas to the left/top'
         },
         y: {
           type: 'number',
-          description: 'The new y-coordinate position on the canvas (must be >= 0)',
-          minimum: 0
+          description: 'The new y-coordinate position on the canvas. Negative values place shapes off-canvas to the left/top'
         }
       },
       required: ['x', 'y']
@@ -218,6 +214,64 @@ export const rotateShapeTool = {
 };
 
 /**
+ * Tool for creating a grid of shapes
+ */
+export const createGridTool = {
+  type: 'function',
+  function: {
+    name: 'createGrid',
+    description: 'Creates a grid of identical shapes on the canvas. Use this when the user wants to create multiple shapes arranged in rows and columns. Supports circles, rectangles, triangles, and text.',
+    parameters: {
+      type: 'object',
+      properties: {
+        rows: {
+          type: 'integer',
+          description: 'Number of rows in the grid (1-20)',
+          minimum: 1,
+          maximum: 20
+        },
+        cols: {
+          type: 'integer',
+          description: 'Number of columns in the grid (1-20)',
+          minimum: 1,
+          maximum: 20
+        },
+        shapeType: {
+          type: 'string',
+          enum: ['circle', 'rectangle', 'text', 'triangle'],
+          description: 'Type of shape to create in the grid'
+        },
+        color: {
+          type: 'string',
+          description: 'Color for all shapes in the grid. Must be a CSS color name (red, blue, green, yellow, orange, purple, pink, etc.) or hex format (#RRGGBB)'
+        },
+        originX: {
+          type: 'number',
+          description: 'Starting X coordinate (top-left corner of grid). Negative values place grid off-canvas to the left. Default: 200'
+        },
+        originY: {
+          type: 'number',
+          description: 'Starting Y coordinate (top-left corner of grid). Negative values place grid off-canvas at the top. Default: 200'
+        },
+        spacing: {
+          type: 'number',
+          description: 'Spacing between shape centers in pixels (10-500). Default: 120',
+          minimum: 10,
+          maximum: 500
+        },
+        size: {
+          type: 'number',
+          description: 'Size of shapes. For circles: radius. For rectangles/triangles: both width and height. Default: 50',
+          minimum: 10,
+          maximum: 200
+        }
+      },
+      required: ['rows', 'cols', 'shapeType', 'color']
+    }
+  }
+};
+
+/**
  * Registry of all available tools
  * Add new tools here as they are implemented
  */
@@ -227,7 +281,8 @@ export const TOOLS = {
   moveShape: moveShapeTool,
   updateShapeColor: updateShapeColorTool,
   deleteShape: deleteShapeTool,
-  rotateShape: rotateShapeTool
+  rotateShape: rotateShapeTool,
+  createGrid: createGridTool
 };
 
 /**

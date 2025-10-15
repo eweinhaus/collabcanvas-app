@@ -1,4 +1,26 @@
-import { COLOR_PALETTE } from './colors';
+/**
+ * Cursor and Presence Color Palette
+ * Separate from shape colors to maintain distinct, vibrant cursor colors
+ * for better user identification in collaborative sessions
+ */
+const CURSOR_COLOR_PALETTE = [
+  '#FF6B6B', // Red
+  '#4ECDC4', // Teal
+  '#45B7D1', // Blue
+  '#FFA07A', // Light Salmon
+  '#98D8C8', // Mint
+  '#F7DC6F', // Yellow
+  '#BB8FCE', // Purple
+  '#85C1E2', // Light Blue
+  '#F8B88B', // Peach
+  '#AAB7B8', // Gray
+  '#E63946', // Crimson
+  '#A8DADC', // Powder Blue
+  '#457B9D', // Steel Blue
+  '#F4A261', // Sandy Brown
+  '#E76F51', // Terra Cotta
+  '#2A9D8F', // Persian Green
+];
 
 const colorCache = new Map();
 
@@ -10,8 +32,8 @@ export function getColorForUser(uid) {
     hash = (hash << 5) - hash + uid.charCodeAt(i);
     hash |= 0;
   }
-  const index = Math.abs(hash) % COLOR_PALETTE.length;
-  const color = COLOR_PALETTE[index];
+  const index = Math.abs(hash) % CURSOR_COLOR_PALETTE.length;
+  const color = CURSOR_COLOR_PALETTE[index];
   colorCache.set(uid, color);
   return color;
 }

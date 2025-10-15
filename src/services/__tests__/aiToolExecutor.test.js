@@ -9,6 +9,7 @@ import {
   executeUpdateShapeColor,
   executeDeleteShape,
   executeRotateShape,
+  executeCreateGrid,
   executeToolCall 
 } from '../aiToolExecutor';
 import { SHAPE_TYPES } from '../../utils/shapes';
@@ -16,6 +17,31 @@ import { SHAPE_TYPES } from '../../utils/shapes';
 // Mock uuid to avoid ESM issues in Jest
 jest.mock('uuid', () => ({
   v4: () => 'test-uuid-123',
+}));
+
+// Mock Firebase and related dependencies
+jest.mock('firebase/firestore', () => ({
+  writeBatch: jest.fn(() => ({
+    set: jest.fn(),
+    commit: jest.fn().mockResolvedValue(undefined),
+  })),
+  doc: jest.fn(),
+}));
+
+jest.mock('../firebase', () => ({
+  firestore: {},
+  auth: {
+    currentUser: {
+      uid: 'test-user-123',
+    },
+  },
+}));
+
+jest.mock('react-hot-toast', () => ({
+  default: {
+    error: jest.fn(),
+    success: jest.fn(),
+  },
 }));
 
 describe('aiToolExecutor', () => {
@@ -323,18 +349,20 @@ describe('aiToolExecutor', () => {
       expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
     });
 
-    it('should fail when coordinates are negative', async () => {
+    it('should allow negative coordinates (off-canvas positioning)', async () => {
       const args = {
         id: 'shape-1',
         x: -10,
-        y: 300,
+        y: -20,
       };
 
       const result = await executeMoveShape(args, mockCanvasActions, mockCanvasState);
 
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('non-negative');
-      expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      expect(mockCanvasActions.updateShape).toHaveBeenCalledWith('shape-1', {
+        x: -10,
+        y: -20,
+      });
     });
 
     it('should fail when shape does not exist', async () => {
@@ -727,6 +755,280 @@ describe('aiToolExecutor', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Unknown tool');
+    });
+
+    it('should execute createGrid tool', async () => {
+      const args = {
+        rows: 3,
+        cols: 3,
+        shapeType: 'circle',
+        color: 'blue',
+        originX: 200,
+        originY: 200,
+        spacing: 120,
+        size: 50,
+      };
+
+      const result = await executeToolCall('createGrid', args, mockContext);
+
+      expect(result.success).toBe(true);
+      expect(result.count).toBe(9); // 3x3 grid
+      expect(result.shapes).toHaveLength(9);
+      expect(result.message).toContain('3×3 grid');
+    });
+  });
+
+  describe('executeCreateGrid', () => {
+    let mockCanvasActions;
+
+    beforeEach(() => {
+      mockCanvasActions = {
+        addShape: jest.fn().mockResolvedValue(undefined),
+      };
+    });
+
+    it('should create a 3x3 grid of blue squares', async () => {
+      const args = {
+        rows: 3,
+        cols: 3,
+        shapeType: 'rectangle',
+        color: 'blue',
+        originX: 200,
+        originY: 200,
+        spacing: 120,
+        size: 50,
+      };
+
+      const result = await executeCreateGrid(args, mockCanvasActions);
+
+      expect(result.success).toBe(true);
+      expect(result.count).toBe(9);
+      expect(result.shapes).toHaveLength(9);
+      
+      // Verify first shape
+      const firstShape = result.shapes[0];
+      expect(firstShape.type).toBe(SHAPE_TYPES.RECT);
+      expect(firstShape.fill).toBe('#0000ff'); // normalized blue
+      expect(firstShape.width).toBe(100); // size * 2
+      expect(firstShape.height).toBe(100);
+      
+      // Verify last shape position (bottom-right)
+      const lastShape = result.shapes[8];
+      expect(lastShape.x).toBeCloseTo(440 - 50, 0); // originX(200) + (2*spacing(120)) - width/2(50)
+      expect(lastShape.y).toBeCloseTo(440 - 50, 0); // originY(200) + (2*spacing(120)) - height/2(50)
+    });
+
+    it('should create a 2x5 grid of circles', async () => {
+      const args = {
+        rows: 2,
+        cols: 5,
+        shapeType: 'circle',
+        color: 'red',
+        originX: 100,
+        originY: 100,
+        spacing: 100,
+      };
+
+      const result = await executeCreateGrid(args, mockCanvasActions);
+
+      expect(result.success).toBe(true);
+      expect(result.count).toBe(10); // 2x5 grid
+      expect(result.shapes).toHaveLength(10);
+      
+      // All shapes should be circles
+      result.shapes.forEach((shape) => {
+        expect(shape.type).toBe(SHAPE_TYPES.CIRCLE);
+        expect(shape.fill).toBe('#ff0000'); // normalized red
+      });
+    });
+
+    it('should use default values for optional parameters', async () => {
+      const args = {
+        rows: 2,
+        cols: 2,
+        shapeType: 'triangle',
+        color: 'green',
+      };
+
+      const result = await executeCreateGrid(args, mockCanvasActions);
+
+      expect(result.success).toBe(true);
+      expect(result.count).toBe(4);
+      
+      // First shape should be at default origin (200, 200)
+      const firstShape = result.shapes[0];
+      expect(firstShape.x).toBeCloseTo(200 - 50, 0); // Default origin minus half width
+      expect(firstShape.y).toBeCloseTo(200 - 50, 0);
+    });
+
+    it('should fail with missing required parameters', async () => {
+      const args = {
+        rows: 3,
+        cols: 3,
+        // Missing shapeType and color
+      };
+
+      const result = await executeCreateGrid(args, mockCanvasActions);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('required');
+    });
+
+    it('should fail with invalid shape type', async () => {
+      const args = {
+        rows: 2,
+        cols: 2,
+        shapeType: 'invalid',
+        color: 'blue',
+      };
+
+      const result = await executeCreateGrid(args, mockCanvasActions);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Unknown shape type');
+    });
+
+    it('should fail with invalid color', async () => {
+      const args = {
+        rows: 2,
+        cols: 2,
+        shapeType: 'circle',
+        color: 'not-a-color',
+      };
+
+      const result = await executeCreateGrid(args, mockCanvasActions);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Invalid color');
+    });
+
+    it('should fail with grid exceeding max shapes (100)', async () => {
+      const args = {
+        rows: 15,
+        cols: 15,
+        shapeType: 'circle',
+        color: 'blue',
+      };
+
+      const result = await executeCreateGrid(args, mockCanvasActions);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('cannot exceed 100 shapes');
+    });
+
+    it('should create grid with exactly 100 shapes', async () => {
+      const args = {
+        rows: 10,
+        cols: 10,
+        shapeType: 'circle',
+        color: 'purple',
+        spacing: 50,
+        size: 20,
+      };
+
+      const result = await executeCreateGrid(args, mockCanvasActions);
+
+      expect(result.success).toBe(true);
+      expect(result.count).toBe(100);
+      expect(result.shapes).toHaveLength(100);
+    });
+
+    it('should create grid with custom spacing and size', async () => {
+      const args = {
+        rows: 2,
+        cols: 2,
+        shapeType: 'rectangle',
+        color: 'orange',
+        originX: 0,
+        originY: 0,
+        spacing: 200,
+        size: 30,
+      };
+
+      const result = await executeCreateGrid(args, mockCanvasActions);
+
+      expect(result.success).toBe(true);
+      
+      // Check spacing
+      const firstShape = result.shapes[0];
+      const secondShape = result.shapes[1];
+      expect(secondShape.x - firstShape.x).toBeCloseTo(200, 0);
+    });
+
+    it('should create text grid with grid position labels', async () => {
+      const args = {
+        rows: 2,
+        cols: 2,
+        shapeType: 'text',
+        color: 'black',
+      };
+
+      const result = await executeCreateGrid(args, mockCanvasActions);
+
+      expect(result.success).toBe(true);
+      
+      // Text shapes should have grid position as text
+      expect(result.shapes[0].text).toBe('(0,0)');
+      expect(result.shapes[1].text).toBe('(0,1)');
+      expect(result.shapes[2].text).toBe('(1,0)');
+      expect(result.shapes[3].text).toBe('(1,1)');
+    });
+
+    it('should handle single shape grid (1x1)', async () => {
+      const args = {
+        rows: 1,
+        cols: 1,
+        shapeType: 'circle',
+        color: 'yellow',
+        originX: 500,
+        originY: 500,
+      };
+
+      const result = await executeCreateGrid(args, mockCanvasActions);
+
+      expect(result.success).toBe(true);
+      expect(result.count).toBe(1);
+      expect(result.shapes).toHaveLength(1);
+      expect(result.shapes[0].x).toBe(500);
+      expect(result.shapes[0].y).toBe(500);
+    });
+
+    it('should handle single row grid (1xN)', async () => {
+      const args = {
+        rows: 1,
+        cols: 5,
+        shapeType: 'rectangle',
+        color: 'pink',
+        spacing: 80,
+      };
+
+      const result = await executeCreateGrid(args, mockCanvasActions);
+
+      expect(result.success).toBe(true);
+      expect(result.count).toBe(5);
+      
+      // All shapes should have same Y coordinate
+      const yCoords = result.shapes.map(s => s.y);
+      expect(new Set(yCoords).size).toBe(1);
+    });
+
+    it('should handle single column grid (Nx1)', async () => {
+      const args = {
+        rows: 4,
+        cols: 1,
+        shapeType: 'circle',
+        color: 'cyan',
+        spacing: 100,
+      };
+
+      const result = await executeCreateGrid(args, mockCanvasActions);
+
+      expect(result.success).toBe(true);
+      expect(result.count).toBe(4);
+      
+      // All shapes should have same X coordinate
+      const xCoords = result.shapes.map(s => s.x);
+      expect(new Set(xCoords).size).toBe(1);
     });
   });
 });

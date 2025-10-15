@@ -90,7 +90,10 @@ const canvasReducer = (state, action) => {
       const TOLERANCE_MS = 100;
       const existing = state.shapes.find(s => s.id === incoming.id);
       if (!existing) {
-        return { ...state, shapes: [...state.shapes, incoming] };
+        // Add new shape and maintain sort order by createdAt
+        const newShapes = [...state.shapes, incoming];
+        newShapes.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+        return { ...state, shapes: newShapes };
       }
       const existingTs = existing.updatedAt ?? 0;
       const serverTs = incoming.updatedAt ?? 0;
@@ -276,6 +279,8 @@ export const CanvasProvider = ({ children }) => {
             return { ...s, x: buf.x, y: buf.y, updatedAt: Math.max(Date.now(), s.updatedAt ?? 0) };
           });
         } catch (_) {}
+        // Sort shapes by createdAt to ensure consistent z-index across all users
+        initial.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
         if (isMounted) {
           dispatch({ type: CANVAS_ACTIONS.SET_SHAPES, payload: initial });
         }

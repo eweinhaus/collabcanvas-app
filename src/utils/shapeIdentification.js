@@ -118,17 +118,22 @@ export const findByType = (shapes, type) => {
 
   const normalizedType = type.toLowerCase();
   
-  // Handle aliases
-  const typeAliases = {
-    'rect': 'rectangle',
-    'square': 'rectangle',
-    'box': 'rectangle',
+  // Map user-friendly names to possible internal shape types
+  // Handle both 'rect' (actual stored type) and 'rectangle' (user-friendly name)
+  const typeMatches = {
+    'rectangle': ['rect', 'rectangle'],  // Match both internal and user-friendly
+    'square': ['rect', 'rectangle'],
+    'box': ['rect', 'rectangle'],
+    'rect': ['rect', 'rectangle'],  // Also allow direct "rect" matching
+    'circle': ['circle'],
+    'triangle': ['triangle'],
+    'text': ['text'],
   };
 
-  const targetType = typeAliases[normalizedType] || normalizedType;
+  const targetTypes = typeMatches[normalizedType] || [normalizedType];
 
   return shapes.filter((shape) => {
-    return shape.type && shape.type.toLowerCase() === targetType;
+    return shape.type && targetTypes.includes(shape.type.toLowerCase());
   });
 };
 
