@@ -8,6 +8,7 @@ import {
   getDoc,
   getDocs,
   runTransaction,
+  writeBatch,
   onSnapshot,
   query,
   where,
@@ -35,12 +36,16 @@ const toFirestoreDoc = (shape) => {
   if (!currentUser) {
     throw new Error('User must be authenticated to create shapes');
   }
+  const userName = currentUser.displayName || currentUser.email?.split('@')[0] || 'Anonymous';
   return {
     id,
     type,
     props: { ...rest },
     deleted: false,
     createdBy: currentUser.uid,
+    createdByName: userName,
+    updatedBy: currentUser.uid, // Track who created it initially
+    updatedByName: userName,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
@@ -50,12 +55,28 @@ const fromFirestoreDoc = (docSnap) => {
   const data = docSnap.data();
   if (!data) return null;
 
-  const { id, type, props = {}, deleted = false, createdAt, updatedAt, deletedAt } = data;
+  const { 
+    id, 
+    type, 
+    props = {}, 
+    deleted = false, 
+    createdBy, 
+    createdByName,
+    updatedBy, 
+    updatedByName,
+    createdAt, 
+    updatedAt, 
+    deletedAt 
+  } = data;
   return {
     id: id ?? docSnap.id,
     type,
     ...props,
     deleted,
+    createdBy: createdBy ?? null,
+    createdByName: createdByName ?? 'Unknown',
+    updatedBy: updatedBy ?? createdBy ?? null, // Fallback to createdBy for legacy shapes
+    updatedByName: updatedByName ?? createdByName ?? 'Unknown',
     createdAt: createdAt?.toMillis?.() ?? null,
     updatedAt: updatedAt?.toMillis?.() ?? null,
     deletedAt: deletedAt?.toMillis?.() ?? null,
@@ -89,6 +110,58 @@ export async function createShape(shape, boardId = DEFAULT_BOARD_ID) {
   }
 }
 
+/**
+ * Create multiple shapes in a single batch operation
+ * Firestore batch limit is 500 operations, so we chunk if needed
+ * @param {Array} shapes - Array of shape objects to create
+ * @param {string} boardId - Board ID
+ * @returns {Promise<Array>} Array of created shape IDs
+ */
+export async function createShapesBatch(shapes, boardId = DEFAULT_BOARD_ID) {
+  if (!shapes || shapes.length === 0) {
+    return [];
+  }
+
+  // Single shape - use regular create
+  if (shapes.length === 1) {
+    await createShape(shapes[0], boardId);
+    return [{ id: shapes[0].id }];
+  }
+
+  try {
+    const BATCH_SIZE = 500; // Firestore batch limit
+    const chunks = [];
+    
+    // Split into chunks if needed
+    for (let i = 0; i < shapes.length; i += BATCH_SIZE) {
+      chunks.push(shapes.slice(i, i + BATCH_SIZE));
+    }
+
+    const results = [];
+
+    // Process each chunk
+    for (const chunk of chunks) {
+      const batch = writeBatch(firestore);
+      
+      chunk.forEach((shape) => {
+        const ref = shapeDocRef(shape.id, boardId);
+        const payload = toFirestoreDoc(shape);
+        batch.set(ref, payload);
+      });
+
+      await batch.commit();
+      results.push(...chunk.map((s) => ({ id: s.id })));
+    }
+
+    return results;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[firestoreService] Error creating shapes batch:', error);
+    toast.error(`Failed to create ${shapes.length} shapes. Please try again.`);
+    throw error;
+  }
+}
+
 export async function getShape(shapeId, boardId = DEFAULT_BOARD_ID) {
   const ref = shapeDocRef(shapeId, boardId);
   const snap = await getDoc(ref);
@@ -111,7 +184,16 @@ export async function getAllShapes(boardId = DEFAULT_BOARD_ID) {
 
 export async function updateShape(shapeId, updates, boardId = DEFAULT_BOARD_ID) {
   const ref = shapeDocRef(shapeId, boardId);
-  const updatePayload = { updatedAt: serverTimestamp() };
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('User must be authenticated to update shapes');
+  }
+
+  const updatePayload = {
+    updatedBy: currentUser.uid,
+    updatedByName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Anonymous',
+    updatedAt: serverTimestamp(),
+  };
 
   Object.keys(updates || {}).forEach((key) => {
     if (key === 'id' || key === 'type') return;
@@ -124,15 +206,32 @@ export async function updateShape(shapeId, updates, boardId = DEFAULT_BOARD_ID) 
 
 export async function updateShapeText(shapeId, text, boardId = DEFAULT_BOARD_ID) {
   const ref = shapeDocRef(shapeId, boardId);
-  await updateDoc(ref, { 'props.text': text, updatedAt: serverTimestamp() });
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('User must be authenticated to update shapes');
+  }
+
+  await updateDoc(ref, {
+    'props.text': text,
+    updatedBy: currentUser.uid,
+    updatedByName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Anonymous',
+    updatedAt: serverTimestamp(),
+  });
   return { id: shapeId };
 }
 
 export async function deleteShape(shapeId, boardId = DEFAULT_BOARD_ID) {
   const ref = shapeDocRef(shapeId, boardId);
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('User must be authenticated to delete shapes');
+  }
+
   await updateDoc(ref, {
     deleted: true,
     deletedAt: serverTimestamp(),
+    updatedBy: currentUser.uid, // Track who deleted it
+    updatedByName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Anonymous',
     updatedAt: serverTimestamp(),
   });
   return { id: shapeId };
