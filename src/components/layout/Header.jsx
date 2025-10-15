@@ -2,9 +2,22 @@ import { useAuth } from '../../context/AuthContext';
 import LoginButton from '../auth/LoginButton';
 import UserAvatar from '../collaboration/UserAvatar';
 import './Header.css';
+import { useState, useEffect } from 'react';
 
 const Header = ({ onMenuToggle, showMenuButton = true }) => {
   const { user } = useAuth();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   return (
     <header className="header" role="banner">
@@ -27,6 +40,9 @@ const Header = ({ onMenuToggle, showMenuButton = true }) => {
         <h1 className="header__title">CollabCanvas</h1>
       </div>
       <div className="header__right">
+        <div className="connection-status" title={isOnline ? 'Connected' : 'Disconnected'}>
+          <span className={`status-dot ${isOnline ? 'online' : 'offline'}`} />
+        </div>
         {user ? (
           <div className="header__user-info">
             <UserAvatar name={user.displayName || user.email} size={32} />

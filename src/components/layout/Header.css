@@ -73,6 +73,29 @@
   white-space: nowrap;
 }
 
+.connection-status {
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: background-color 0.3s, box-shadow 0.3s;
+}
+
+.status-dot.online {
+  background-color: #4caf50;
+  box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+}
+
+.status-dot.offline {
+  background-color: #f44336;
+  box-shadow: 0 0 6px rgba(244, 67, 54, 0.6);
+}
+
 /* Responsive breakpoints */
 @media (max-width: 768px) {
   .header__menu-button {

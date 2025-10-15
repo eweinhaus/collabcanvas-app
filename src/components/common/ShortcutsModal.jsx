@@ -48,6 +48,11 @@ const ShortcutsModal = ({ isOpen, onClose }) => {
   const shortcuts = [
     { key: 'Esc', description: 'Switch to select mode' },
     { key: 'Delete / Backspace', description: 'Delete selected shape' },
+    { key: 'Cmd/Ctrl + C', description: 'Copy selected shape' },
+    { key: 'Cmd/Ctrl + V', description: 'Paste shape' },
+    { key: 'Cmd/Ctrl + D', description: 'Duplicate selected shape' },
+    { key: 'Arrow Keys', description: 'Move selected shape (10px)' },
+    { key: 'Shift + Arrows', description: 'Move selected shape (1px)' },
     { key: 'Double-click', description: 'Edit text shape' },
     { key: 'Click + Drag', description: 'Pan canvas (in select mode)' },
     { key: 'Scroll', description: 'Zoom in/out' },

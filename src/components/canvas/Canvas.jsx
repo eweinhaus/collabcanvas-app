@@ -26,6 +26,7 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
   const [editingText, setEditingText] = useState('');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [colorPickerState, setColorPickerState] = useState({ isOpen: false, shapeId: null, x: 0, y: 0 });
+  const [clipboard, setClipboard] = useState(null);
   const { remoteCursors, publishLocalCursor, clearLocalCursor } = useRealtimeCursor({ boardId });
 
   const { shapes, selectedId, currentTool, scale, position, stageSize, loadingShapes } = state;
@@ -169,10 +170,74 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
         return;
       }
       
+      // Copy selected shape (Cmd/Ctrl + C)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && selectedId) {
+        e.preventDefault();
+        const shapeToCopy = shapes.find(s => s.id === selectedId);
+        if (shapeToCopy) {
+          setClipboard(shapeToCopy);
+        }
+      }
+      
+      // Paste shape (Cmd/Ctrl + V)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v' && clipboard) {
+        e.preventDefault();
+        const newShape = {
+          ...clipboard,
+          id: crypto.randomUUID(),
+          x: clipboard.x + 20,
+          y: clipboard.y + 20,
+        };
+        firestoreActions.addShape(newShape);
+        actions.setSelectedId(newShape.id);
+      }
+      
+      // Duplicate selected shape (Cmd/Ctrl + D)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd' && selectedId) {
+        e.preventDefault();
+        const shapeToDuplicate = shapes.find(s => s.id === selectedId);
+        if (shapeToDuplicate) {
+          const newShape = {
+            ...shapeToDuplicate,
+            id: crypto.randomUUID(),
+            x: shapeToDuplicate.x + 20,
+            y: shapeToDuplicate.y + 20,
+          };
+          firestoreActions.addShape(newShape);
+          actions.setSelectedId(newShape.id);
+        }
+      }
+      
       // Delete selected shape
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         e.preventDefault();
         firestoreActions.deleteShape(selectedId);
+      }
+      
+      // Arrow key movement (10px, or 1px with Shift)
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selectedId) {
+        e.preventDefault();
+        const step = e.shiftKey ? 1 : 10;
+        const shape = shapes.find(s => s.id === selectedId);
+        if (!shape) return;
+        
+        let updates = {};
+        switch (e.key) {
+          case 'ArrowUp':
+            updates = { y: shape.y - step };
+            break;
+          case 'ArrowDown':
+            updates = { y: shape.y + step };
+            break;
+          case 'ArrowLeft':
+            updates = { x: shape.x - step };
+            break;
+          case 'ArrowRight':
+            updates = { x: shape.x + step };
+            break;
+        }
+        
+        firestoreActions.updateShape(selectedId, updates);
       }
       
       // Escape to clear selection and tool
@@ -184,7 +249,7 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, actions, editingTextId, firestoreActions]);
+  }, [selectedId, shapes, clipboard, actions, editingTextId, firestoreActions]);
 
   return (
     <div className="canvas-container">
