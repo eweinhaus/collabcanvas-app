@@ -41,10 +41,10 @@ describe('beforeUnloadFlush', () => {
     const removeSpy = jest.spyOn(window, 'removeEventListener');
 
     const cleanup = registerBeforeUnloadFlush();
-    expect(addSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function));
+    expect(addSpy).toHaveBeenCalledWith('pagehide', expect.any(Function));
 
     cleanup();
-    expect(removeSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function));
+    expect(removeSpy).toHaveBeenCalledWith('pagehide', expect.any(Function));
 
     addSpy.mockRestore();
     removeSpy.mockRestore();
