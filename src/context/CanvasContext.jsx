@@ -4,13 +4,18 @@
  */
 
 import { createContext, useContext, useReducer, useMemo, useEffect, useRef, useCallback } from 'react';
-import { getAllShapes, subscribeToShapes, createShape as fsCreateShape, createShapesBatch as fsCreateShapesBatch, updateShape as fsUpdateShape, deleteShape as fsDeleteShape, updateShapeText as fsUpdateShapeText } from '../services/firestoreService';
+import { getAllShapes, subscribeToShapes } from '../services/firestoreService';
+import { createShape as fsCreateShape, createShapesBatch as fsCreateShapesBatch, updateShape as fsUpdateShape, deleteShape as fsDeleteShape, updateShapeText as fsUpdateShapeText } from '../services/firestoreServiceWithQueue';
 import { throttle } from '../utils/throttle';
 import { setCursorPosition, subscribeToCursors, removeCursor, registerDisconnectCleanup } from '../services/realtimeCursorService';
 import { subscribeToPresence } from '../services/presenceService';
 import { subscribeToDragUpdates, publishDragPosition, clearDragPosition, subscribeToTransformUpdates, publishTransform, clearTransform } from '../services/dragBroadcastService';
 import { registerBeforeUnloadFlush } from '../utils/beforeUnloadFlush';
-import { auth } from '../services/firebase';
+import { auth, realtimeDB } from '../services/firebase';
+import { getAllEditBuffers, removeEditBuffer, registerEditBufferCleanup } from '../offline/editBuffers';
+import { flush as flushOperationQueue } from '../offline/operationQueue';
+import { ref, onValue } from 'firebase/database';
+import toast from 'react-hot-toast';
 
 const DEFAULT_BOARD_ID = 'default';
 
@@ -382,15 +387,63 @@ export const CanvasProvider = ({ children }) => {
     });
   }, []);
 
-  // Beforeunload flush
+  // Beforeunload flush for edit buffers
   useEffect(() => {
     const cleanup = registerBeforeUnloadFlush();
-    return cleanup;
+    const cleanupBuffers = registerEditBufferCleanup();
+    return () => {
+      cleanup();
+      cleanupBuffers();
+    };
+  }, []);
+
+  // Operation queue flush on online/reconnect
+  useEffect(() => {
+    let reconnectUnsubscribe;
+
+    const handleOnline = async () => {
+      // eslint-disable-next-line no-console
+      console.log('[CanvasContext] Network online, flushing operation queue...');
+      const results = await flushOperationQueue(DEFAULT_BOARD_ID);
+      if (results.success > 0) {
+        toast.success(`Synced ${results.success} operation${results.success === 1 ? '' : 's'}`);
+      }
+      if (results.failed > 0) {
+        toast.error(`Failed to sync ${results.failed} operation${results.failed === 1 ? '' : 's'}`);
+      }
+    };
+
+    const setupFirebaseReconnectListener = async () => {
+      try {
+        const connectedRef = ref(realtimeDB, '.info/connected');
+        reconnectUnsubscribe = onValue(connectedRef, async (snapshot) => {
+          const isConnected = snapshot.val();
+          if (isConnected) {
+            // eslint-disable-next-line no-console
+            console.log('[CanvasContext] Firebase connected, flushing operation queue...');
+            const results = await flushOperationQueue(DEFAULT_BOARD_ID);
+            if (results.success > 0) {
+              toast.success(`Synced ${results.success} operation${results.success === 1 ? '' : 's'}`);
+            }
+          }
+        });
+      } catch (error) {
+        console.error('[CanvasContext] Error setting up reconnect listener:', error);
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    setupFirebaseReconnectListener();
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      if (reconnectUnsubscribe) reconnectUnsubscribe();
+    };
   }, []);
 
   // Periodic shape reconciliation (self-healing for missed updates)
   useEffect(() => {
-    const RECONCILE_INTERVAL_MS = 10000; // 10 seconds
+    const RECONCILE_INTERVAL_MS = 3000; // 3 seconds (reduced from 10s for faster recovery)
     const RECONCILE_ENABLED = import.meta.env.VITE_ENABLE_RECONCILE !== 'false'; // default true
     
     if (!RECONCILE_ENABLED) {
@@ -477,11 +530,39 @@ export const CanvasProvider = ({ children }) => {
     // Re-check leadership when online users change
     const leadershipCheckTimeout = setTimeout(checkLeadership, 100);
 
+    // Instant reconciliation on Firebase reconnect
+    let reconnectUnsubscribe;
+    let lastReconcileTime = 0;
+    const MIN_RECONCILE_INTERVAL = 2000; // Debounce to avoid thrashing
+
+    const setupReconnectReconcile = async () => {
+      try {
+        const connectedRef = ref(realtimeDB, '.info/connected');
+        reconnectUnsubscribe = onValue(connectedRef, async (snapshot) => {
+          const isConnected = snapshot.val();
+          const now = Date.now();
+          
+          // Trigger reconciliation immediately on reconnect (with debounce)
+          if (isConnected && now - lastReconcileTime > MIN_RECONCILE_INTERVAL) {
+            lastReconcileTime = now;
+            // eslint-disable-next-line no-console
+            console.log('[CanvasContext] Firebase reconnected, triggering instant reconciliation');
+            reconcile();
+          }
+        });
+      } catch (error) {
+        console.error('[CanvasContext] Error setting up reconnect reconciliation:', error);
+      }
+    };
+
+    setupReconnectReconcile();
+
     return () => {
       if (intervalId) {
         clearInterval(intervalId);
       }
       clearTimeout(leadershipCheckTimeout);
+      if (reconnectUnsubscribe) reconnectUnsubscribe();
     };
   }, [state.shapes, state.onlineUsers]);
 
@@ -501,15 +582,44 @@ export const CanvasProvider = ({ children }) => {
       try {
         dispatch({ type: CANVAS_ACTIONS.SET_LOADING_SHAPES, payload: true });
         let initial = await getAllShapes();
+        
+        // Merge edit buffers from IndexedDB (full props, not just x,y)
         try {
-          initial = initial.map((s) => {
-            const bufRaw = sessionStorage.getItem(`editBuffer:${s.id}`);
-            if (!bufRaw) return s;
-            const buf = JSON.parse(bufRaw);
-            if (!buf || typeof buf.x !== 'number' || typeof buf.y !== 'number') return s;
-            return { ...s, x: buf.x, y: buf.y, updatedAt: Math.max(Date.now(), s.updatedAt ?? 0) };
+          const buffers = await getAllEditBuffers();
+          const bufferMap = new Map(buffers.map(b => [b.shapeId, b.data]));
+          
+          initial = initial.map((serverShape) => {
+            const buffer = bufferMap.get(serverShape.id);
+            if (!buffer) return serverShape;
+            
+            // Only apply buffer if it's newer than server shape
+            const bufferTime = buffer.bufferedAt || buffer.updatedAt || 0;
+            const serverTime = serverShape.updatedAt || 0;
+            
+            if (bufferTime > serverTime) {
+              // eslint-disable-next-line no-console
+              console.log(`[CanvasContext] Restoring buffered state for shape ${serverShape.id}`);
+              // Remove buffer after merging
+              removeEditBuffer(serverShape.id);
+              
+              // Merge buffer with server shape (buffer takes precedence)
+              return {
+                ...serverShape,
+                ...buffer,
+                id: serverShape.id, // Preserve ID
+                type: serverShape.type, // Preserve type
+                updatedAt: Math.max(bufferTime, serverTime),
+              };
+            }
+            
+            // Buffer is older, discard it
+            removeEditBuffer(serverShape.id);
+            return serverShape;
           });
-        } catch (_) {}
+        } catch (error) {
+          console.error('[CanvasContext] Error merging edit buffers:', error);
+        }
+        
         if (isMounted) {
           dispatch({ type: CANVAS_ACTIONS.SET_SHAPES, payload: initial });
         }

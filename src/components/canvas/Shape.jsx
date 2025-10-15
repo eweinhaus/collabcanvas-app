@@ -9,15 +9,18 @@ import { SHAPE_TYPES } from '../../utils/shapes';
 import { throttle } from '../../utils/throttle';
 import { getUserColor } from '../../utils/getUserColor';
 import ShapeTooltip from './ShapeTooltip';
+import { setEditBuffer, removeEditBuffer } from '../../offline/editBuffers';
 
 const DRAG_THROTTLE_MS = 100;
 const TRANSFORM_THROTTLE_MS = 100;
+const BUFFER_THROTTLE_MS = 250; // Throttle buffer writes
 
 const Shape = ({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, flashEditorUserId, onlineUsers = [], onSelect, onChange, onDragStart, onDragMove, onDragEnd, onTransformStart, onTransformMove, onTransformEnd, onStartEdit, onColorChange }) => {
   const shapeRef = useRef();
   const transformerRef = useRef();
   const throttledDragRef = useRef(null);
   const throttledTransformRef = useRef(null);
+  const throttledBufferRef = useRef(null);
   const [showTooltip, setShowTooltip] = useState(false);
 
   // Attach transformer to selected shape
@@ -52,6 +55,20 @@ const Shape = ({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, 
     };
   }, [onTransformMove]);
 
+  // Initialize throttled buffer writer (writes full shape props to IndexedDB)
+  useEffect(() => {
+    if (!throttledBufferRef.current) {
+      throttledBufferRef.current = throttle((shapeData) => {
+        setEditBuffer(shape.id, shapeData).catch((err) => {
+          console.error('[Shape] Error buffering shape:', err);
+        });
+      }, BUFFER_THROTTLE_MS);
+    }
+    return () => {
+      throttledBufferRef.current?.cancel?.();
+    };
+  }, [shape.id]);
+
   const handleDragStart = useCallback(() => {
     // Notify parent that drag started
     if (onDragStart) {
@@ -63,18 +80,20 @@ const Shape = ({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, 
     const x = e.target.x();
     const y = e.target.y();
     
-    // Session storage for persistence
-    try {
-      sessionStorage.setItem(`editBuffer:${shape.id}`, JSON.stringify({ x, y }));
-    } catch {
-      // ignore session storage errors
+    // Buffer full shape props to IndexedDB (throttled)
+    if (throttledBufferRef.current) {
+      throttledBufferRef.current({
+        ...shape,
+        x,
+        y,
+      });
     }
     
     // Broadcast drag position to other users
     if (throttledDragRef.current) {
       throttledDragRef.current(x, y);
     }
-  }, [shape.id]);
+  }, [shape]);
 
   const handleDragEnd = useCallback((e) => {
     const x = e.target.x();
@@ -88,11 +107,10 @@ const Shape = ({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, 
       onDragEnd();
     }
     
-    try {
-      sessionStorage.removeItem(`editBuffer:${shape.id}`);
-    } catch {
-      // ignore session storage errors
-    }
+    // Remove edit buffer after successful write
+    removeEditBuffer(shape.id).catch(() => {
+      // ignore errors
+    });
   }, [shape.id, onChange, onDragEnd]);
 
   const handleTransformStart = useCallback(() => {
@@ -106,18 +124,27 @@ const Shape = ({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, 
     const node = shapeRef.current;
     if (!node) return;
 
+    const transformData = {
+      x: node.x(),
+      y: node.y(),
+      scaleX: node.scaleX(),
+      scaleY: node.scaleY(),
+      rotation: node.rotation(),
+    };
+
+    // Buffer full shape props during transform (throttled)
+    if (throttledBufferRef.current) {
+      throttledBufferRef.current({
+        ...shape,
+        ...transformData,
+      });
+    }
+
     // Broadcast transform state during transformation
     if (throttledTransformRef.current) {
-      const transformData = {
-        x: node.x(),
-        y: node.y(),
-        scaleX: node.scaleX(),
-        scaleY: node.scaleY(),
-        rotation: node.rotation(),
-      };
       throttledTransformRef.current(transformData);
     }
-  }, []);
+  }, [shape]);
 
   const handleTransformEnd = useCallback(() => {
     const node = shapeRef.current;
@@ -156,6 +183,11 @@ const Shape = ({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, 
     if (onTransformEnd) {
       onTransformEnd();
     }
+    
+    // Remove edit buffer after successful write
+    removeEditBuffer(shape.id).catch(() => {
+      // ignore errors
+    });
   }, [shape.id, shape.type, onChange, onTransformEnd]);
 
   const handleDoubleClick = (e) => {
