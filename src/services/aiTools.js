@@ -84,13 +84,22 @@ export const moveShapeTool = {
   type: 'function',
   function: {
     name: 'moveShape',
-    description: 'Moves an existing shape to a new position on the canvas. Use this when the user wants to move, relocate, or reposition a shape.',
+    description: 'Moves an existing shape to a new position on the canvas. Use this when the user wants to move, relocate, or reposition a shape. You can identify the shape by ID OR by descriptor (color and/or type).',
     parameters: {
       type: 'object',
       properties: {
         id: {
           type: 'string',
-          description: 'The unique identifier of the shape to move (required)'
+          description: 'The unique identifier of the shape to move (optional if color/type provided)'
+        },
+        color: {
+          type: 'string',
+          description: 'Color of the shape to move (e.g., "blue", "red", "#ff0000"). Use instead of ID to identify shape by color.'
+        },
+        type: {
+          type: 'string',
+          enum: ['circle', 'rectangle', 'text', 'triangle'],
+          description: 'Type of shape to move. Use with color to identify shape by descriptor.'
         },
         x: {
           type: 'number',
@@ -103,7 +112,7 @@ export const moveShapeTool = {
           minimum: 0
         }
       },
-      required: ['id', 'x', 'y']
+      required: ['x', 'y']
     }
   }
 };
@@ -115,20 +124,29 @@ export const updateShapeColorTool = {
   type: 'function',
   function: {
     name: 'updateShapeColor',
-    description: 'Changes the color of an existing shape. Use this when the user wants to change, update, or modify a shape\'s color.',
+    description: 'Changes the color of an existing shape. Use this when the user wants to change, update, or modify a shape\'s color. You can identify the shape by ID OR by descriptor (color and/or type of the CURRENT shape).',
     parameters: {
       type: 'object',
       properties: {
         id: {
           type: 'string',
-          description: 'The unique identifier of the shape to update (required)'
+          description: 'The unique identifier of the shape to update (optional if color/type provided)'
         },
         color: {
           type: 'string',
-          description: 'The new color for the shape. Must be a CSS color name (red, blue, green, yellow, orange, purple, pink, etc.) or hex format (#RRGGBB)'
+          description: 'CURRENT color of the shape to find (e.g., "red" to find a red shape). Use instead of ID to identify the shape.'
+        },
+        type: {
+          type: 'string',
+          enum: ['circle', 'rectangle', 'text', 'triangle'],
+          description: 'Type of shape to find. Use with color to identify shape by descriptor.'
+        },
+        newColor: {
+          type: 'string',
+          description: 'The NEW color for the shape. Must be a CSS color name (red, blue, green, yellow, orange, purple, pink, etc.) or hex format (#RRGGBB). IMPORTANT: This is the TARGET color, not the current color.'
         }
       },
-      required: ['id', 'color']
+      required: ['newColor']
     }
   }
 };
@@ -140,16 +158,25 @@ export const deleteShapeTool = {
   type: 'function',
   function: {
     name: 'deleteShape',
-    description: 'Deletes a shape from the canvas. Use this when the user wants to delete, remove, or clear a shape.',
+    description: 'Deletes a shape from the canvas. Use this when the user wants to delete, remove, or clear a shape. You can identify the shape by ID OR by descriptor (color and/or type).',
     parameters: {
       type: 'object',
       properties: {
         id: {
           type: 'string',
-          description: 'The unique identifier of the shape to delete (required)'
+          description: 'The unique identifier of the shape to delete (optional if color/type provided)'
+        },
+        color: {
+          type: 'string',
+          description: 'Color of the shape to delete (e.g., "blue", "red"). Use instead of ID to identify shape by color.'
+        },
+        type: {
+          type: 'string',
+          enum: ['circle', 'rectangle', 'text', 'triangle'],
+          description: 'Type of shape to delete. Use with color to identify shape by descriptor.'
         }
       },
-      required: ['id']
+      required: []
     }
   }
 };
@@ -161,13 +188,22 @@ export const rotateShapeTool = {
   type: 'function',
   function: {
     name: 'rotateShape',
-    description: 'Rotates a shape by a specified number of degrees. Use this when the user wants to rotate or turn a shape.',
+    description: 'Rotates a shape by a specified number of degrees. Use this when the user wants to rotate or turn a shape. You can identify the shape by ID OR by descriptor (color and/or type).',
     parameters: {
       type: 'object',
       properties: {
         id: {
           type: 'string',
-          description: 'The unique identifier of the shape to rotate (required)'
+          description: 'The unique identifier of the shape to rotate (optional if color/type provided)'
+        },
+        color: {
+          type: 'string',
+          description: 'Color of the shape to rotate (e.g., "blue", "red"). Use instead of ID to identify shape by color.'
+        },
+        type: {
+          type: 'string',
+          enum: ['circle', 'rectangle', 'text', 'triangle'],
+          description: 'Type of shape to rotate. Use with color to identify shape by descriptor.'
         },
         rotation: {
           type: 'number',
@@ -176,7 +212,7 @@ export const rotateShapeTool = {
           maximum: 359
         }
       },
-      required: ['id', 'rotation']
+      required: ['rotation']
     }
   }
 };

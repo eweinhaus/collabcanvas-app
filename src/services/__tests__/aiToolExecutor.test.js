@@ -232,7 +232,7 @@ describe('aiToolExecutor', () => {
       expect(result.canvasState.shapes).toHaveLength(0);
     });
 
-    it('should simplify shape properties', async () => {
+    it('should include full shape properties', async () => {
       const mockCanvasState = {
         shapes: [
           {
@@ -255,8 +255,9 @@ describe('aiToolExecutor', () => {
       expect(shape.x).toBe(101); // rounded
       expect(shape.y).toBe(200); // rounded
       expect(shape.radius).toBe(51); // rounded
+      expect(shape.fill).toBe('#ff0000'); // included
+      expect(shape.stroke).toBe('#000000'); // included in enhanced state
       expect(shape.draggable).toBeUndefined(); // not included
-      expect(shape.stroke).toBeUndefined(); // not included
     });
   });
 
@@ -293,16 +294,18 @@ describe('aiToolExecutor', () => {
       });
     });
 
-    it('should fail when shape ID is missing', async () => {
+    it('should fail when canvas is empty and no shape can be identified', async () => {
       const args = {
         x: 500,
         y: 300,
+        // No id, color, or type - cannot identify
       };
 
-      const result = await executeMoveShape(args, mockCanvasActions, mockCanvasState);
+      const emptyCanvasState = { shapes: [] };
+      const result = await executeMoveShape(args, mockCanvasActions, emptyCanvasState);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Shape ID is required');
+      expect(result.error).toContain('No shapes on canvas');
       expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
     });
 
@@ -394,15 +397,16 @@ describe('aiToolExecutor', () => {
       });
     });
 
-    it('should fail when shape ID is missing', async () => {
+    it('should fail when shape cannot be identified (invalid descriptor)', async () => {
       const args = {
-        color: 'green',
+        color: 'green', // No green shapes in mockCanvasState
+        newColor: 'yellow',
       };
 
       const result = await executeUpdateShapeColor(args, mockCanvasActions, mockCanvasState);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Shape ID is required');
+      expect(result.error).toContain('No green shapes found');
       expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
     });
 
@@ -451,7 +455,7 @@ describe('aiToolExecutor', () => {
 
     beforeEach(() => {
       mockCanvasActions = {
-        removeShape: jest.fn().mockResolvedValue(undefined),
+        deleteShape: jest.fn().mockResolvedValue(undefined),
       };
       mockCanvasState = {
         shapes: [
@@ -470,17 +474,18 @@ describe('aiToolExecutor', () => {
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('Deleted circle');
-      expect(mockCanvasActions.removeShape).toHaveBeenCalledWith('shape-1');
+      expect(mockCanvasActions.deleteShape).toHaveBeenCalledWith('shape-1');
     });
 
-    it('should fail when shape ID is missing', async () => {
-      const args = {};
+    it('should fail when canvas is empty and no shape can be identified', async () => {
+      const args = {}; // No id, color, or type
 
-      const result = await executeDeleteShape(args, mockCanvasActions, mockCanvasState);
+      const emptyCanvasState = { shapes: [] };
+      const result = await executeDeleteShape(args, mockCanvasActions, emptyCanvasState);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Shape ID is required');
-      expect(mockCanvasActions.removeShape).not.toHaveBeenCalled();
+      expect(result.error).toContain('No shapes on canvas');
+      expect(mockCanvasActions.deleteShape).not.toHaveBeenCalled();
     });
 
     it('should fail when shape does not exist', async () => {
@@ -492,7 +497,7 @@ describe('aiToolExecutor', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('not found');
-      expect(mockCanvasActions.removeShape).not.toHaveBeenCalled();
+      expect(mockCanvasActions.deleteShape).not.toHaveBeenCalled();
     });
   });
 
@@ -555,15 +560,17 @@ describe('aiToolExecutor', () => {
       });
     });
 
-    it('should fail when shape ID is missing', async () => {
+    it('should fail when canvas is empty and no shape can be identified', async () => {
       const args = {
         rotation: 45,
+        // No id, color, or type - cannot identify
       };
 
-      const result = await executeRotateShape(args, mockCanvasActions, mockCanvasState);
+      const emptyCanvasState = { shapes: [] };
+      const result = await executeRotateShape(args, mockCanvasActions, emptyCanvasState);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Shape ID is required');
+      expect(result.error).toContain('No shapes on canvas');
       expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
     });
 
@@ -628,7 +635,7 @@ describe('aiToolExecutor', () => {
         canvasActions: {
           addShape: jest.fn().mockResolvedValue(undefined),
           updateShape: jest.fn().mockResolvedValue(undefined),
-          removeShape: jest.fn().mockResolvedValue(undefined),
+          deleteShape: jest.fn().mockResolvedValue(undefined),
         },
         canvasState: {
           shapes: [
@@ -698,7 +705,7 @@ describe('aiToolExecutor', () => {
       const result = await executeToolCall('deleteShape', args, mockContext);
 
       expect(result.success).toBe(true);
-      expect(mockContext.canvasActions.removeShape).toHaveBeenCalledWith('shape-1');
+      expect(mockContext.canvasActions.deleteShape).toHaveBeenCalledWith('shape-1');
     });
 
     it('should execute rotateShape tool', async () => {

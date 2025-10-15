@@ -6,10 +6,30 @@ jest.mock('../../../context/AuthContext', () => ({
   useAuth: jest.fn(() => ({ user: { uid: 'test-user-123' } })),
 }));
 
+// Mock AIContext
+jest.mock('../../../context/AIContext', () => ({
+  useAI: jest.fn(() => ({
+    history: [],
+    clearHistory: jest.fn(),
+  })),
+}));
+
 // Mock AIPrompt component
 jest.mock('../../ai/AIPrompt', () => {
   return function AIPrompt() {
     return <div data-testid="ai-prompt">AI Prompt</div>;
+  };
+});
+
+// Mock AIHistory component
+jest.mock('../../ai/AIHistory', () => {
+  return function AIHistory({ history, onClear }) {
+    return (
+      <div data-testid="ai-history">
+        History: {history.length} entries
+        <button onClick={onClear}>Clear</button>
+      </div>
+    );
   };
 });
 
@@ -32,6 +52,7 @@ describe('Sidebar', () => {
     expect(sidebar).toHaveClass('sidebar');
     expect(sidebar).not.toHaveClass('sidebar--open');
     expect(screen.getByTestId('ai-prompt')).toBeInTheDocument();
+    expect(screen.getByTestId('ai-history')).toBeInTheDocument();
   });
 
   it('renders with open state when open prop is true', () => {
@@ -40,6 +61,7 @@ describe('Sidebar', () => {
     const sidebar = screen.getByRole('complementary');
     expect(sidebar).toHaveClass('sidebar--open');
     expect(screen.getByTestId('ai-prompt')).toBeInTheDocument();
+    expect(screen.getByTestId('ai-history')).toBeInTheDocument();
   });
 
   it('renders PresenceList with users', () => {
@@ -59,6 +81,13 @@ describe('Sidebar', () => {
     
     const presenceList = screen.getByTestId('presence-list');
     expect(presenceList).toHaveClass('sidebar__presence');
+  });
+
+  it('renders AIHistory component', () => {
+    render(<Sidebar open={true} users={[]} />);
+    
+    expect(screen.getByTestId('ai-history')).toBeInTheDocument();
+    expect(screen.getByText(/History: 0 entries/)).toBeInTheDocument();
   });
 });
 

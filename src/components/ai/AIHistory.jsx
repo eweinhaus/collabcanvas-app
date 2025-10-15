@@ -5,7 +5,7 @@
  * Shows user commands, AI responses, tool executions, and errors.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './AIHistory.css';
 
 /**
@@ -150,6 +150,15 @@ const HistoryEntry = ({ entry, index }) => {
  * Main component that displays the full command history
  */
 const AIHistory = ({ history, onClear }) => {
+  const entriesRef = useRef(null);
+
+  // Auto-scroll to bottom when history changes
+  useEffect(() => {
+    if (entriesRef.current && history && history.length > 0) {
+      entriesRef.current.scrollTop = entriesRef.current.scrollHeight;
+    }
+  }, [history]);
+
   if (!history || history.length === 0) {
     return (
       <div className="ai-history ai-history--empty" data-testid="ai-history">
@@ -183,7 +192,11 @@ const AIHistory = ({ history, onClear }) => {
         )}
       </div>
 
-      <div className="ai-history__entries" data-testid="ai-history-entries">
+      <div 
+        className="ai-history__entries" 
+        data-testid="ai-history-entries"
+        ref={entriesRef}
+      >
         {history.map((entry, index) => (
           <HistoryEntry key={index} entry={entry} index={index} />
         ))}
