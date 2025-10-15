@@ -27,6 +27,7 @@ dist-ssr
 .env
 .env.local
 .env.production
+functions/.env
 
 # Firebase
 firebase.json

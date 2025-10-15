@@ -78,12 +78,120 @@ export const getCanvasStateTool = {
 };
 
 /**
+ * Tool for moving a shape to a new position
+ */
+export const moveShapeTool = {
+  type: 'function',
+  function: {
+    name: 'moveShape',
+    description: 'Moves an existing shape to a new position on the canvas. Use this when the user wants to move, relocate, or reposition a shape.',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'The unique identifier of the shape to move (required)'
+        },
+        x: {
+          type: 'number',
+          description: 'The new x-coordinate position on the canvas (must be >= 0)',
+          minimum: 0
+        },
+        y: {
+          type: 'number',
+          description: 'The new y-coordinate position on the canvas (must be >= 0)',
+          minimum: 0
+        }
+      },
+      required: ['id', 'x', 'y']
+    }
+  }
+};
+
+/**
+ * Tool for updating a shape's color
+ */
+export const updateShapeColorTool = {
+  type: 'function',
+  function: {
+    name: 'updateShapeColor',
+    description: 'Changes the color of an existing shape. Use this when the user wants to change, update, or modify a shape\'s color.',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'The unique identifier of the shape to update (required)'
+        },
+        color: {
+          type: 'string',
+          description: 'The new color for the shape. Must be a CSS color name (red, blue, green, yellow, orange, purple, pink, etc.) or hex format (#RRGGBB)'
+        }
+      },
+      required: ['id', 'color']
+    }
+  }
+};
+
+/**
+ * Tool for deleting a shape
+ */
+export const deleteShapeTool = {
+  type: 'function',
+  function: {
+    name: 'deleteShape',
+    description: 'Deletes a shape from the canvas. Use this when the user wants to delete, remove, or clear a shape.',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'The unique identifier of the shape to delete (required)'
+        }
+      },
+      required: ['id']
+    }
+  }
+};
+
+/**
+ * Tool for rotating a shape (optional)
+ */
+export const rotateShapeTool = {
+  type: 'function',
+  function: {
+    name: 'rotateShape',
+    description: 'Rotates a shape by a specified number of degrees. Use this when the user wants to rotate or turn a shape.',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'The unique identifier of the shape to rotate (required)'
+        },
+        rotation: {
+          type: 'number',
+          description: 'The rotation angle in degrees (0-359). 0 is upright, 90 is rotated clockwise 90 degrees',
+          minimum: 0,
+          maximum: 359
+        }
+      },
+      required: ['id', 'rotation']
+    }
+  }
+};
+
+/**
  * Registry of all available tools
  * Add new tools here as they are implemented
  */
 export const TOOLS = {
   createShape: createShapeTool,
-  getCanvasState: getCanvasStateTool
+  getCanvasState: getCanvasStateTool,
+  moveShape: moveShapeTool,
+  updateShapeColor: updateShapeColorTool,
+  deleteShape: deleteShapeTool,
+  rotateShape: rotateShapeTool
 };
 
 /**

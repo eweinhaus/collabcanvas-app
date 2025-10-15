@@ -16,7 +16,12 @@ A real-time collaborative canvas application where multiple users can create and
 - **Color Picker:** Customize shape colors
 - **Pan & Zoom:** Navigate large canvases easily
 - **Google Authentication:** Secure login with Google OAuth
-- **AI Assistant:** Create shapes using natural language commands (optional, requires OpenAI API key)
+- **AI Assistant:** Create and manipulate shapes using natural language commands (optional, requires OpenAI API key)
+  - Create shapes: "Create a blue circle at 100, 200"
+  - Move shapes: "Move the circle to 500, 300"
+  - Change colors: "Change it to red"
+  - Delete shapes: "Delete the triangle"
+  - Rotate shapes: "Rotate it 45 degrees"
 
 ## 🛠️ Tech Stack
 
@@ -151,13 +156,28 @@ CollabCanvas includes an AI assistant powered by OpenAI's GPT-4 that allows user
    
    The service will automatically initialize when the app starts. If the key is missing, AI features will be disabled but the app will continue to work normally.
 
-### AI Capabilities (PR 10 Foundation)
+### AI Capabilities
 
-The foundation layer provides:
+The AI assistant provides natural language control over the canvas:
+
+#### Shape Creation (PR 10-11)
+- **Create shapes**: "Create a blue circle at 100, 200"
+- **Add text**: "Add text that says 'Hello World'"
+- **Multiple shapes**: "Create a red rectangle and a green triangle"
+- **Query state**: "What shapes are on the canvas?"
+
+#### Shape Manipulation (PR 12) ✨ NEW
+- **Move shapes**: "Move the circle to 500, 300"
+- **Change colors**: "Change the red rectangle to purple"
+- **Delete shapes**: "Delete the triangle"
+- **Rotate shapes**: "Rotate the rectangle 45 degrees"
+
+#### Technical Components
 - **OpenAI Service**: Wrapper for GPT-4o-mini chat completions
-- **Tool Definitions**: JSON schemas for `createShape` and `getCanvasState` functions
-- **System Prompts**: Pre-configured prompts that guide the AI assistant
+- **Tool Definitions**: JSON schemas for 6 AI tools (create, move, color, delete, rotate, getState)
+- **System Prompts**: Context-aware prompts that guide the AI assistant
 - **Color Normalizer**: Utility to convert any color format (hex, rgb, hsl, CSS names) to canonical hex
+- **Real-time Sync**: All AI-created/modified shapes sync instantly to all users
 
 ### Security Considerations
 
@@ -189,10 +209,16 @@ Unit tests for AI services use mocked API calls:
 npm test
 
 # Run specific AI tests
-npm test -- openaiService.test.js
-npm test -- colorNormalizer.test.js
-npm test -- openaiConnection.mock.test.js
+npm test -- --testPathPatterns="openaiService.test.js"
+npm test -- --testPathPatterns="colorNormalizer.test.js"
+npm test -- --testPathPatterns="aiToolExecutor.test.js"  # Tests for manipulation tools
 ```
+
+**Test Coverage:**
+- 250+ total tests passing
+- 43 tests specifically for AI tool execution
+- 30 tests for color normalization
+- All tests use mocked OpenAI calls (no API costs)
 
 ### Mocking in Tests
 

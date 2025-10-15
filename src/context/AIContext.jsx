@@ -64,14 +64,25 @@ export const AIProvider = ({ children }) => {
       // Get available tools
       const tools = getAllTools();
 
-      // Call OpenAI API with tools
-      const response = await openai.chat(messages, tools);
+      // Call OpenAI API with tools (may need multiple rounds)
+      let response = await openai.chat(messages, tools);
+      let conversationMessages = [...messages];
+      let allToolResults = [];
+      let rounds = 0;
+      const maxRounds = 3; // Prevent infinite loops
 
-      // Extract response
-      const message = response.message;
+      // Keep calling AI until it stops making tool calls or reaches max rounds
+      while (response.message.tool_calls && response.message.tool_calls.length > 0 && rounds < maxRounds) {
+        rounds++;
+        const message = response.message;
 
-      // Check if AI wants to use tools
-      if (message.tool_calls && message.tool_calls.length > 0) {
+        // Add assistant message with tool calls to conversation
+        conversationMessages.push({
+          role: 'assistant',
+          content: message.content || null,
+          tool_calls: message.tool_calls,
+        });
+
         // Execute tool calls
         const toolResults = [];
         
@@ -89,34 +100,90 @@ export const AIProvider = ({ children }) => {
             toolName,
             args: toolArgs,
             result,
+            toolCallId: toolCall.id,
           });
 
-          // Show toast for each tool execution
-          if (result.success) {
-            toast.success(result.message, 2000);
-          } else {
-            toast.error(result.message, 4000);
+          // Add tool result to conversation
+          conversationMessages.push({
+            role: 'tool',
+            content: JSON.stringify(result),
+            tool_call_id: toolCall.id,
+          });
+
+          // Collect action tools for summary toast (skip getCanvasState)
+          if (toolName !== 'getCanvasState') {
+            // Don't show individual toasts yet - we'll show a summary at the end
           }
+
+          allToolResults.push({
+            toolName,
+            args: toolArgs,
+            result,
+          });
         }
 
-        // Calculate latency
-        const latency = Date.now() - startTime;
+        // If any action tool was executed (not just getCanvasState), we're done
+        const hasActionTool = toolResults.some(r => r.toolName !== 'getCanvasState');
+        if (hasActionTool) {
+          break;
+        }
+
+        // Call AI again with updated conversation to get next action
+        response = await openai.chat(conversationMessages, tools);
+      }
+
+      // Extract final message
+      const finalMessage = response.message;
+
+      // Calculate latency
+      const latency = Date.now() - startTime;
+
+      // Check if we executed any tools
+      if (allToolResults.length > 0) {
+        // Show summary toast for action tools (not getCanvasState)
+        const actionResults = allToolResults.filter(r => r.toolName !== 'getCanvasState');
+        
+        if (actionResults.length > 0) {
+          const successCount = actionResults.filter(r => r.result.success).length;
+          const failCount = actionResults.length - successCount;
+          
+          if (actionResults.length === 1) {
+            // Single action - show specific message
+            const result = actionResults[0].result;
+            if (result.success) {
+              toast.success(result.message, 2000);
+            } else {
+              toast.error(result.message, 4000);
+            }
+          } else {
+            // Multiple actions - show summary
+            if (failCount === 0) {
+              toast.success(`✅ Successfully executed ${successCount} action(s)`, 3000);
+            } else if (successCount === 0) {
+              toast.error(`❌ Failed to execute ${failCount} action(s)`, 4000);
+            } else {
+              toast.info(`⚠️ ${successCount} succeeded, ${failCount} failed`, 4000);
+            }
+          }
+        }
 
         // Add to history
         const assistantMessage = {
           role: 'assistant',
-          content: message.content || `Executed ${toolResults.length} action(s)`,
-          toolCalls: toolResults,
+          content: finalMessage.content || `Executed ${allToolResults.length} action(s)`,
+          toolCalls: allToolResults,
           timestamp: Date.now(),
           latency,
+          rounds,
         };
 
         setHistory((prev) => [...prev, userMessage, assistantMessage]);
 
         return {
-          success: toolResults.every((r) => r.result.success),
-          toolResults,
+          success: allToolResults.every((r) => r.result.success),
+          toolResults: allToolResults,
           latency,
+          rounds,
         };
       } else {
         // AI responded with text only (no tool calls)

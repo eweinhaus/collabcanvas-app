@@ -2,7 +2,15 @@
  * Unit Tests for AI Tool Executor
  */
 
-import { executeCreateShape, executeGetCanvasState, executeToolCall } from '../aiToolExecutor';
+import { 
+  executeCreateShape, 
+  executeGetCanvasState, 
+  executeMoveShape,
+  executeUpdateShapeColor,
+  executeDeleteShape,
+  executeRotateShape,
+  executeToolCall 
+} from '../aiToolExecutor';
 import { SHAPE_TYPES } from '../../utils/shapes';
 
 // Mock uuid to avoid ESM issues in Jest
@@ -252,6 +260,366 @@ describe('aiToolExecutor', () => {
     });
   });
 
+  describe('executeMoveShape', () => {
+    let mockCanvasActions;
+    let mockCanvasState;
+
+    beforeEach(() => {
+      mockCanvasActions = {
+        updateShape: jest.fn().mockResolvedValue(undefined),
+      };
+      mockCanvasState = {
+        shapes: [
+          { id: 'shape-1', type: 'circle', x: 100, y: 200, fill: '#ff0000' },
+          { id: 'shape-2', type: 'rect', x: 300, y: 400, fill: '#0000ff' },
+        ],
+      };
+    });
+
+    it('should move shape to new position', async () => {
+      const args = {
+        id: 'shape-1',
+        x: 500,
+        y: 300,
+      };
+
+      const result = await executeMoveShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('Moved circle to (500, 300)');
+      expect(mockCanvasActions.updateShape).toHaveBeenCalledWith('shape-1', {
+        x: 500,
+        y: 300,
+      });
+    });
+
+    it('should fail when shape ID is missing', async () => {
+      const args = {
+        x: 500,
+        y: 300,
+      };
+
+      const result = await executeMoveShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Shape ID is required');
+      expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
+    });
+
+    it('should fail when coordinates are invalid', async () => {
+      const args = {
+        id: 'shape-1',
+        x: 'invalid',
+        y: 300,
+      };
+
+      const result = await executeMoveShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('coordinates are required');
+      expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
+    });
+
+    it('should fail when coordinates are negative', async () => {
+      const args = {
+        id: 'shape-1',
+        x: -10,
+        y: 300,
+      };
+
+      const result = await executeMoveShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('non-negative');
+      expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
+    });
+
+    it('should fail when shape does not exist', async () => {
+      const args = {
+        id: 'nonexistent-shape',
+        x: 500,
+        y: 300,
+      };
+
+      const result = await executeMoveShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('not found');
+      expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('executeUpdateShapeColor', () => {
+    let mockCanvasActions;
+    let mockCanvasState;
+
+    beforeEach(() => {
+      mockCanvasActions = {
+        updateShape: jest.fn().mockResolvedValue(undefined),
+      };
+      mockCanvasState = {
+        shapes: [
+          { id: 'shape-1', type: 'circle', x: 100, y: 200, fill: '#ff0000' },
+          { id: 'shape-2', type: 'rect', x: 300, y: 400, fill: '#0000ff' },
+        ],
+      };
+    });
+
+    it('should update shape color', async () => {
+      const args = {
+        id: 'shape-1',
+        color: 'green',
+      };
+
+      const result = await executeUpdateShapeColor(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('Changed circle color to green');
+      expect(mockCanvasActions.updateShape).toHaveBeenCalledWith('shape-1', {
+        fill: '#008000', // normalized green
+      });
+    });
+
+    it('should handle hex colors', async () => {
+      const args = {
+        id: 'shape-2',
+        color: '#FF5733',
+      };
+
+      const result = await executeUpdateShapeColor(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(mockCanvasActions.updateShape).toHaveBeenCalledWith('shape-2', {
+        fill: '#ff5733', // lowercase
+      });
+    });
+
+    it('should fail when shape ID is missing', async () => {
+      const args = {
+        color: 'green',
+      };
+
+      const result = await executeUpdateShapeColor(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Shape ID is required');
+      expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
+    });
+
+    it('should fail when color is missing', async () => {
+      const args = {
+        id: 'shape-1',
+      };
+
+      const result = await executeUpdateShapeColor(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Color is required');
+      expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
+    });
+
+    it('should fail when color is invalid', async () => {
+      const args = {
+        id: 'shape-1',
+        color: 'notacolor',
+      };
+
+      const result = await executeUpdateShapeColor(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Invalid color');
+      expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
+    });
+
+    it('should fail when shape does not exist', async () => {
+      const args = {
+        id: 'nonexistent-shape',
+        color: 'green',
+      };
+
+      const result = await executeUpdateShapeColor(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('not found');
+      expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('executeDeleteShape', () => {
+    let mockCanvasActions;
+    let mockCanvasState;
+
+    beforeEach(() => {
+      mockCanvasActions = {
+        removeShape: jest.fn().mockResolvedValue(undefined),
+      };
+      mockCanvasState = {
+        shapes: [
+          { id: 'shape-1', type: 'circle', x: 100, y: 200, fill: '#ff0000' },
+          { id: 'shape-2', type: 'rect', x: 300, y: 400, fill: '#0000ff' },
+        ],
+      };
+    });
+
+    it('should delete shape', async () => {
+      const args = {
+        id: 'shape-1',
+      };
+
+      const result = await executeDeleteShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('Deleted circle');
+      expect(mockCanvasActions.removeShape).toHaveBeenCalledWith('shape-1');
+    });
+
+    it('should fail when shape ID is missing', async () => {
+      const args = {};
+
+      const result = await executeDeleteShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Shape ID is required');
+      expect(mockCanvasActions.removeShape).not.toHaveBeenCalled();
+    });
+
+    it('should fail when shape does not exist', async () => {
+      const args = {
+        id: 'nonexistent-shape',
+      };
+
+      const result = await executeDeleteShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('not found');
+      expect(mockCanvasActions.removeShape).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('executeRotateShape', () => {
+    let mockCanvasActions;
+    let mockCanvasState;
+
+    beforeEach(() => {
+      mockCanvasActions = {
+        updateShape: jest.fn().mockResolvedValue(undefined),
+      };
+      mockCanvasState = {
+        shapes: [
+          { id: 'shape-1', type: 'circle', x: 100, y: 200, fill: '#ff0000' },
+          { id: 'shape-2', type: 'rect', x: 300, y: 400, fill: '#0000ff' },
+        ],
+      };
+    });
+
+    it('should rotate shape', async () => {
+      const args = {
+        id: 'shape-1',
+        rotation: 45,
+      };
+
+      const result = await executeRotateShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('Rotated circle to 45°');
+      expect(mockCanvasActions.updateShape).toHaveBeenCalledWith('shape-1', {
+        rotation: 45,
+      });
+    });
+
+    it('should handle 0 degree rotation', async () => {
+      const args = {
+        id: 'shape-1',
+        rotation: 0,
+      };
+
+      const result = await executeRotateShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(mockCanvasActions.updateShape).toHaveBeenCalledWith('shape-1', {
+        rotation: 0,
+      });
+    });
+
+    it('should handle 359 degree rotation', async () => {
+      const args = {
+        id: 'shape-1',
+        rotation: 359,
+      };
+
+      const result = await executeRotateShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(mockCanvasActions.updateShape).toHaveBeenCalledWith('shape-1', {
+        rotation: 359,
+      });
+    });
+
+    it('should fail when shape ID is missing', async () => {
+      const args = {
+        rotation: 45,
+      };
+
+      const result = await executeRotateShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Shape ID is required');
+      expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
+    });
+
+    it('should fail when rotation is invalid', async () => {
+      const args = {
+        id: 'shape-1',
+        rotation: 'invalid',
+      };
+
+      const result = await executeRotateShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('rotation angle is required');
+      expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
+    });
+
+    it('should fail when rotation is negative', async () => {
+      const args = {
+        id: 'shape-1',
+        rotation: -10,
+      };
+
+      const result = await executeRotateShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('between 0 and 359');
+      expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
+    });
+
+    it('should fail when rotation exceeds 359', async () => {
+      const args = {
+        id: 'shape-1',
+        rotation: 360,
+      };
+
+      const result = await executeRotateShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('between 0 and 359');
+      expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
+    });
+
+    it('should fail when shape does not exist', async () => {
+      const args = {
+        id: 'nonexistent-shape',
+        rotation: 45,
+      };
+
+      const result = await executeRotateShape(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('not found');
+      expect(mockCanvasActions.updateShape).not.toHaveBeenCalled();
+    });
+  });
+
   describe('executeToolCall', () => {
     let mockContext;
 
@@ -259,9 +627,13 @@ describe('aiToolExecutor', () => {
       mockContext = {
         canvasActions: {
           addShape: jest.fn().mockResolvedValue(undefined),
+          updateShape: jest.fn().mockResolvedValue(undefined),
+          removeShape: jest.fn().mockResolvedValue(undefined),
         },
         canvasState: {
-          shapes: [],
+          shapes: [
+            { id: 'shape-1', type: 'circle', x: 100, y: 200, fill: '#ff0000' },
+          ],
         },
       };
     });
@@ -285,7 +657,62 @@ describe('aiToolExecutor', () => {
 
       expect(result.success).toBe(true);
       expect(result.canvasState).toBeDefined();
-      expect(result.canvasState.shapeCount).toBe(0);
+      expect(result.canvasState.shapeCount).toBe(1);
+    });
+
+    it('should execute moveShape tool', async () => {
+      const args = {
+        id: 'shape-1',
+        x: 500,
+        y: 300,
+      };
+
+      const result = await executeToolCall('moveShape', args, mockContext);
+
+      expect(result.success).toBe(true);
+      expect(mockContext.canvasActions.updateShape).toHaveBeenCalledWith('shape-1', {
+        x: 500,
+        y: 300,
+      });
+    });
+
+    it('should execute updateShapeColor tool', async () => {
+      const args = {
+        id: 'shape-1',
+        color: 'green',
+      };
+
+      const result = await executeToolCall('updateShapeColor', args, mockContext);
+
+      expect(result.success).toBe(true);
+      expect(mockContext.canvasActions.updateShape).toHaveBeenCalledWith('shape-1', {
+        fill: '#008000',
+      });
+    });
+
+    it('should execute deleteShape tool', async () => {
+      const args = {
+        id: 'shape-1',
+      };
+
+      const result = await executeToolCall('deleteShape', args, mockContext);
+
+      expect(result.success).toBe(true);
+      expect(mockContext.canvasActions.removeShape).toHaveBeenCalledWith('shape-1');
+    });
+
+    it('should execute rotateShape tool', async () => {
+      const args = {
+        id: 'shape-1',
+        rotation: 45,
+      };
+
+      const result = await executeToolCall('rotateShape', args, mockContext);
+
+      expect(result.success).toBe(true);
+      expect(mockContext.canvasActions.updateShape).toHaveBeenCalledWith('shape-1', {
+        rotation: 45,
+      });
     });
 
     it('should fail for unknown tool', async () => {
