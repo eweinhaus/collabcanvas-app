@@ -272,6 +272,92 @@ export const createGridTool = {
 };
 
 /**
+ * Tool for arranging shapes horizontally
+ */
+export const arrangeHorizontallyTool = {
+  type: 'function',
+  function: {
+    name: 'arrangeHorizontally',
+    description: 'Arranges multiple shapes horizontally in a line, aligning them along the x-axis with optional spacing. Use this when user wants to line up shapes side by side or in a row.',
+    parameters: {
+      type: 'object',
+      properties: {
+        shapeIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of shape IDs to arrange. Must have at least 2 shapes.',
+          minItems: 2
+        },
+        spacing: {
+          type: 'number',
+          description: 'Horizontal spacing between shape centers in pixels. Default: 20',
+          minimum: 0,
+          maximum: 500
+        }
+      },
+      required: ['shapeIds']
+    }
+  }
+};
+
+/**
+ * Tool for arranging shapes vertically
+ */
+export const arrangeVerticallyTool = {
+  type: 'function',
+  function: {
+    name: 'arrangeVertically',
+    description: 'Arranges multiple shapes vertically in a column, aligning them along the y-axis with optional spacing. Use this when user wants to line up shapes top to bottom or in a column.',
+    parameters: {
+      type: 'object',
+      properties: {
+        shapeIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of shape IDs to arrange. Must have at least 2 shapes.',
+          minItems: 2
+        },
+        spacing: {
+          type: 'number',
+          description: 'Vertical spacing between shape centers in pixels. Default: 20',
+          minimum: 0,
+          maximum: 500
+        }
+      },
+      required: ['shapeIds']
+    }
+  }
+};
+
+/**
+ * Tool for distributing shapes evenly
+ */
+export const distributeEvenlyTool = {
+  type: 'function',
+  function: {
+    name: 'distributeEvenly',
+    description: 'Distributes shapes evenly along a horizontal or vertical axis. Keeps the first and last shapes in place and spaces the others uniformly between them. Use this when user wants even spacing or distribution.',
+    parameters: {
+      type: 'object',
+      properties: {
+        shapeIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of shape IDs to distribute. Must have at least 3 shapes for meaningful distribution.',
+          minItems: 3
+        },
+        axis: {
+          type: 'string',
+          enum: ['x', 'y'],
+          description: 'Axis along which to distribute: "x" for horizontal, "y" for vertical'
+        }
+      },
+      required: ['shapeIds', 'axis']
+    }
+  }
+};
+
+/**
  * Registry of all available tools
  * Add new tools here as they are implemented
  */
@@ -282,7 +368,10 @@ export const TOOLS = {
   updateShapeColor: updateShapeColorTool,
   deleteShape: deleteShapeTool,
   rotateShape: rotateShapeTool,
-  createGrid: createGridTool
+  createGrid: createGridTool,
+  arrangeHorizontally: arrangeHorizontallyTool,
+  arrangeVertically: arrangeVerticallyTool,
+  distributeEvenly: distributeEvenlyTool
 };
 
 /**

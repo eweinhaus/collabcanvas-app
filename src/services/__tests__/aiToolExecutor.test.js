@@ -10,6 +10,9 @@ import {
   executeDeleteShape,
   executeRotateShape,
   executeCreateGrid,
+  executeArrangeHorizontally,
+  executeArrangeVertically,
+  executeDistributeEvenly,
   executeToolCall 
 } from '../aiToolExecutor';
 import { SHAPE_TYPES } from '../../utils/shapes';
@@ -1029,6 +1032,355 @@ describe('aiToolExecutor', () => {
       // All shapes should have same X coordinate
       const xCoords = result.shapes.map(s => s.x);
       expect(new Set(xCoords).size).toBe(1);
+    });
+  });
+
+  describe('executeArrangeHorizontally', () => {
+    let mockCanvasActions;
+    let mockCanvasState;
+
+    beforeEach(() => {
+      mockCanvasActions = {
+        updateShape: jest.fn().mockResolvedValue(undefined),
+      };
+
+      mockCanvasState = {
+        shapes: [
+          { id: 'shape-1', x: 100, y: 100, type: SHAPE_TYPES.CIRCLE, fill: '#ff0000' },
+          { id: 'shape-2', x: 200, y: 150, type: SHAPE_TYPES.RECT, fill: '#00ff00' },
+          { id: 'shape-3', x: 300, y: 120, type: SHAPE_TYPES.CIRCLE, fill: '#0000ff' },
+        ],
+      };
+    });
+
+    it('should arrange shapes horizontally with default spacing', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2', 'shape-3'],
+      };
+
+      const result = await executeArrangeHorizontally(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(result.count).toBe(3);
+      expect(mockCanvasActions.updateShape).toHaveBeenCalledTimes(3);
+      expect(result.message).toContain('Arranged 3 shape(s) horizontally');
+    });
+
+    it('should arrange shapes horizontally with custom spacing', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2'],
+        spacing: 50,
+      };
+
+      const result = await executeArrangeHorizontally(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('50px spacing');
+    });
+
+    it('should fail if shapeIds is not an array', async () => {
+      const args = {
+        shapeIds: 'not-an-array',
+      };
+
+      const result = await executeArrangeHorizontally(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('shapeIds array is required');
+    });
+
+    it('should fail if shapeIds is missing', async () => {
+      const args = {};
+
+      const result = await executeArrangeHorizontally(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('shapeIds array is required');
+    });
+
+    it('should fail if spacing is negative', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2'],
+        spacing: -10,
+      };
+
+      const result = await executeArrangeHorizontally(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Spacing must be between 0 and 500');
+    });
+
+    it('should fail if spacing exceeds maximum', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2'],
+        spacing: 600,
+      };
+
+      const result = await executeArrangeHorizontally(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Spacing must be between 0 and 500');
+    });
+
+    it('should fail if some shapes are not found', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'non-existent-shape'],
+      };
+
+      const result = await executeArrangeHorizontally(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Could not find 1 shape');
+    });
+
+    it('should fail if less than 2 shapes provided', async () => {
+      const args = {
+        shapeIds: ['shape-1'],
+      };
+
+      const result = await executeArrangeHorizontally(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('At least 2 shapes required');
+    });
+
+    it('should handle zero spacing', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2'],
+        spacing: 0,
+      };
+
+      const result = await executeArrangeHorizontally(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('0px spacing');
+    });
+  });
+
+  describe('executeArrangeVertically', () => {
+    let mockCanvasActions;
+    let mockCanvasState;
+
+    beforeEach(() => {
+      mockCanvasActions = {
+        updateShape: jest.fn().mockResolvedValue(undefined),
+      };
+
+      mockCanvasState = {
+        shapes: [
+          { id: 'shape-1', x: 100, y: 100, type: SHAPE_TYPES.CIRCLE, fill: '#ff0000' },
+          { id: 'shape-2', x: 150, y: 200, type: SHAPE_TYPES.RECT, fill: '#00ff00' },
+          { id: 'shape-3', x: 120, y: 300, type: SHAPE_TYPES.CIRCLE, fill: '#0000ff' },
+        ],
+      };
+    });
+
+    it('should arrange shapes vertically with default spacing', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2', 'shape-3'],
+      };
+
+      const result = await executeArrangeVertically(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(result.count).toBe(3);
+      expect(mockCanvasActions.updateShape).toHaveBeenCalledTimes(3);
+      expect(result.message).toContain('Arranged 3 shape(s) vertically');
+    });
+
+    it('should arrange shapes vertically with custom spacing', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2'],
+        spacing: 80,
+      };
+
+      const result = await executeArrangeVertically(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('80px spacing');
+    });
+
+    it('should fail if shapeIds is not an array', async () => {
+      const args = {
+        shapeIds: null,
+      };
+
+      const result = await executeArrangeVertically(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('shapeIds array is required');
+    });
+
+    it('should fail if spacing is invalid', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2'],
+        spacing: 1000,
+      };
+
+      const result = await executeArrangeVertically(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Spacing must be between 0 and 500');
+    });
+
+    it('should fail if less than 2 shapes provided', async () => {
+      const args = {
+        shapeIds: ['shape-1'],
+      };
+
+      const result = await executeArrangeVertically(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('At least 2 shapes required');
+    });
+
+    it('should handle maximum allowed spacing', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2'],
+        spacing: 500,
+      };
+
+      const result = await executeArrangeVertically(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('500px spacing');
+    });
+  });
+
+  describe('executeDistributeEvenly', () => {
+    let mockCanvasActions;
+    let mockCanvasState;
+
+    beforeEach(() => {
+      mockCanvasActions = {
+        updateShape: jest.fn().mockResolvedValue(undefined),
+      };
+
+      mockCanvasState = {
+        shapes: [
+          { id: 'shape-1', x: 100, y: 100, type: SHAPE_TYPES.CIRCLE, fill: '#ff0000' },
+          { id: 'shape-2', x: 150, y: 100, type: SHAPE_TYPES.RECT, fill: '#00ff00' },
+          { id: 'shape-3', x: 300, y: 100, type: SHAPE_TYPES.CIRCLE, fill: '#0000ff' },
+          { id: 'shape-4', x: 100, y: 200, type: SHAPE_TYPES.RECT, fill: '#ffff00' },
+        ],
+      };
+    });
+
+    it('should distribute shapes evenly along x-axis', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2', 'shape-3'],
+        axis: 'x',
+      };
+
+      const result = await executeDistributeEvenly(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(result.count).toBe(3);
+      expect(mockCanvasActions.updateShape).toHaveBeenCalledTimes(3);
+      expect(result.message).toContain('horizontally');
+    });
+
+    it('should distribute shapes evenly along y-axis', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-4', 'shape-3'],
+        axis: 'y',
+      };
+
+      const result = await executeDistributeEvenly(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('vertically');
+    });
+
+    it('should fail if shapeIds is not an array', async () => {
+      const args = {
+        shapeIds: 'invalid',
+        axis: 'x',
+      };
+
+      const result = await executeDistributeEvenly(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('shapeIds array is required');
+    });
+
+    it('should fail if axis is missing', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2', 'shape-3'],
+      };
+
+      const result = await executeDistributeEvenly(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('axis must be "x" or "y"');
+    });
+
+    it('should fail if axis is invalid', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2', 'shape-3'],
+        axis: 'z',
+      };
+
+      const result = await executeDistributeEvenly(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('axis must be "x" or "y"');
+    });
+
+    it('should fail if less than 3 shapes provided', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2'],
+        axis: 'x',
+      };
+
+      const result = await executeDistributeEvenly(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('At least 3 shapes required');
+    });
+
+    it('should fail if shapes are not found', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2', 'non-existent'],
+        axis: 'x',
+      };
+
+      const result = await executeDistributeEvenly(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Could not find 1 shape');
+    });
+
+    it('should distribute 4 shapes evenly', async () => {
+      const args = {
+        shapeIds: ['shape-1', 'shape-2', 'shape-3', 'shape-4'],
+        axis: 'x',
+      };
+
+      const result = await executeDistributeEvenly(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      expect(result.count).toBe(4);
+      expect(mockCanvasActions.updateShape).toHaveBeenCalledTimes(4);
+    });
+
+    it('should handle shapes with identical positions', async () => {
+      mockCanvasState.shapes = [
+        { id: 'shape-1', x: 100, y: 100, type: SHAPE_TYPES.CIRCLE, fill: '#ff0000' },
+        { id: 'shape-2', x: 100, y: 100, type: SHAPE_TYPES.RECT, fill: '#00ff00' },
+        { id: 'shape-3', x: 100, y: 100, type: SHAPE_TYPES.CIRCLE, fill: '#0000ff' },
+      ];
+
+      const args = {
+        shapeIds: ['shape-1', 'shape-2', 'shape-3'],
+        axis: 'x',
+      };
+
+      const result = await executeDistributeEvenly(args, mockCanvasActions, mockCanvasState);
+
+      expect(result.success).toBe(true);
+      // All shapes will remain at same position since start and end are the same
+      expect(result.count).toBe(3);
     });
   });
 });

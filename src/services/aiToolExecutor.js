@@ -10,6 +10,13 @@ import { normalizeColor } from '../utils/colorNormalizer';
 import { identifyShape } from '../utils/shapeIdentification';
 import { generateGrid, DEFAULT_GRID_CONFIG } from '../utils/gridGenerator';
 import { batchCreateShapes, validateBatchSize } from '../utils/batchCreateShapes';
+import { 
+  arrangeHorizontally, 
+  arrangeVertically, 
+  distributeEvenly,
+  validateArrangement,
+  DEFAULT_SPACING 
+} from '../utils/arrangementAlgorithms';
 
 /**
  * Map AI tool shape types to canvas shape types
@@ -498,6 +505,189 @@ export const executeCreateGrid = async (args, canvasActions) => {
 };
 
 /**
+ * Execute arrangeHorizontally tool call
+ * @param {Object} args - Tool call arguments { shapeIds, spacing }
+ * @param {Object} canvasActions - Canvas context actions
+ * @param {Object} canvasState - Canvas state with shapes array
+ * @returns {Promise<Object>} Result with success status
+ */
+export const executeArrangeHorizontally = async (args, canvasActions, canvasState) => {
+  try {
+    // Validate required parameters
+    if (!args.shapeIds || !Array.isArray(args.shapeIds)) {
+      throw new Error('shapeIds array is required');
+    }
+
+    // Get spacing (use default if not provided)
+    const spacing = args.spacing ?? DEFAULT_SPACING;
+
+    // Validate spacing
+    if (spacing < 0 || spacing > 500) {
+      throw new Error('Spacing must be between 0 and 500 pixels');
+    }
+
+    // Find all shapes by ID
+    const shapes = args.shapeIds
+      .map(id => canvasState.shapes.find(s => s.id === id))
+      .filter(shape => shape !== undefined);
+
+    // Check if all shapes were found first
+    if (shapes.length !== args.shapeIds.length) {
+      const missingCount = args.shapeIds.length - shapes.length;
+      throw new Error(`Could not find ${missingCount} shape(s)`);
+    }
+
+    // Validate we found the shapes
+    const validation = validateArrangement(shapes, 2);
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+
+    // Calculate arrangement
+    const updates = arrangeHorizontally(shapes, spacing);
+
+    // Apply updates via Firestore batch
+    const updatePromises = updates.map(update => 
+      canvasActions.updateShape(update.id, { x: update.x, y: update.y })
+    );
+    await Promise.all(updatePromises);
+
+    return {
+      success: true,
+      count: updates.length,
+      message: `Arranged ${updates.length} shape(s) horizontally with ${spacing}px spacing`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      message: `Failed to arrange shapes horizontally: ${error.message}`,
+    };
+  }
+};
+
+/**
+ * Execute arrangeVertically tool call
+ * @param {Object} args - Tool call arguments { shapeIds, spacing }
+ * @param {Object} canvasActions - Canvas context actions
+ * @param {Object} canvasState - Canvas state with shapes array
+ * @returns {Promise<Object>} Result with success status
+ */
+export const executeArrangeVertically = async (args, canvasActions, canvasState) => {
+  try {
+    // Validate required parameters
+    if (!args.shapeIds || !Array.isArray(args.shapeIds)) {
+      throw new Error('shapeIds array is required');
+    }
+
+    // Get spacing (use default if not provided)
+    const spacing = args.spacing ?? DEFAULT_SPACING;
+
+    // Validate spacing
+    if (spacing < 0 || spacing > 500) {
+      throw new Error('Spacing must be between 0 and 500 pixels');
+    }
+
+    // Find all shapes by ID
+    const shapes = args.shapeIds
+      .map(id => canvasState.shapes.find(s => s.id === id))
+      .filter(shape => shape !== undefined);
+
+    // Check if all shapes were found first
+    if (shapes.length !== args.shapeIds.length) {
+      const missingCount = args.shapeIds.length - shapes.length;
+      throw new Error(`Could not find ${missingCount} shape(s)`);
+    }
+
+    // Validate we found the shapes
+    const validation = validateArrangement(shapes, 2);
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+
+    // Calculate arrangement
+    const updates = arrangeVertically(shapes, spacing);
+
+    // Apply updates via Firestore batch
+    const updatePromises = updates.map(update => 
+      canvasActions.updateShape(update.id, { x: update.x, y: update.y })
+    );
+    await Promise.all(updatePromises);
+
+    return {
+      success: true,
+      count: updates.length,
+      message: `Arranged ${updates.length} shape(s) vertically with ${spacing}px spacing`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      message: `Failed to arrange shapes vertically: ${error.message}`,
+    };
+  }
+};
+
+/**
+ * Execute distributeEvenly tool call
+ * @param {Object} args - Tool call arguments { shapeIds, axis }
+ * @param {Object} canvasActions - Canvas context actions
+ * @param {Object} canvasState - Canvas state with shapes array
+ * @returns {Promise<Object>} Result with success status
+ */
+export const executeDistributeEvenly = async (args, canvasActions, canvasState) => {
+  try {
+    // Validate required parameters
+    if (!args.shapeIds || !Array.isArray(args.shapeIds)) {
+      throw new Error('shapeIds array is required');
+    }
+
+    if (!args.axis || (args.axis !== 'x' && args.axis !== 'y')) {
+      throw new Error('axis must be "x" or "y"');
+    }
+
+    // Find all shapes by ID
+    const shapes = args.shapeIds
+      .map(id => canvasState.shapes.find(s => s.id === id))
+      .filter(shape => shape !== undefined);
+
+    // Check if all shapes were found first
+    if (shapes.length !== args.shapeIds.length) {
+      const missingCount = args.shapeIds.length - shapes.length;
+      throw new Error(`Could not find ${missingCount} shape(s)`);
+    }
+
+    // Validate we found the shapes
+    const validation = validateArrangement(shapes, 3);
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+
+    // Calculate distribution
+    const updates = distributeEvenly(shapes, args.axis);
+
+    // Apply updates via Firestore batch
+    const updatePromises = updates.map(update => 
+      canvasActions.updateShape(update.id, { x: update.x, y: update.y })
+    );
+    await Promise.all(updatePromises);
+
+    const axisName = args.axis === 'x' ? 'horizontally' : 'vertically';
+    return {
+      success: true,
+      count: updates.length,
+      message: `Distributed ${updates.length} shape(s) evenly ${axisName}`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      message: `Failed to distribute shapes: ${error.message}`,
+    };
+  }
+};
+
+/**
  * Execute a tool call from OpenAI
  * @param {string} toolName - Name of the tool to execute
  * @param {Object} args - Tool arguments
@@ -529,6 +719,15 @@ export const executeToolCall = async (toolName, args, context) => {
     case 'createGrid':
       return await executeCreateGrid(args, canvasActions);
     
+    case 'arrangeHorizontally':
+      return await executeArrangeHorizontally(args, canvasActions, canvasState);
+    
+    case 'arrangeVertically':
+      return await executeArrangeVertically(args, canvasActions, canvasState);
+    
+    case 'distributeEvenly':
+      return await executeDistributeEvenly(args, canvasActions, canvasState);
+    
     default:
       return {
         success: false,
@@ -546,6 +745,9 @@ export default {
   executeDeleteShape,
   executeRotateShape,
   executeCreateGrid,
+  executeArrangeHorizontally,
+  executeArrangeVertically,
+  executeDistributeEvenly,
   executeToolCall,
 };
 
