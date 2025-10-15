@@ -1,14 +1,16 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import './App.css'
 import PrivateRoute from './components/auth/PrivateRoute'
-import Canvas from './components/canvas/Canvas'
-import Toolbar from './components/canvas/Toolbar'
 import Header from './components/layout/Header'
-import Sidebar from './components/layout/Sidebar'
 import Spinner from './components/common/Spinner'
 import { useCanvas } from './context/CanvasContext'
 import { CanvasProvider } from './context/CanvasContext'
 import { useAuth } from './context/AuthContext'
+
+// Lazy load heavy components (includes Konva - 969KB)
+const Canvas = lazy(() => import('./components/canvas/Canvas'))
+const Toolbar = lazy(() => import('./components/canvas/Toolbar'))
+const Sidebar = lazy(() => import('./components/layout/Sidebar'))
 
 function App() {
   return (
@@ -39,13 +41,13 @@ function AppShell() {
               <Spinner message="Loading canvas..." />
             </div>
           ) : (
-            <>
+            <Suspense fallback={<div className="app-loading"><Spinner message="Loading canvas..." /></div>}>
               <div className="app-main__canvas-area">
                 <Toolbar />
                 <Canvas showGrid={true} />
               </div>
               <Sidebar open={sidebarOpen} users={onlineUsers} />
-            </>
+            </Suspense>
           )}
         </main>
       </PrivateRoute>

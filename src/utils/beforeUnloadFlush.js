@@ -36,7 +36,8 @@ export function flushEditBuffersBeforeUnload() {
 }
 
 /**
- * Register beforeunload listener that flushes edit buffers.
+ * Register pagehide listener that flushes edit buffers.
+ * Uses pagehide instead of beforeunload to allow back/forward cache (bfcache).
  * Returns cleanup function.
  */
 export function registerBeforeUnloadFlush() {
@@ -44,10 +45,11 @@ export function registerBeforeUnloadFlush() {
     flushEditBuffersBeforeUnload();
   };
   
-  window.addEventListener('beforeunload', handler);
+  // Use pagehide instead of beforeunload to enable bfcache
+  window.addEventListener('pagehide', handler);
   
   return () => {
-    window.removeEventListener('beforeunload', handler);
+    window.removeEventListener('pagehide', handler);
   };
 }
 

@@ -12,6 +12,11 @@ export default defineConfig({
       compress: {
         drop_console: true,
         drop_debugger: true,
+        passes: 2,
+        pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn'],
+      },
+      mangle: {
+        safari10: true,
       },
     },
     rollupOptions: {
@@ -26,5 +31,6 @@ export default defineConfig({
         },
       },
     },
+    chunkSizeWarningLimit: 600,
   },
 })
