@@ -191,18 +191,18 @@ export const AIProvider = ({ children }) => {
         
         const assistantMessage = {
           role: 'assistant',
-          content: message.content,
+          content: finalMessage.content || 'Command processed',
           timestamp: Date.now(),
           latency,
         };
 
         setHistory((prev) => [...prev, userMessage, assistantMessage]);
 
-        toast.info(message.content, 3000);
+        toast.info(finalMessage.content || 'Command processed', 3000);
 
         return {
           success: true,
-          message: message.content,
+          message: finalMessage.content || 'Command processed',
           latency,
         };
       }
