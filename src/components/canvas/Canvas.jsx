@@ -925,20 +925,23 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
             const stage = stageRef.current;
             if (!stage) return null;
 
-            const transform = stage.getAbsoluteTransform().copy();
+            // Convert canvas coordinates to screen coordinates manually
             const stageBox = stage.container().getBoundingClientRect();
-
-            const tooltipPoint = transform.point({
-              x: shape.x + (shape.width || shape.radius || 50) / 2,
-              y: shape.y,
-            });
+            const stageScale = stage.scaleX();
+            const stagePos = stage.position();
+            
+            const canvasX = shape.x + (shape.width || shape.radius || 50) / 2;
+            const canvasY = shape.y;
+            
+            const screenX = canvasX * stageScale + stagePos.x;
+            const screenY = canvasY * stageScale + stagePos.y;
 
             return (
               <ShapeTooltip
                 key={`tooltip-${shape.id}`}
                 shape={shape}
-                x={stageBox.left + tooltipPoint.x}
-                y={stageBox.top + tooltipPoint.y}
+                x={stageBox.left + screenX}
+                y={stageBox.top + screenY}
                 onlineUsers={onlineUsers}
               />
             );
@@ -1017,15 +1020,21 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
           shapeTop = shape.y;
         }
 
-        // Convert canvas coordinates to screen coordinates using Konva's absolute transform
-        const transform = stage.getAbsoluteTransform().copy();
-        const absolutePoint = transform.point({ x: shapeRight, y: shapeTop });
+        // Convert canvas coordinates to screen coordinates
+        // Use explicit scale and position to avoid any transform drift
         const stageBox = stage.container().getBoundingClientRect();
-
-        const offsetX = -8; // Screen-space offsets to tuck badge toward shape corner
+        const stageScale = stage.scaleX(); // Assuming uniform scale
+        const stagePos = stage.position();
+        
+        // Apply scale and position transform manually
+        const screenX = shapeRight * stageScale + stagePos.x;
+        const screenY = shapeTop * stageScale + stagePos.y;
+        
+        // Add constant screen-space offsets
+        const offsetX = -8;
         const offsetY = -8;
-        const x = stageBox.left + absolutePoint.x + offsetX;
-        const y = stageBox.top + absolutePoint.y + offsetY;
+        const x = stageBox.left + screenX + offsetX;
+        const y = stageBox.top + screenY + offsetY;
         
         return (
           <CommentIndicator
