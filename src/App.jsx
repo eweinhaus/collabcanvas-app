@@ -6,6 +6,7 @@ import ConnectionBanner from './components/common/ConnectionBanner'
 import Spinner from './components/common/Spinner'
 import { useCanvas } from './context/CanvasContext'
 import { CanvasProvider } from './context/CanvasContext'
+import { CommentsProvider } from './context/CommentsContext'
 import { useAuth } from './context/AuthContext'
 
 // Lazy load heavy components (includes Konva - 969KB)
@@ -16,7 +17,9 @@ const Sidebar = lazy(() => import('./components/layout/Sidebar'))
 function App() {
   return (
     <CanvasProvider>
-      <AppShell />
+      <CommentsProvider>
+        <AppShell />
+      </CommentsProvider>
     </CanvasProvider>
   )
 }

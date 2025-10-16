@@ -1,0 +1,50 @@
+.comment-indicator {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #4f46e5;
+  color: white;
+  border: 2px solid white;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s, background-color 0.2s;
+  pointer-events: auto;
+}
+
+.comment-indicator:hover {
+  background: #4338ca;
+  transform: scale(1.05);
+}
+
+.comment-indicator:active {
+  transform: scale(0.95);
+}
+
+.comment-indicator__icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.comment-indicator__count {
+  line-height: 1;
+  min-width: 12px;
+  text-align: center;
+}
+
+/* Focus styles for accessibility */
+.comment-indicator:focus {
+  outline: 2px solid #818cf8;
+  outline-offset: 2px;
+}
+
+/* Prevent text selection */
+.comment-indicator * {
+  user-select: none;
+}
+

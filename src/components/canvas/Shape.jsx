@@ -15,7 +15,7 @@ const DRAG_THROTTLE_MS = 100;
 const TRANSFORM_THROTTLE_MS = 100;
 const BUFFER_THROTTLE_MS = 250; // Throttle buffer writes
 
-const Shape = forwardRef(({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, flashEditorUserId, onlineUsers = [], onSelect, onChange, onDragStart, onDragMove, onDragEnd, onTransformStart, onTransformMove, onTransformEnd, onStartEdit, onColorChange, onToggleSelect }, ref) => {
+const Shape = forwardRef(({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, flashEditorUserId, onlineUsers = [], onSelect, onChange, onDragStart, onDragMove, onDragEnd, onTransformStart, onTransformMove, onTransformEnd, onStartEdit, onColorChange, onToggleSelect, onContextMenu }, ref) => {
   const shapeRef = ref || useRef();
   const dragStartStateRef = useRef(null);
   const transformStartStateRef = useRef(null);
@@ -265,6 +265,7 @@ const Shape = forwardRef(({ shape, isSelected, isBeingEdited, editorUserId, show
       onTransformEnd: handleTransformEnd,
       onMouseEnter: () => setShowTooltip(true),
       onMouseLeave: () => setShowTooltip(false),
+      onContextMenu: onContextMenu,
     };
     
     // Add conflict indicator styling or edit flash

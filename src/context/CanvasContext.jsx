@@ -237,6 +237,74 @@ export const CanvasProvider = ({ children }) => {
   const firstSnapshotReceivedRef = useRef(false);
   const stageRef = useRef(null); // Shared stage ref for export functionality
   const setIsExportingRef = useRef(null); // Callback to set export mode in Canvas
+  const recentlyCreatedShapesRef = useRef(new Map()); // Track shapes created recently to skip redundant updates
+  const lastCreationTimeRef = useRef(0);
+  const CREATED_SHAPE_GRACE_MS = 10000; // 10 second grace period (was 5s)
+
+  const pruneRecentlyCreatedShapes = useCallback(() => {
+    const now = Date.now();
+    const entries = recentlyCreatedShapesRef.current;
+    const expiredIds = [];
+    entries.forEach((timestamp, id) => {
+      if (now - timestamp > CREATED_SHAPE_GRACE_MS) {
+        expiredIds.push(id);
+      }
+    });
+
+    expiredIds.forEach((id) => entries.delete(id));
+
+    if (entries.size === 0) {
+      lastCreationTimeRef.current = 0;
+    }
+  }, []);
+
+  const trackRecentlyCreatedShape = useCallback((shapeId) => {
+    const now = Date.now();
+    recentlyCreatedShapesRef.current.set(shapeId, now);
+    lastCreationTimeRef.current = now;
+    pruneRecentlyCreatedShapes();
+    console.log(`[CanvasContext] Tracking newly created shape ${shapeId}`);
+  }, [pruneRecentlyCreatedShapes]);
+
+  const hasRecentLocalCreations = useCallback(() => {
+    pruneRecentlyCreatedShapes();
+
+    if (recentlyCreatedShapesRef.current.size === 0) {
+      return false;
+    }
+
+    const now = Date.now();
+    if (now - lastCreationTimeRef.current >= CREATED_SHAPE_GRACE_MS) {
+      recentlyCreatedShapesRef.current.clear();
+      lastCreationTimeRef.current = 0;
+      return false;
+    }
+
+    for (const [, timestamp] of recentlyCreatedShapesRef.current.entries()) {
+      if (now - timestamp < CREATED_SHAPE_GRACE_MS) {
+        return true;
+      }
+    }
+
+    return false;
+  }, [pruneRecentlyCreatedShapes]);
+
+  const shouldIgnoreServerShape = useCallback((shapeId, context) => {
+    const timestamp = recentlyCreatedShapesRef.current.get(shapeId);
+    if (!timestamp) {
+      return false;
+    }
+
+    const age = Date.now() - timestamp;
+    if (age < CREATED_SHAPE_GRACE_MS) {
+      console.log(`[CanvasContext] Ignoring shape ${shapeId} from ${context} (age ${age}ms < ${CREATED_SHAPE_GRACE_MS})`);
+      return true;
+    }
+
+    // Grace period passed, remove tracking entry
+    recentlyCreatedShapesRef.current.delete(shapeId);
+    return false;
+  }, [CREATED_SHAPE_GRACE_MS]);
   
   // Command history for undo/redo
   const [commandHistory] = useState(() => new CommandHistory());
@@ -539,39 +607,61 @@ export const CanvasProvider = ({ children }) => {
       }
 
       try {
+        if (hasRecentLocalCreations()) {
+          console.log('[CanvasContext] Reconciliation skipped due to recent local creations');
+          return;
+        }
+
         const serverShapes = await getAllShapes();
         const serverShapeMap = new Map(serverShapes.map((s) => [s.id, s]));
         const localShapeMap = new Map(state.shapes.map((s) => [s.id, s]));
 
-        let needsUpdate = false;
+        let hasChanges = false;
 
-        // Check for missing or outdated shapes
+        // Apply individual shape updates instead of replacing entire array
         serverShapes.forEach((serverShape) => {
+          if (shouldIgnoreServerShape(serverShape.id, 'reconciliation')) {
+            return;
+          }
+
           const localShape = localShapeMap.get(serverShape.id);
           if (!localShape) {
-            needsUpdate = true;
+            // New shape from server
+            hasChanges = true;
+            console.log(`[CanvasContext] Reconciliation: Adding new shape ${serverShape.id}`);
+            dispatch({ type: CANVAS_ACTIONS.APPLY_SERVER_CHANGE, payload: serverShape });
           } else {
             // Check if server version is newer
             const serverTs = serverShape.updatedAt ?? 0;
             const localTs = localShape.updatedAt ?? 0;
             if (serverTs > localTs + 100) {
-              // 100ms tolerance
-              needsUpdate = true;
+              // 100ms tolerance - server has newer version
+              hasChanges = true;
+              console.log(`[CanvasContext] Reconciliation: Updating shape ${serverShape.id} (server: ${serverTs}, local: ${localTs})`);
+              dispatch({ type: CANVAS_ACTIONS.APPLY_SERVER_CHANGE, payload: serverShape });
+            } else {
+              // Server version is older or same - skip to avoid flicker
+              console.log(`[CanvasContext] Reconciliation: Skipping update for ${serverShape.id} (server: ${serverTs}, local: ${localTs})`);
+              return;
             }
           }
         });
 
-        // Check for shapes that exist locally but not on server
+        // Check for shapes that exist locally but not on server (deleted remotely)
         state.shapes.forEach((localShape) => {
+          if (shouldIgnoreServerShape(localShape.id, 'server-missing')) {
+            return;
+          }
+
           if (!serverShapeMap.has(localShape.id)) {
-            needsUpdate = true;
+            hasChanges = true;
+            dispatch({ type: CANVAS_ACTIONS.DELETE_SHAPE, payload: localShape.id });
           }
         });
 
-        if (needsUpdate) {
+        if (hasChanges) {
           // eslint-disable-next-line no-console
-          console.log('[CanvasContext] Reconciliation: syncing shapes from server');
-          dispatch({ type: CANVAS_ACTIONS.SET_SHAPES, payload: serverShapes });
+          console.log('[CanvasContext] Reconciliation: applied granular updates');
         }
       } catch (error) {
         // eslint-disable-next-line no-console
@@ -592,22 +682,28 @@ export const CanvasProvider = ({ children }) => {
     // Instant reconciliation on Firebase reconnect
     let reconnectUnsubscribe;
     let lastReconcileTime = 0;
-    const MIN_RECONCILE_INTERVAL = 2000; // Debounce to avoid thrashing
+    let wasConnected = false;
+    const MIN_RECONCILE_INTERVAL = 3000; // 3 second debounce to avoid thrashing
 
     const setupReconnectReconcile = async () => {
       try {
+        if (!realtimeDB) {
+          return;
+        }
+
         const connectedRef = ref(realtimeDB, '.info/connected');
         reconnectUnsubscribe = onValue(connectedRef, async (snapshot) => {
           const isConnected = snapshot.val();
           const now = Date.now();
-          
-          // Trigger reconciliation immediately on reconnect (with debounce)
-          if (isConnected && now - lastReconcileTime > MIN_RECONCILE_INTERVAL) {
+
+          // Only reconcile on transition from disconnected -> connected
+          if (isConnected && !wasConnected && now - lastReconcileTime > MIN_RECONCILE_INTERVAL) {
             lastReconcileTime = now;
-            // eslint-disable-next-line no-console
             console.log('[CanvasContext] Firebase reconnected, triggering instant reconciliation');
             reconcile();
           }
+
+          wasConnected = isConnected;
         });
       } catch (error) {
         console.error('[CanvasContext] Error setting up reconnect reconciliation:', error);
@@ -686,6 +782,10 @@ export const CanvasProvider = ({ children }) => {
         // Subscribe to live updates
         unsubscribeRef.current = subscribeToShapes({
           onChange: ({ type, shape }) => {
+            if (shouldIgnoreServerShape(shape.id, 'live-update')) {
+              return;
+            }
+
             if (!firstSnapshotReceivedRef.current) {
               firstSnapshotReceivedRef.current = true;
               dispatch({ type: CANVAS_ACTIONS.SET_LOADING_SHAPES, payload: false });
@@ -702,6 +802,7 @@ export const CanvasProvider = ({ children }) => {
               firstSnapshotReceivedRef.current = true;
               dispatch({ type: CANVAS_ACTIONS.SET_LOADING_SHAPES, payload: false });
             }
+            pruneRecentlyCreatedShapes();
           },
         });
       } catch (err) {
@@ -777,27 +878,52 @@ export const CanvasProvider = ({ children }) => {
 
     return {
       addShape: async (shape) => {
+        const localTimestamp = Date.now();
+        trackRecentlyCreatedShape(shape.id);
+
         // optimistic
-        dispatch({ type: CANVAS_ACTIONS.ADD_SHAPE, payload: { ...shape, updatedAt: Date.now() } });
+        dispatch({
+          type: CANVAS_ACTIONS.ADD_SHAPE,
+          payload: {
+            ...shape,
+            createdAt: localTimestamp,
+            updatedAt: localTimestamp,
+            _isOptimistic: true,
+          },
+        });
+
         try {
           await fsCreateShape(shape);
         } catch (err) {
           // rollback
+          recentlyCreatedShapesRef.current.delete(shape.id);
           dispatch({ type: CANVAS_ACTIONS.DELETE_SHAPE, payload: shape.id });
           // eslint-disable-next-line no-console
           console.error('Failed to create shape in Firestore', err);
         }
       },
       addShapesBatch: async (shapes) => {
+        const localTimestamp = Date.now();
+        shapes.forEach((shape) => trackRecentlyCreatedShape(shape.id));
+
         // optimistic - add all shapes locally first
         shapes.forEach((shape) => {
-          dispatch({ type: CANVAS_ACTIONS.ADD_SHAPE, payload: { ...shape, updatedAt: Date.now() } });
+          dispatch({
+            type: CANVAS_ACTIONS.ADD_SHAPE,
+            payload: {
+              ...shape,
+              createdAt: localTimestamp,
+              updatedAt: localTimestamp,
+              _isOptimistic: true,
+            },
+          });
         });
         try {
           await fsCreateShapesBatch(shapes);
         } catch (err) {
           // rollback all shapes on error
           shapes.forEach((shape) => {
+            recentlyCreatedShapesRef.current.delete(shape.id);
             dispatch({ type: CANVAS_ACTIONS.DELETE_SHAPE, payload: shape.id });
           });
           // eslint-disable-next-line no-console
@@ -826,6 +952,30 @@ export const CanvasProvider = ({ children }) => {
         } catch (err) {
           // eslint-disable-next-line no-console
           console.error('Failed to delete shape in Firestore', err);
+        }
+      },
+      updateZIndex: async (id, zIndex) => {
+        // optimistic update
+        dispatch({ type: CANVAS_ACTIONS.UPDATE_SHAPE, payload: { id, updates: { zIndex, updatedAt: Date.now() } } });
+        try {
+          const { updateZIndex: fsUpdateZIndex } = await import('../services/firestoreService');
+          await fsUpdateZIndex(id, zIndex);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Failed to update zIndex in Firestore', err);
+        }
+      },
+      batchUpdateZIndex: async (updates) => {
+        // optimistic update for all shapes
+        updates.forEach(({ id, zIndex }) => {
+          dispatch({ type: CANVAS_ACTIONS.UPDATE_SHAPE, payload: { id, updates: { zIndex, updatedAt: Date.now() } } });
+        });
+        try {
+          const { batchUpdateZIndex: fsBatchUpdateZIndex } = await import('../services/firestoreService');
+          await fsBatchUpdateZIndex(updates);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Failed to batch update zIndex in Firestore', err);
         }
       },
     };

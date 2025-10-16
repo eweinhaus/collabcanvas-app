@@ -3,15 +3,16 @@
  * Uses react-konva for performant rendering
  */
 
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { Stage, Layer, Transformer } from 'react-konva';
 import { useCanvas, useCanvasActions } from '../../context/CanvasContext';
+import { useComments } from '../../context/CommentsContext';
 import { useAuth } from '../../context/AuthContext';
 import { calculateNewScale, calculateZoomPosition } from '../../utils/canvas';
 import { createShape } from '../../utils/shapes';
 import { useRealtimeCursor } from '../../hooks/useRealtimeCursor';
 import { useRealtimePresence } from '../../hooks/useRealtimePresence';
-import { CreateShapeCommand, DeleteShapeCommand, MoveShapeCommand, UpdateShapeCommand } from '../../utils/commands';
+import { CreateShapeCommand, DeleteShapeCommand, MoveShapeCommand, UpdateShapeCommand, BringToFrontCommand, SendToBackCommand, BringForwardCommand, SendBackwardCommand } from '../../utils/commands';
 import { debounce } from '../../utils/debounce';
 import { subscribeToDragUpdates } from '../../services/dragBroadcastService';
 import Shape from './Shape';
@@ -21,11 +22,15 @@ import InterpolatedRemoteCursor from './InterpolatedRemoteCursor';
 import ShortcutsModal from '../common/ShortcutsModal';
 import ColorPicker from './ColorPicker';
 import SelectionBox from './SelectionBox';
+import ShapeContextMenu from './ShapeContextMenu';
+import CommentIndicator from '../collaboration/CommentIndicator';
+import CommentThread from '../collaboration/CommentThread';
 import './Canvas.css';
 
 const Canvas = ({ showGrid = false, boardId = 'default' }) => {
   const { state, firestoreActions, commandActions, stageRef, setIsExportingRef, drag, transform } = useCanvas();
   const { user } = useAuth();
+  const { openThread, getCommentCount, subscribeToShape } = useComments();
   const transformerRef = useRef(null);
   const shapeRefsRef = useRef({});
   const actions = useCanvasActions();
@@ -40,12 +45,18 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
   const [activeEdits, setActiveEdits] = useState({}); // Map of shapeId -> { userId, type: 'drag'|'transform' }
   const [locallyEditingShapes, setLocallyEditingShapes] = useState(new Set()); // Track shapes user is currently editing
   const [recentEdits, setRecentEdits] = useState({}); // Map of shapeId -> { userId, timestamp } for 1s flash
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, shapeId: null });
   const selectionStartRef = useRef(null);
   const transformStartStateRef = useRef({}); // Store state before transform for undo
   const { remoteCursors, publishLocalCursor, clearLocalCursor } = useRealtimeCursor({ boardId });
   const debouncedTextSaveRef = useRef(null);
 
   const { shapes, selectedId, selectedIds, currentTool, scale, position, stageSize, loadingShapes, onlineUsers } = state;
+
+  // Sort shapes by zIndex for proper layering (memoized for performance)
+  const sortedShapes = useMemo(() => {
+    return [...shapes].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+  }, [shapes]);
 
   // Expose setIsExporting to context for Toolbar
   useEffect(() => {
@@ -54,6 +65,13 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
 
   // Presence subscription lifecycle tied to Canvas mount
   useRealtimePresence({ boardId });
+
+  // Subscribe to comments for all shapes to enable real-time badge updates
+  useEffect(() => {
+    shapes.forEach(shape => {
+      subscribeToShape(shape.id);
+    });
+  }, [shapes, subscribeToShape]);
 
   // Update transformer when selection changes
   useEffect(() => {
@@ -158,6 +176,9 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
       transform.stopTransformSubscription();
     };
   }, [boardId, transform, user]);
+
+  // Don't auto-subscribe to comments - subscribe on-demand when user interacts
+  // This prevents unnecessary Firestore connections that trigger reconciliation
 
   // Handle window resize
   useEffect(() => {
@@ -614,16 +635,59 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
         });
       }
       
+      // Z-index shortcuts
+      if (selectedIds.length === 1) {
+        const shapeId = selectedIds[0];
+        
+        // Bring to Front: Ctrl/Cmd + ]
+        if ((e.metaKey || e.ctrlKey) && e.key === ']') {
+          e.preventDefault();
+          const command = new BringToFrontCommand(shapeId, shapes, firestoreActions);
+          commandActions.executeCommand(command);
+        }
+        
+        // Send to Back: Ctrl/Cmd + [
+        if ((e.metaKey || e.ctrlKey) && e.key === '[') {
+          e.preventDefault();
+          const command = new SendToBackCommand(shapeId, shapes, firestoreActions);
+          commandActions.executeCommand(command);
+        }
+        
+        // Bring Forward: ]
+        if (!(e.metaKey || e.ctrlKey) && e.key === ']') {
+          e.preventDefault();
+          const command = new BringForwardCommand(shapeId, shapes, firestoreActions);
+          commandActions.executeCommand(command);
+        }
+        
+        // Send Backward: [
+        if (!(e.metaKey || e.ctrlKey) && e.key === '[') {
+          e.preventDefault();
+          const command = new SendBackwardCommand(shapeId, shapes, firestoreActions);
+          commandActions.executeCommand(command);
+        }
+      }
+      
+      // Open comments with Cmd/Ctrl + Shift + C
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
+        e.preventDefault();
+        if (selectedIds.length > 0) {
+          openThread(selectedIds[0]);
+        }
+        return;
+      }
+      
       // Escape to clear selection and tool
       if (e.key === 'Escape') {
         actions.clearSelection();
         actions.setCurrentTool(null);
+        setContextMenu({ visible: false, x: 0, y: 0, shapeId: null });
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIds, shapes, clipboard, actions, editingTextId, firestoreActions, commandActions, stageRef]);
+  }, [selectedIds, shapes, clipboard, actions, editingTextId, firestoreActions, commandActions, stageRef, sortedShapes, openThread]);
 
   return (
     <div className="canvas-container">
@@ -669,7 +733,7 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
         
         {/* Main shapes layer */}
         <Layer>
-          {shapes.map((shape) => {
+          {sortedShapes.map((shape) => {
             // Hide shape if it's being edited
             if (shape.id === editingTextId) {
               return null;
@@ -774,6 +838,21 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
                 }}
                 onStartEdit={handleStartEdit}
                 onColorChange={handleColorChange}
+                onContextMenu={(e) => {
+                  e.evt.preventDefault();
+                  const stage = e.target.getStage();
+                  const pointerPosition = stage.getPointerPosition();
+                  setContextMenu({
+                    visible: true,
+                    x: pointerPosition.x,
+                    y: pointerPosition.y,
+                    shapeId: shape.id,
+                  });
+                  // Select the shape if it's not already selected
+                  if (!selectedIds.includes(shape.id)) {
+                    actions.setSelectedId(shape.id);
+                  }
+                }}
               />
             );
           })}
@@ -847,6 +926,72 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
         x={colorPickerState.x}
         y={colorPickerState.y}
       />
+      {contextMenu.visible && contextMenu.shapeId && (
+        <ShapeContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu({ visible: false, x: 0, y: 0, shapeId: null })}
+          onComment={() => openThread(contextMenu.shapeId)}
+          onBringToFront={() => {
+            const command = new BringToFrontCommand(contextMenu.shapeId, sortedShapes, firestoreActions);
+            commandActions.executeCommand(command);
+          }}
+          onSendToBack={() => {
+            const command = new SendToBackCommand(contextMenu.shapeId, sortedShapes, firestoreActions);
+            commandActions.executeCommand(command);
+          }}
+          onBringForward={() => {
+            const command = new BringForwardCommand(contextMenu.shapeId, sortedShapes, firestoreActions);
+            commandActions.executeCommand(command);
+          }}
+          onSendBackward={() => {
+            const command = new SendBackwardCommand(contextMenu.shapeId, sortedShapes, firestoreActions);
+            commandActions.executeCommand(command);
+          }}
+        />
+      )}
+      
+      {/* Comment indicators */}
+      {!isExporting && sortedShapes.map(shape => {
+        const stage = stageRef.current;
+        if (!stage) return null;
+
+        const count = getCommentCount(shape.id);
+        if (!count) return null;
+        
+        const stageBox = stage.container().getBoundingClientRect();
+        
+        // Calculate top-right corner position based on shape type
+        let shapeRight, shapeTop;
+        
+        if (shape.type === 'circle') {
+          // For circles, use center + radius for right edge and center - radius for top
+          shapeRight = shape.x + (shape.radius || 50);
+          shapeTop = shape.y - (shape.radius || 50);
+        } else {
+          // For rectangles and text, use x + width for right edge
+          shapeRight = shape.x + (shape.width || 100);
+          shapeTop = shape.y;
+        }
+        
+        // Apply scale and pan, with small offset to position badge nicely
+        const offsetX = -8; // Slightly inward from right edge
+        const offsetY = -8; // Slightly inward from top edge
+        const x = stageBox.left + (shapeRight + offsetX) * scale + position.x * scale;
+        const y = stageBox.top + (shapeTop + offsetY) * scale + position.y * scale;
+        
+        return (
+          <CommentIndicator
+            key={`comment-${shape.id}`}
+            count={count}
+            position={{ x, y }}
+            onClick={() => openThread(shape.id)}
+          />
+        );
+      })}
+      
+      {/* Comment thread panel */}
+      <CommentThread />
     </div>
   );
 };

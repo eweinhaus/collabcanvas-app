@@ -9,11 +9,13 @@ A real-time collaborative canvas application where multiple users can create and
 ## ✨ Features
 
 - **Real-time Collaboration:** Multiple users can work on the same canvas simultaneously
-- **Shape Creation:** Draw rectangles, circles, and add text
+- **Shape Creation:** Draw rectangles, circles, triangles, and add text
 - **Live Cursors:** See other users' cursors moving in real-time
 - **Presence Awareness:** View who's currently active on the canvas
-- **Shape Manipulation:** Select, move, resize, and delete shapes
+- **Shape Manipulation:** Select, move, resize, rotate, and delete shapes
+- **Collaborative Comments:** Add, edit, and view comments on any shape with real-time sync
 - **Color Picker:** Customize shape colors
+- **Undo/Redo:** Full command history for all shape operations
 - **Pan & Zoom:** Navigate large canvases easily
 - **Google Authentication:** Secure login with Google OAuth
 
@@ -62,6 +64,36 @@ For tighter collaboration scenarios, we may explore:
 - **Shape locking** to prevent simultaneous edits
 - **Edit history** to recover overwritten changes
 - **Conflict warnings** when multiple users select the same shape
+
+## 💬 Collaborative Comments
+
+Add context and discussion to any shape with real-time collaborative comments:
+
+### Features
+
+- **Comment Badges:** Visual indicators show which shapes have comments
+- **Real-time Sync:** Comments appear instantly for all users (<500ms)
+- **Thread Panel:** Clean, intuitive UI for viewing and managing comments
+- **Edit & Delete:** Any authenticated user can edit or delete any comment
+- **Persistence:** Comments are stored in Firestore and persist across sessions
+
+### How to Use
+
+1. **Add a comment:**
+   - Select a shape and press `Cmd/Ctrl + Shift + C`
+   - Or right-click a shape and select "Add Comment"
+   - Or click the comment badge (💬) on a shape that has comments
+
+2. **View comments:** Click the badge or use the keyboard shortcut to open the comment thread panel
+
+3. **Edit/Delete:** Click the edit or delete icon on any comment
+
+### Technical Details
+
+- Comments are stored as Firestore subcollections: `boards/{boardId}/shapes/{shapeId}/comments/{commentId}`
+- Real-time updates via `onSnapshot` listeners
+- Comment counts are automatically synced across all users
+- Maximum comment length: 500 characters
 
 ## 🛠️ Tech Stack
 
@@ -159,15 +191,18 @@ collabcanvas-app/
 
 ### Firestore Rules
 
-Shapes are stored in Firestore with the following structure:
-- Collection: `boards/{boardId}/shapes/{shapeId}`
+Data is stored in Firestore with the following structure:
+- Shapes: `boards/{boardId}/shapes/{shapeId}`
+- Comments: `boards/{boardId}/shapes/{shapeId}/comments/{commentId}`
 - Authentication required for all operations
+- All authenticated users can read, create, update, and delete shapes and comments
 
 ### Realtime Database Rules
 
 Cursors and presence data use Realtime Database:
 - `boards/{boardId}/cursors/{uid}` - User cursor positions
 - `boards/{boardId}/presence/{uid}` - User presence status
+- `boards/{boardId}/dragUpdates/{shapeId}` - Real-time drag position broadcasts
 
 ## 🤝 Contributing
 

@@ -56,6 +56,7 @@ const ShortcutsModal = ({ isOpen, onClose }) => {
     { key: 'Cmd/Ctrl + D', description: 'Duplicate selected shape(s)' },
     { key: 'Cmd/Ctrl + Z', description: 'Undo last action' },
     { key: 'Cmd/Ctrl + Shift + Z', description: 'Redo last undone action' },
+    { key: 'Cmd/Ctrl + Shift + C', description: 'Add/view comments on selected shape' },
     { key: 'Arrow Keys', description: 'Move selected shape(s) (5px)' },
     { key: 'Shift + Arrows', description: 'Move selected shape(s) (20px)' },
     { key: 'Double-click', description: 'Edit text or change shape color' },
