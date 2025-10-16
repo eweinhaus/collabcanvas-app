@@ -219,58 +219,6 @@ export async function createShapesBatch(shapes, boardId = DEFAULT_BOARD_ID) {
   }
 }
 
-/**
- * Create multiple shapes in a single batch operation
- * Firestore batch limit is 500 operations, so we chunk if needed
- * @param {Array} shapes - Array of shape objects to create
- * @param {string} boardId - Board ID
- * @returns {Promise<Array>} Array of created shape IDs
- */
-export async function createShapesBatch(shapes, boardId = DEFAULT_BOARD_ID) {
-  if (!shapes || shapes.length === 0) {
-    return [];
-  }
-
-  // Single shape - use regular create
-  if (shapes.length === 1) {
-    await createShape(shapes[0], boardId);
-    return [{ id: shapes[0].id }];
-  }
-
-  try {
-    const BATCH_SIZE = 500; // Firestore batch limit
-    const chunks = [];
-    
-    // Split into chunks if needed
-    for (let i = 0; i < shapes.length; i += BATCH_SIZE) {
-      chunks.push(shapes.slice(i, i + BATCH_SIZE));
-    }
-
-    const results = [];
-
-    // Process each chunk
-    for (const chunk of chunks) {
-      const batch = writeBatch(firestore);
-      
-      chunk.forEach((shape) => {
-        const ref = shapeDocRef(shape.id, boardId);
-        const payload = toFirestoreDoc(shape);
-        batch.set(ref, payload);
-      });
-
-      await batch.commit();
-      results.push(...chunk.map((s) => ({ id: s.id })));
-    }
-
-    return results;
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[firestoreService] Error creating shapes batch:', error);
-    toast.error(`Failed to create ${shapes.length} shapes. Please try again.`);
-    throw error;
-  }
-}
-
 export async function getShape(shapeId, boardId = DEFAULT_BOARD_ID) {
   const ref = shapeDocRef(shapeId, boardId);
   const snap = await getDoc(ref);
