@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "collabcanvas-prod"
-  }
+    "default": "collabcanvas-prod",
+    "dev": "collabcanvas-81fdb"
+  },
+  "targets": {},
+  "etags": {}
 }
