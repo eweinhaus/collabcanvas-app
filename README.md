@@ -17,6 +17,52 @@ A real-time collaborative canvas application where multiple users can create and
 - **Pan & Zoom:** Navigate large canvases easily
 - **Google Authentication:** Secure login with Google OAuth
 
+## 🔄 Collaboration & Conflict Resolution
+
+CollabCanvas uses a **last-write-wins (LWW)** strategy for handling concurrent edits:
+
+### How It Works
+
+1. **Optimistic UI Updates:** Changes appear instantly in your browser before syncing to the server
+2. **Server Authority:** Firebase Firestore acts as the authoritative source of truth
+3. **Timestamp-Based Resolution:** Server timestamps determine which edit wins in conflicts
+4. **Tolerance Window:** 100ms tolerance prevents minor network jitter from causing unnecessary overwrites
+5. **Real-time Sync:** All users receive updates via Firebase `onSnapshot` listeners within 50-100ms
+
+### Concurrent Editing Behavior
+
+- **Same shape, different users:** Last user to finish editing wins (their changes persist)
+- **Rapid edits:** Updates are throttled (75ms for shapes, 35ms for cursors) to balance responsiveness and Firebase costs
+- **Drag operations:** Real-time position broadcasts via Realtime Database show intermediate states; final position written to Firestore on drag end
+- **Self-healing:** Periodic reconciliation (every 10s) ensures clients stay in sync even after network issues
+
+### Visual Feedback
+
+- **Live cursors:** See where other users are pointing in real-time
+- **Drag broadcasts:** Watch shapes move as others drag them (before drag completes)
+- **Presence indicators:** Know who's currently active on the canvas
+
+### Trade-offs
+
+**Pros:**
+- Simple and predictable behavior
+- Low latency (50-100ms sync time)
+- No complex merge logic needed
+- Works well for casual collaboration
+
+**Cons:**
+- Simultaneous edits on the same shape can result in one user's changes being overwritten
+- No built-in "undo" for overwritten changes (last-write-wins is final)
+- Best suited for teams where users typically work on different areas of the canvas
+
+### Future Enhancements
+
+For tighter collaboration scenarios, we may explore:
+- **Operational Transform (OT)** or **CRDTs** for conflict-free editing
+- **Shape locking** to prevent simultaneous edits
+- **Edit history** to recover overwritten changes
+- **Conflict warnings** when multiple users select the same shape
+
 ## 🛠️ Tech Stack
 
 - **Frontend:** React + Vite

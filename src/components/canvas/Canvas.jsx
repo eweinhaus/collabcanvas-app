@@ -6,22 +6,26 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { Stage, Layer, Transformer } from 'react-konva';
 import { useCanvas, useCanvasActions } from '../../context/CanvasContext';
+import { useAuth } from '../../context/AuthContext';
 import { calculateNewScale, calculateZoomPosition } from '../../utils/canvas';
 import { createShape } from '../../utils/shapes';
 import { useRealtimeCursor } from '../../hooks/useRealtimeCursor';
 import { useRealtimePresence } from '../../hooks/useRealtimePresence';
 import { CreateShapeCommand, DeleteShapeCommand, MoveShapeCommand, UpdateShapeCommand } from '../../utils/commands';
+import { debounce } from '../../utils/debounce';
+import { subscribeToDragUpdates } from '../../services/dragBroadcastService';
 import Shape from './Shape';
 import GridBackground from './GridBackground';
 import TextEditor from './TextEditor';
-import RemoteCursor from './RemoteCursor';
+import InterpolatedRemoteCursor from './InterpolatedRemoteCursor';
 import ShortcutsModal from '../common/ShortcutsModal';
 import ColorPicker from './ColorPicker';
 import SelectionBox from './SelectionBox';
 import './Canvas.css';
 
 const Canvas = ({ showGrid = false, boardId = 'default' }) => {
-  const { state, firestoreActions, commandActions, stageRef, setIsExportingRef } = useCanvas();
+  const { state, firestoreActions, commandActions, stageRef, setIsExportingRef, drag, transform } = useCanvas();
+  const { user } = useAuth();
   const transformerRef = useRef(null);
   const shapeRefsRef = useRef({});
   const actions = useCanvasActions();
@@ -33,11 +37,15 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
   const [selectionBox, setSelectionBox] = useState({ visible: false, x: 0, y: 0, width: 0, height: 0 });
   const [isSelecting, setIsSelecting] = useState(false);
   const [isExporting, setIsExporting] = useState(false); // Hide UI elements during export
+  const [activeEdits, setActiveEdits] = useState({}); // Map of shapeId -> { userId, type: 'drag'|'transform' }
+  const [locallyEditingShapes, setLocallyEditingShapes] = useState(new Set()); // Track shapes user is currently editing
+  const [recentEdits, setRecentEdits] = useState({}); // Map of shapeId -> { userId, timestamp } for 1s flash
   const selectionStartRef = useRef(null);
   const transformStartStateRef = useRef({}); // Store state before transform for undo
   const { remoteCursors, publishLocalCursor, clearLocalCursor } = useRealtimeCursor({ boardId });
+  const debouncedTextSaveRef = useRef(null);
 
-  const { shapes, selectedId, selectedIds, currentTool, scale, position, stageSize, loadingShapes } = state;
+  const { shapes, selectedId, selectedIds, currentTool, scale, position, stageSize, loadingShapes, onlineUsers } = state;
 
   // Expose setIsExporting to context for Toolbar
   useEffect(() => {
@@ -58,6 +66,98 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
       transformerRef.current.getLayer()?.batchDraw();
     }
   }, [selectedIds]);
+
+  // Track shape updates for visual feedback flash
+  useEffect(() => {
+    // Monitor shape updates and trigger visual flash
+    shapes.forEach(shape => {
+      if (shape.updatedBy && shape.updatedAt) {
+        const editKey = `${shape.id}-${shape.updatedAt}`;
+        if (!recentEdits[editKey]) {
+          // New edit detected, trigger flash
+          setRecentEdits(prev => ({
+            ...prev,
+            [shape.id]: {
+              userId: shape.updatedBy,
+              timestamp: Date.now(),
+              editKey,
+            }
+          }));
+
+          // Remove flash after 1 second
+          setTimeout(() => {
+            setRecentEdits(prev => {
+              const next = { ...prev };
+              if (next[shape.id]?.editKey === editKey) {
+                delete next[shape.id];
+              }
+              return next;
+            });
+          }, 1000);
+        }
+      }
+    });
+  }, [shapes]);
+
+  // Drag subscription for real-time shape movement
+  useEffect(() => {
+    if (!user) return undefined;
+    
+    // Custom subscription to track active edits
+    const unsubscribe = subscribeToDragUpdates({
+      boardId,
+      excludeUserId: user.uid,
+      onUpdate: (updates) => {
+        // Track who is editing which shapes
+        const newActiveEdits = {};
+        updates.forEach(({ shapeId, userId, timestamp }) => {
+          newActiveEdits[shapeId] = { userId, type: 'drag', timestamp };
+        });
+        setActiveEdits(prev => ({ ...prev, ...newActiveEdits }));
+        
+        // Also apply position updates via context
+        drag.startDragSubscription({
+          boardId,
+          excludeUserId: user.uid,
+        });
+      },
+    });
+    
+    // Cleanup stale active edits after delay
+    const cleanupInterval = setInterval(() => {
+      setActiveEdits(prev => {
+        const now = Date.now();
+        const filtered = {};
+        Object.entries(prev).forEach(([shapeId, edit]) => {
+          // Keep edits from last 2 seconds
+          if (edit.timestamp && now - edit.timestamp < 2000) {
+            filtered[shapeId] = edit;
+          }
+        });
+        return filtered;
+      });
+    }, 1000);
+    
+    return () => {
+      unsubscribe();
+      drag.stopDragSubscription();
+      clearInterval(cleanupInterval);
+    };
+  }, [boardId, drag, user]);
+
+  // Transform subscription for real-time shape transforms
+  useEffect(() => {
+    if (!user) return undefined;
+    
+    const unsubscribe = transform.startTransformSubscription({
+      boardId,
+      excludeUserId: user.uid,
+    });
+    
+    return () => {
+      transform.stopTransformSubscription();
+    };
+  }, [boardId, transform, user]);
 
   // Handle window resize
   useEffect(() => {
@@ -244,8 +344,15 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
     if (shape) {
       setEditingTextId(shapeId);
       setEditingText(shape.text);
+      
+      // Create debounced save function for auto-save
+      if (!debouncedTextSaveRef.current) {
+        debouncedTextSaveRef.current = debounce((id, text) => {
+          firestoreActions.updateShapeText(id, text || 'Double-click to edit');
+        }, 500); // 500ms debounce
+      }
     }
-  }, [shapes]);
+  }, [shapes, firestoreActions]);
 
   const handleColorChange = useCallback((shapeId, position) => {
     setColorPickerState({
@@ -272,13 +379,26 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
     }
   }, [colorPickerState.shapeId, shapes, firestoreActions, commandActions]);
 
+  const handleTextChange = useCallback((newText) => {
+    setEditingText(newText);
+    
+    // Auto-save with debounce
+    if (editingTextId && debouncedTextSaveRef.current) {
+      debouncedTextSaveRef.current(editingTextId, newText);
+    }
+  }, [editingTextId]);
+
   const handleFinishEdit = useCallback(() => {
     if (editingTextId) {
+      // Cancel any pending debounced save
+      debouncedTextSaveRef.current?.cancel();
+      
+      // Immediately save on blur
       firestoreActions.updateShapeText(editingTextId, editingText || 'Double-click to edit');
       setEditingTextId(null);
       setEditingText('');
     }
-  }, [editingTextId, editingText, actions]);
+  }, [editingTextId, editingText, firestoreActions]);
 
   // Handle transform start - capture state for undo
   const handleTransformStart = useCallback(() => {
@@ -555,6 +675,11 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
               return null;
             }
             
+            const activeEdit = activeEdits[shape.id];
+            const isBeingEdited = activeEdit && activeEdit.userId !== user?.uid;
+            const recentEdit = recentEdits[shape.id];
+            const showEditFlash = recentEdit && recentEdit.userId !== user?.uid;
+            
             return (
               <Shape
                 key={shape.id}
@@ -567,6 +692,12 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
                 }}
                 shape={shape}
                 isSelected={selectedIds.includes(shape.id)}
+                isBeingEdited={isBeingEdited}
+                editorUserId={activeEdit?.userId}
+                showEditFlash={showEditFlash}
+                flashEditorUserId={recentEdit?.userId}
+                onlineUsers={onlineUsers}
+                boardId={boardId}
                 onSelect={() => {
                   // Only allow selection in select mode
                   if (!currentTool) {
@@ -606,6 +737,41 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
                     firestoreActions.updateShape(shape.id, newAttrs);
                   }
                 }}
+                onDragStart={() => {
+                  // Mark shape as being edited locally
+                  setLocallyEditingShapes(prev => new Set([...prev, shape.id]));
+                }}
+                onDragMove={(x, y) => {
+                  drag.publishDrag({ boardId, shapeId: shape.id, x, y });
+                }}
+                onDragEnd={() => {
+                  // Remove from locally editing set
+                  setLocallyEditingShapes(prev => {
+                    const next = new Set(prev);
+                    next.delete(shape.id);
+                    return next;
+                  });
+                  
+                  // Clear drag broadcast
+                  drag.clearDrag({ boardId, shapeId: shape.id });
+                }}
+                onTransformStart={() => {
+                  // Mark shape as being transformed locally
+                  setLocallyEditingShapes(prev => new Set([...prev, shape.id]));
+                }}
+                onTransformMove={(transformData) => {
+                  transform.publishTransform({ boardId, shapeId: shape.id, ...transformData });
+                }}
+                onTransformEnd={() => {
+                  // Remove from locally editing set
+                  setLocallyEditingShapes(prev => {
+                    const next = new Set(prev);
+                    next.delete(shape.id);
+                    return next;
+                  });
+                  
+                  transform.clearTransform({ boardId, shapeId: shape.id });
+                }}
                 onStartEdit={handleStartEdit}
                 onColorChange={handleColorChange}
               />
@@ -643,7 +809,7 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
           {remoteCursors.map((cursor) => {
             if (cursor?.x == null || cursor?.y == null) return null;
             return (
-              <RemoteCursor
+              <InterpolatedRemoteCursor
                 key={cursor.uid}
                 x={cursor.x}
                 y={cursor.y}
@@ -663,7 +829,7 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
         return (
           <TextEditor
             value={editingText}
-            onChange={setEditingText}
+            onChange={handleTextChange}
             onBlur={handleFinishEdit}
             x={shape.x}
             y={shape.y}

@@ -76,25 +76,44 @@
 .connection-status {
   display: flex;
   align-items: center;
+  gap: 6px;
   margin-right: 12px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.connection-status:hover {
+  background-color: rgba(255, 255, 255, 0.15);
 }
 
 .status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  transition: background-color 0.3s, box-shadow 0.3s;
-}
-
-.status-dot.online {
-  background-color: #4caf50;
-  box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
 }
 
 .status-dot.offline {
   background-color: #f44336;
-  box-shadow: 0 0 6px rgba(244, 67, 54, 0.6);
+  box-shadow: 0 0 6px rgba(244, 67, 54, 0.4);
 }
+
+.status-dot.connected {
+  background-color: #4caf50;
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
+}
+
+.connection-status-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: white;
+  white-space: nowrap;
+  min-width: fit-content;
+}
+
 
 /* Responsive breakpoints */
 @media (max-width: 768px) {
@@ -107,6 +126,10 @@
   }
 
   .header__user-name {
+    display: none;
+  }
+
+  .connection-status-text {
     display: none;
   }
 

@@ -3,14 +3,26 @@
  * Handles selection, dragging, and transformation
  */
 
-import { useRef, forwardRef } from 'react';
-import { Rect, Circle, Text, Line } from 'react-konva';
+import { useRef, useEffect, useCallback, useState, forwardRef } from 'react';
+import { Rect, Circle, Text, Line, Group } from 'react-konva';
 import { SHAPE_TYPES } from '../../utils/shapes';
+import { throttle } from '../../utils/throttle';
+import { getUserColor } from '../../utils/getUserColor';
+import ShapeTooltip from './ShapeTooltip';
+import { setEditBuffer, removeEditBuffer } from '../../offline/editBuffers';
 
-const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, onColorChange, onToggleSelect }, ref) => {
+const DRAG_THROTTLE_MS = 100;
+const TRANSFORM_THROTTLE_MS = 100;
+const BUFFER_THROTTLE_MS = 250; // Throttle buffer writes
+
+const Shape = forwardRef(({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, flashEditorUserId, onlineUsers = [], onSelect, onChange, onDragStart, onDragMove, onDragEnd, onTransformStart, onTransformMove, onTransformEnd, onStartEdit, onColorChange, onToggleSelect }, ref) => {
   const shapeRef = ref || useRef();
   const dragStartStateRef = useRef(null);
   const transformStartStateRef = useRef(null);
+  const throttledDragRef = useRef(null);
+  const throttledTransformRef = useRef(null);
+  const throttledBufferRef = useRef(null);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   const handleClick = (e) => {
     // Check if shift key is pressed for multi-select
@@ -23,25 +35,77 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
     }
   };
 
-  const handleDragStart = (e) => {
+  // Initialize throttled drag publisher
+  useEffect(() => {
+    if (onDragMove && !throttledDragRef.current) {
+      throttledDragRef.current = throttle((x, y) => {
+        onDragMove(x, y);
+      }, DRAG_THROTTLE_MS);
+    }
+    return () => {
+      throttledDragRef.current?.cancel?.();
+    };
+  }, [onDragMove]);
+
+  // Initialize throttled transform publisher
+  useEffect(() => {
+    if (onTransformMove && !throttledTransformRef.current) {
+      throttledTransformRef.current = throttle((transformData) => {
+        onTransformMove(transformData);
+      }, TRANSFORM_THROTTLE_MS);
+    }
+    return () => {
+      throttledTransformRef.current?.cancel?.();
+    };
+  }, [onTransformMove]);
+
+  // Initialize throttled buffer writer (writes full shape props to IndexedDB)
+  useEffect(() => {
+    if (!throttledBufferRef.current) {
+      throttledBufferRef.current = throttle((shapeData) => {
+        setEditBuffer(shape.id, shapeData).catch((err) => {
+          console.error('[Shape] Error buffering shape:', err);
+        });
+      }, BUFFER_THROTTLE_MS);
+    }
+    return () => {
+      throttledBufferRef.current?.cancel?.();
+    };
+  }, [shape.id]);
+
+  const handleDragStart = useCallback((e) => {
     // Capture state before drag for undo
     dragStartStateRef.current = {
       x: shape.x,
       y: shape.y,
     };
-  };
-
-  const handleDragMove = (e) => {
-    try {
-      const x = e.target.x();
-      const y = e.target.y();
-      sessionStorage.setItem(`editBuffer:${shape.id}`, JSON.stringify({ x, y }));
-    } catch {
-      // ignore session storage errors
+    
+    // Notify parent that drag started
+    if (onDragStart) {
+      onDragStart();
     }
-  };
+  }, [shape.x, shape.y, onDragStart]);
 
-  const handleDragEnd = (e) => {
+  const handleDragMove = useCallback((e) => {
+    const x = e.target.x();
+    const y = e.target.y();
+    
+    // Buffer full shape props to IndexedDB (throttled)
+    if (throttledBufferRef.current) {
+      throttledBufferRef.current({
+        ...shape,
+        x,
+        y,
+      });
+    }
+    
+    // Broadcast drag position to other users
+    if (throttledDragRef.current) {
+      throttledDragRef.current(x, y);
+    }
+  }, [shape]);
+
+  const handleDragEnd = useCallback((e) => {
     const x = e.target.x();
     const y = e.target.y();
     
@@ -56,14 +120,18 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
     
     dragStartStateRef.current = null;
     
-    try {
-      sessionStorage.removeItem(`editBuffer:${shape.id}`);
-    } catch {
-      // ignore session storage errors
+    // Clean up drag broadcast
+    if (onDragEnd) {
+      onDragEnd();
     }
-  };
+    
+    // Remove edit buffer after successful write
+    removeEditBuffer(shape.id).catch(() => {
+      // ignore errors
+    });
+  }, [shape.id, onChange, onDragEnd]);
 
-  const handleTransformStart = () => {
+  const handleTransformStart = useCallback(() => {
     // Capture state before transform for undo
     const node = shapeRef.current;
     if (!node) return;
@@ -83,9 +151,40 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
     } else if (shape.type === SHAPE_TYPES.TEXT) {
       transformStartStateRef.current.fontSize = shape.fontSize;
     }
-  };
+    
+    // Notify parent that transform started
+    if (onTransformStart) {
+      onTransformStart();
+    }
+  }, [shape, onTransformStart]);
 
-  const handleTransformEnd = () => {
+  const handleTransform = useCallback(() => {
+    const node = shapeRef.current;
+    if (!node) return;
+
+    const transformData = {
+      x: node.x(),
+      y: node.y(),
+      scaleX: node.scaleX(),
+      scaleY: node.scaleY(),
+      rotation: node.rotation(),
+    };
+
+    // Buffer full shape props during transform (throttled)
+    if (throttledBufferRef.current) {
+      throttledBufferRef.current({
+        ...shape,
+        ...transformData,
+      });
+    }
+
+    // Broadcast transform state during transformation
+    if (throttledTransformRef.current) {
+      throttledTransformRef.current(transformData);
+    }
+  }, [shape]);
+
+  const handleTransformEnd = useCallback(() => {
     const node = shapeRef.current;
     if (!node) return;
 
@@ -122,7 +221,17 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
     });
     
     transformStartStateRef.current = null;
-  };
+    
+    // Clean up transform broadcast
+    if (onTransformEnd) {
+      onTransformEnd();
+    }
+    
+    // Remove edit buffer after successful write
+    removeEditBuffer(shape.id).catch(() => {
+      // ignore errors
+    });
+  }, [shape.id, shape.type, onChange, onTransformEnd]);
 
   const handleDoubleClick = (e) => {
     if (shape.type === SHAPE_TYPES.TEXT && onStartEdit) {
@@ -136,6 +245,10 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
     }
   };
 
+  // Get editor color for conflict indicator and edit flash
+  const editorColor = isBeingEdited ? getUserColor(editorUserId, onlineUsers) : null;
+  const flashColor = showEditFlash ? getUserColor(flashEditorUserId, onlineUsers) : null;
+  
   // Render appropriate shape based on type
   const renderShape = () => {
     const commonProps = {
@@ -143,13 +256,31 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
       id: shape.id, // Important: Set ID so Transformer can identify nodes
       onClick: handleClick,
       onTap: handleClick,
-      draggable: shape.draggable !== false,
+      draggable: shape.draggable !== false && !isBeingEdited, // Disable drag if being edited by someone else
       onDragStart: handleDragStart,
       onDragMove: handleDragMove,
       onDragEnd: handleDragEnd,
       onTransformStart: handleTransformStart,
+      onTransform: handleTransform,
       onTransformEnd: handleTransformEnd,
+      onMouseEnter: () => setShowTooltip(true),
+      onMouseLeave: () => setShowTooltip(false),
     };
+    
+    // Add conflict indicator styling or edit flash
+    const conflictStyle = isBeingEdited ? {
+      stroke: editorColor,
+      strokeWidth: 2,
+      dash: [10, 5],
+      opacity: 0.7,
+    } : showEditFlash ? {
+      stroke: flashColor,
+      strokeWidth: 3,
+      opacity: 1,
+      shadowColor: flashColor,
+      shadowBlur: 10,
+      shadowOpacity: 0.8,
+    } : {};
 
     switch (shape.type) {
       case SHAPE_TYPES.RECT:
@@ -163,8 +294,10 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
             width={shape.width}
             height={shape.height}
             fill={shape.fill}
-            stroke={shape.stroke}
-            strokeWidth={shape.strokeWidth}
+            stroke={conflictStyle.stroke || shape.stroke}
+            strokeWidth={conflictStyle.strokeWidth || shape.strokeWidth}
+            dash={conflictStyle.dash}
+            opacity={conflictStyle.opacity || 1}
             rotation={shape.rotation || 0}
           />
         );
@@ -179,8 +312,10 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
             y={shape.y}
             radius={shape.radius}
             fill={shape.fill}
-            stroke={shape.stroke}
-            strokeWidth={shape.strokeWidth}
+            stroke={conflictStyle.stroke || shape.stroke}
+            strokeWidth={conflictStyle.strokeWidth || shape.strokeWidth}
+            dash={conflictStyle.dash}
+            opacity={conflictStyle.opacity || 1}
           />
         );
 
@@ -196,6 +331,9 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
             fontSize={shape.fontSize}
             fill={shape.fill}
             fontFamily="Arial"
+            stroke={conflictStyle.stroke}
+            strokeWidth={conflictStyle.strokeWidth ? 1 : 0}
+            opacity={conflictStyle.opacity || 1}
           />
         );
 
@@ -219,8 +357,10 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
             points={points}
             closed
             fill={shape.fill}
-            stroke={shape.stroke}
-            strokeWidth={shape.strokeWidth}
+            stroke={conflictStyle.stroke || shape.stroke}
+            strokeWidth={conflictStyle.strokeWidth || shape.strokeWidth}
+            dash={conflictStyle.dash}
+            opacity={conflictStyle.opacity || 1}
             rotation={shape.rotation || 0}
           />
         );
@@ -231,7 +371,68 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
     }
   };
 
-  return renderShape();
+  // Render lock icon when being edited
+  const renderLockIcon = () => {
+    if (!isBeingEdited) return null;
+    
+    const lockSize = 16;
+    const x = shape.x + (shape.width || shape.radius || 50);
+    const y = shape.y - lockSize - 5;
+    
+    return (
+      <Group x={x} y={y} listening={false}>
+        {/* Lock body */}
+        <Rect
+          x={2}
+          y={8}
+          width={12}
+          height={10}
+          fill={editorColor}
+          cornerRadius={2}
+        />
+        {/* Lock shackle */}
+        <Circle
+          x={8}
+          y={6}
+          radius={5}
+          stroke={editorColor}
+          strokeWidth={2}
+          fill="transparent"
+        />
+        <Rect
+          x={3}
+          y={4}
+          width={10}
+          height={6}
+          fill="white"
+        />
+      </Group>
+    );
+  };
+
+  // Calculate tooltip position
+  const getTooltipPosition = () => {
+    const x = shape.x + (shape.width || shape.radius || 50) / 2;
+    const y = shape.y;
+    return { x, y };
+  };
+
+  const tooltipPos = getTooltipPosition();
+
+  return (
+    <>
+      {renderShape()}
+      {renderLockIcon()}
+      {showTooltip && (
+        <ShapeTooltip 
+          shape={shape} 
+          x={tooltipPos.x} 
+          y={tooltipPos.y} 
+          onlineUsers={onlineUsers} 
+        />
+      )}
+    </>
+  );
 });
 
 Shape.displayName = 'Shape';
