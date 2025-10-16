@@ -3,8 +3,8 @@
  * Handles selection, dragging, and transformation
  */
 
-import { useRef, useEffect, useCallback, useState } from 'react';
-import { Rect, Circle, Text, Line, Transformer, Group } from 'react-konva';
+import { useRef, useEffect, useCallback, useState, forwardRef } from 'react';
+import { Rect, Circle, Text, Line, Group } from 'react-konva';
 import { SHAPE_TYPES } from '../../utils/shapes';
 import { throttle } from '../../utils/throttle';
 import { getUserColor } from '../../utils/getUserColor';
@@ -15,21 +15,25 @@ const DRAG_THROTTLE_MS = 100;
 const TRANSFORM_THROTTLE_MS = 100;
 const BUFFER_THROTTLE_MS = 250; // Throttle buffer writes
 
-const Shape = ({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, flashEditorUserId, onlineUsers = [], onSelect, onChange, onDragStart, onDragMove, onDragEnd, onTransformStart, onTransformMove, onTransformEnd, onStartEdit, onColorChange }) => {
-  const shapeRef = useRef();
-  const transformerRef = useRef();
+const Shape = forwardRef(({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, flashEditorUserId, onlineUsers = [], onSelect, onChange, onDragStart, onDragMove, onDragEnd, onTransformStart, onTransformMove, onTransformEnd, onStartEdit, onColorChange, onToggleSelect }, ref) => {
+  const shapeRef = ref || useRef();
+  const dragStartStateRef = useRef(null);
+  const transformStartStateRef = useRef(null);
   const throttledDragRef = useRef(null);
   const throttledTransformRef = useRef(null);
   const throttledBufferRef = useRef(null);
   const [showTooltip, setShowTooltip] = useState(false);
 
-  // Attach transformer to selected shape
-  useEffect(() => {
-    if (isSelected && transformerRef.current && shapeRef.current) {
-      transformerRef.current.nodes([shapeRef.current]);
-      transformerRef.current.getLayer().batchDraw();
+  const handleClick = (e) => {
+    // Check if shift key is pressed for multi-select
+    if (e.evt && (e.evt.shiftKey || e.evt.metaKey)) {
+      if (onToggleSelect) {
+        onToggleSelect(shape.id);
+      }
+    } else {
+      onSelect();
     }
-  }, [isSelected]);
+  };
 
   // Initialize throttled drag publisher
   useEffect(() => {
@@ -69,12 +73,18 @@ const Shape = ({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, 
     };
   }, [shape.id]);
 
-  const handleDragStart = useCallback(() => {
+  const handleDragStart = useCallback((e) => {
+    // Capture state before drag for undo
+    dragStartStateRef.current = {
+      x: shape.x,
+      y: shape.y,
+    };
+    
     // Notify parent that drag started
     if (onDragStart) {
       onDragStart();
     }
-  }, [onDragStart]);
+  }, [shape.x, shape.y, onDragStart]);
 
   const handleDragMove = useCallback((e) => {
     const x = e.target.x();
@@ -99,8 +109,16 @@ const Shape = ({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, 
     const x = e.target.x();
     const y = e.target.y();
     
-    // Update Firestore with final position
-    onChange({ x, y });
+    // Pass both old and new state for undo/redo
+    onChange({ 
+      x, 
+      y 
+    }, {
+      oldState: dragStartStateRef.current,
+      isMove: true
+    });
+    
+    dragStartStateRef.current = null;
     
     // Clean up drag broadcast
     if (onDragEnd) {
@@ -114,11 +132,31 @@ const Shape = ({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, 
   }, [shape.id, onChange, onDragEnd]);
 
   const handleTransformStart = useCallback(() => {
+    // Capture state before transform for undo
+    const node = shapeRef.current;
+    if (!node) return;
+
+    transformStartStateRef.current = {
+      x: shape.x,
+      y: shape.y,
+      rotation: shape.rotation || 0,
+    };
+
+    // Capture dimension-specific properties
+    if (shape.type === SHAPE_TYPES.RECT || shape.type === SHAPE_TYPES.TRIANGLE) {
+      transformStartStateRef.current.width = shape.width;
+      transformStartStateRef.current.height = shape.height;
+    } else if (shape.type === SHAPE_TYPES.CIRCLE) {
+      transformStartStateRef.current.radius = shape.radius;
+    } else if (shape.type === SHAPE_TYPES.TEXT) {
+      transformStartStateRef.current.fontSize = shape.fontSize;
+    }
+    
     // Notify parent that transform started
     if (onTransformStart) {
       onTransformStart();
     }
-  }, [onTransformStart]);
+  }, [shape, onTransformStart]);
 
   const handleTransform = useCallback(() => {
     const node = shapeRef.current;
@@ -176,8 +214,13 @@ const Shape = ({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, 
       updates.height = Math.max(5, node.height() * scaleY);
     }
 
-    // Update Firestore with final transform
-    onChange(updates);
+    // Pass both old and new state for undo/redo
+    onChange(updates, {
+      oldState: transformStartStateRef.current,
+      isTransform: true
+    });
+    
+    transformStartStateRef.current = null;
     
     // Clean up transform broadcast
     if (onTransformEnd) {
@@ -210,8 +253,9 @@ const Shape = ({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, 
   const renderShape = () => {
     const commonProps = {
       ref: shapeRef,
-      onClick: onSelect,
-      onTap: onSelect,
+      id: shape.id, // Important: Set ID so Transformer can identify nodes
+      onClick: handleClick,
+      onTap: handleClick,
       draggable: shape.draggable !== false && !isBeingEdited, // Disable drag if being edited by someone else
       onDragStart: handleDragStart,
       onDragMove: handleDragMove,
@@ -387,21 +431,11 @@ const Shape = ({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, 
           onlineUsers={onlineUsers} 
         />
       )}
-      {isSelected && !isBeingEdited && (
-        <Transformer
-          ref={transformerRef}
-          boundBoxFunc={(oldBox, newBox) => {
-            // Limit minimum size
-            if (newBox.width < 5 || newBox.height < 5) {
-              return oldBox;
-            }
-            return newBox;
-          }}
-        />
-      )}
     </>
   );
-};
+});
+
+Shape.displayName = 'Shape';
 
 export default Shape;
 

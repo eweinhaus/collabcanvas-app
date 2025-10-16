@@ -3,7 +3,7 @@
  * Manages shapes, selection, current tool, pan, and zoom
  */
 
-import { createContext, useContext, useReducer, useMemo, useEffect, useRef, useCallback } from 'react';
+import { createContext, useContext, useReducer, useMemo, useEffect, useRef, useCallback, useState } from 'react';
 import { getAllShapes, subscribeToShapes } from '../services/firestoreService';
 import { createShape as fsCreateShape, createShapesBatch as fsCreateShapesBatch, updateShape as fsUpdateShape, deleteShape as fsDeleteShape, updateShapeText as fsUpdateShapeText } from '../services/firestoreServiceWithQueue';
 import { throttle } from '../utils/throttle';
@@ -16,6 +16,8 @@ import { getAllEditBuffers, removeEditBuffer, registerEditBufferCleanup } from '
 import { flush as flushOperationQueue } from '../offline/operationQueue';
 import { ref, onValue } from 'firebase/database';
 import toast from 'react-hot-toast';
+import CommandHistory from '../utils/CommandHistory';
+import { CreateShapeCommand, DeleteShapeCommand } from '../utils/commands';
 
 const DEFAULT_BOARD_ID = 'default';
 
@@ -31,6 +33,10 @@ export const CANVAS_ACTIONS = {
   
   // Selection actions
   SET_SELECTED_ID: 'SET_SELECTED_ID',
+  SET_SELECTED_IDS: 'SET_SELECTED_IDS',
+  ADD_SELECTED_ID: 'ADD_SELECTED_ID',
+  REMOVE_SELECTED_ID: 'REMOVE_SELECTED_ID',
+  TOGGLE_SELECTED_ID: 'TOGGLE_SELECTED_ID',
   CLEAR_SELECTION: 'CLEAR_SELECTION',
   
   // Tool actions
@@ -49,7 +55,8 @@ export const CANVAS_ACTIONS = {
 // Initial state
 const initialState = {
   shapes: [],
-  selectedId: null,
+  selectedId: null, // Keep for backward compatibility
+  selectedIds: [], // Multi-select support
   currentTool: null, // 'rect', 'circle', 'text', or null for select mode
   scale: 1,
   position: { x: 0, y: 0 },
@@ -83,6 +90,7 @@ const canvasReducer = (state, action) => {
         ...state,
         shapes: state.shapes.filter(shape => shape.id !== action.payload),
         selectedId: state.selectedId === action.payload ? null : state.selectedId,
+        selectedIds: state.selectedIds.filter(id => id !== action.payload),
       };
       
     case CANVAS_ACTIONS.SET_SHAPES:
@@ -113,12 +121,55 @@ const canvasReducer = (state, action) => {
       return {
         ...state,
         selectedId: action.payload,
+        selectedIds: action.payload ? [action.payload] : [],
       };
+      
+    case CANVAS_ACTIONS.SET_SELECTED_IDS:
+      return {
+        ...state,
+        selectedIds: action.payload,
+        selectedId: action.payload.length === 1 ? action.payload[0] : null,
+      };
+      
+    case CANVAS_ACTIONS.ADD_SELECTED_ID:
+      if (state.selectedIds.includes(action.payload)) {
+        return state;
+      }
+      return {
+        ...state,
+        selectedIds: [...state.selectedIds, action.payload],
+        selectedId: null, // Clear single selection when multi-selecting
+      };
+      
+    case CANVAS_ACTIONS.REMOVE_SELECTED_ID:
+      const newSelectedIds = state.selectedIds.filter(id => id !== action.payload);
+      return {
+        ...state,
+        selectedIds: newSelectedIds,
+        selectedId: newSelectedIds.length === 1 ? newSelectedIds[0] : null,
+      };
+      
+    case CANVAS_ACTIONS.TOGGLE_SELECTED_ID:
+      if (state.selectedIds.includes(action.payload)) {
+        const filtered = state.selectedIds.filter(id => id !== action.payload);
+        return {
+          ...state,
+          selectedIds: filtered,
+          selectedId: filtered.length === 1 ? filtered[0] : null,
+        };
+      } else {
+        return {
+          ...state,
+          selectedIds: [...state.selectedIds, action.payload],
+          selectedId: null,
+        };
+      }
       
     case CANVAS_ACTIONS.CLEAR_SELECTION:
       return {
         ...state,
         selectedId: null,
+        selectedIds: [],
       };
       
     case CANVAS_ACTIONS.SET_CURRENT_TOOL:
@@ -126,6 +177,7 @@ const canvasReducer = (state, action) => {
         ...state,
         currentTool: action.payload,
         selectedId: null, // Clear selection when changing tools
+        selectedIds: [],
       };
       
     case CANVAS_ACTIONS.SET_SCALE:
@@ -183,6 +235,13 @@ export const CanvasProvider = ({ children }) => {
   const dragUnsubscribeRef = useRef(null);
   const transformUnsubscribeRef = useRef(null);
   const firstSnapshotReceivedRef = useRef(false);
+  const stageRef = useRef(null); // Shared stage ref for export functionality
+  const setIsExportingRef = useRef(null); // Callback to set export mode in Canvas
+  
+  // Command history for undo/redo
+  const [commandHistory] = useState(() => new CommandHistory());
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   const setupCursorDisconnect = useCallback(({ uid, boardId = DEFAULT_BOARD_ID } = {}) => {
     if (cursorDisconnectCancelRef.current) {
@@ -693,6 +752,12 @@ export const CanvasProvider = ({ children }) => {
     return unsubscribe;
   }, []);
 
+  // Update undo/redo state
+  const updateUndoRedoState = useCallback(() => {
+    setCanUndo(commandHistory.canUndo());
+    setCanRedo(commandHistory.canRedo());
+  }, [commandHistory]);
+
   // Memoize context value to prevent unnecessary re-renders
   const firestoreActions = useMemo(() => {
     // Shape update throttle - configurable via env for production tuning
@@ -766,10 +831,41 @@ export const CanvasProvider = ({ children }) => {
     };
   }, []);
 
+  // Command history actions
+  const commandActions = useMemo(() => ({
+    executeCommand: async (command) => {
+      await commandHistory.execute(command);
+      updateUndoRedoState();
+    },
+    undo: async () => {
+      try {
+        await commandHistory.undo();
+        updateUndoRedoState();
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to undo:', err);
+      }
+    },
+    redo: async () => {
+      try {
+        await commandHistory.redo();
+        updateUndoRedoState();
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to redo:', err);
+      }
+    },
+    canUndo,
+    canRedo,
+  }), [commandHistory, updateUndoRedoState, canUndo, canRedo]);
+
   const value = useMemo(() => ({
     state,
     dispatch,
     firestoreActions,
+    commandActions,
+    stageRef,
+    setIsExportingRef,
     cursor: {
       publishCursor,
       startCursorSubscription,
@@ -793,7 +889,7 @@ export const CanvasProvider = ({ children }) => {
       startTransformSubscription,
       stopTransformSubscription,
     },
-  }), [state, firestoreActions, publishCursor, startCursorSubscription, stopCursorSubscription, setupCursorDisconnect, removeCursorCallback, startPresenceSubscription, stopPresenceSubscription, publishDrag, clearDrag, startDragSubscription, stopDragSubscription, publishTransformUpdate, clearTransformUpdate, startTransformSubscription, stopTransformSubscription]);
+  }), [state, firestoreActions, commandActions, publishCursor, startCursorSubscription, stopCursorSubscription, setupCursorDisconnect, removeCursorCallback, startPresenceSubscription, stopPresenceSubscription, publishDrag, clearDrag, startDragSubscription, stopDragSubscription, publishTransformUpdate, clearTransformUpdate, startTransformSubscription, stopTransformSubscription]);
 
   return (
     <CanvasContext.Provider value={value}>
@@ -825,6 +921,10 @@ export const useCanvasActions = () => {
     updateShape: (id, updates) => dispatch({ type: CANVAS_ACTIONS.UPDATE_SHAPE, payload: { id, updates } }),
     deleteShape: (id) => dispatch({ type: CANVAS_ACTIONS.DELETE_SHAPE, payload: id }),
     setSelectedId: (id) => dispatch({ type: CANVAS_ACTIONS.SET_SELECTED_ID, payload: id }),
+    setSelectedIds: (ids) => dispatch({ type: CANVAS_ACTIONS.SET_SELECTED_IDS, payload: ids }),
+    addSelectedId: (id) => dispatch({ type: CANVAS_ACTIONS.ADD_SELECTED_ID, payload: id }),
+    removeSelectedId: (id) => dispatch({ type: CANVAS_ACTIONS.REMOVE_SELECTED_ID, payload: id }),
+    toggleSelectedId: (id) => dispatch({ type: CANVAS_ACTIONS.TOGGLE_SELECTED_ID, payload: id }),
     clearSelection: () => dispatch({ type: CANVAS_ACTIONS.CLEAR_SELECTION }),
     setCurrentTool: (tool) => dispatch({ type: CANVAS_ACTIONS.SET_CURRENT_TOOL, payload: tool }),
     setScale: (scale) => dispatch({ type: CANVAS_ACTIONS.SET_SCALE, payload: scale }),
