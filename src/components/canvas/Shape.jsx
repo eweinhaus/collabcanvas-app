@@ -3,21 +3,23 @@
  * Handles selection, dragging, and transformation
  */
 
-import { useRef, useEffect } from 'react';
-import { Rect, Circle, Text, Line, Transformer } from 'react-konva';
+import { useRef, forwardRef } from 'react';
+import { Rect, Circle, Text, Line } from 'react-konva';
 import { SHAPE_TYPES } from '../../utils/shapes';
 
-const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit, onColorChange }) => {
-  const shapeRef = useRef();
-  const transformerRef = useRef();
+const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, onColorChange, onToggleSelect }, ref) => {
+  const shapeRef = ref || useRef();
 
-  // Attach transformer to selected shape
-  useEffect(() => {
-    if (isSelected && transformerRef.current && shapeRef.current) {
-      transformerRef.current.nodes([shapeRef.current]);
-      transformerRef.current.getLayer().batchDraw();
+  const handleClick = (e) => {
+    // Check if shift key is pressed for multi-select
+    if (e.evt && (e.evt.shiftKey || e.evt.metaKey)) {
+      if (onToggleSelect) {
+        onToggleSelect(shape.id);
+      }
+    } else {
+      onSelect();
     }
-  }, [isSelected]);
+  };
 
   const handleDragMove = (e) => {
     try {
@@ -89,8 +91,8 @@ const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit, onColorChan
   const renderShape = () => {
     const commonProps = {
       ref: shapeRef,
-      onClick: onSelect,
-      onTap: onSelect,
+      onClick: handleClick,
+      onTap: handleClick,
       draggable: shape.draggable !== false,
       onDragMove: handleDragMove,
       onDragEnd: handleDragEnd,
@@ -177,24 +179,10 @@ const Shape = ({ shape, isSelected, onSelect, onChange, onStartEdit, onColorChan
     }
   };
 
-  return (
-    <>
-      {renderShape()}
-      {isSelected && (
-        <Transformer
-          ref={transformerRef}
-          boundBoxFunc={(oldBox, newBox) => {
-            // Limit minimum size
-            if (newBox.width < 5 || newBox.height < 5) {
-              return oldBox;
-            }
-            return newBox;
-          }}
-        />
-      )}
-    </>
-  );
-};
+  return renderShape();
+});
+
+Shape.displayName = 'Shape';
 
 export default Shape;
 

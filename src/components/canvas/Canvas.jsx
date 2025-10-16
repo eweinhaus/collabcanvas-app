@@ -4,7 +4,7 @@
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { Stage, Layer } from 'react-konva';
+import { Stage, Layer, Transformer } from 'react-konva';
 import { useCanvas, useCanvasActions } from '../../context/CanvasContext';
 import { calculateNewScale, calculateZoomPosition } from '../../utils/canvas';
 import { createShape } from '../../utils/shapes';
@@ -16,10 +16,13 @@ import TextEditor from './TextEditor';
 import RemoteCursor from './RemoteCursor';
 import ShortcutsModal from '../common/ShortcutsModal';
 import ColorPicker from './ColorPicker';
+import SelectionBox from './SelectionBox';
 import './Canvas.css';
 
 const Canvas = ({ showGrid = false, boardId = 'default' }) => {
   const stageRef = useRef(null);
+  const transformerRef = useRef(null);
+  const shapeRefsRef = useRef({});
   const { state, firestoreActions } = useCanvas();
   const actions = useCanvasActions();
   const [editingTextId, setEditingTextId] = useState(null);
@@ -27,12 +30,27 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [colorPickerState, setColorPickerState] = useState({ isOpen: false, shapeId: null, x: 0, y: 0 });
   const [clipboard, setClipboard] = useState(null);
+  const [selectionBox, setSelectionBox] = useState({ visible: false, x: 0, y: 0, width: 0, height: 0 });
+  const [isSelecting, setIsSelecting] = useState(false);
+  const selectionStartRef = useRef(null);
   const { remoteCursors, publishLocalCursor, clearLocalCursor } = useRealtimeCursor({ boardId });
 
-  const { shapes, selectedId, currentTool, scale, position, stageSize, loadingShapes } = state;
+  const { shapes, selectedId, selectedIds, currentTool, scale, position, stageSize, loadingShapes } = state;
 
   // Presence subscription lifecycle tied to Canvas mount
   useRealtimePresence({ boardId });
+
+  // Update transformer when selection changes
+  useEffect(() => {
+    if (transformerRef.current) {
+      const selectedNodes = selectedIds
+        .map(id => shapeRefsRef.current[id])
+        .filter(node => node);
+      
+      transformerRef.current.nodes(selectedNodes);
+      transformerRef.current.getLayer()?.batchDraw();
+    }
+  }, [selectedIds]);
 
   // Handle window resize
   useEffect(() => {
@@ -70,6 +88,91 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
     }
   }, [actions]);
 
+  // Handle mouse down on stage for selection box
+  const handleStageMouseDown = useCallback((e) => {
+    // Only start selection box on empty stage in select mode
+    if (e.target === e.target.getStage() && !currentTool) {
+      const stage = stageRef.current;
+      const pointerPosition = stage.getPointerPosition();
+      
+      // Convert screen coordinates to canvas coordinates
+      const x = (pointerPosition.x - position.x) / scale;
+      const y = (pointerPosition.y - position.y) / scale;
+      
+      selectionStartRef.current = { x, y };
+      setIsSelecting(true);
+      setSelectionBox({ visible: true, x, y, width: 0, height: 0 });
+    }
+  }, [currentTool, scale, position]);
+
+  // Handle mouse move for selection box
+  const handleStageMouseMove = useCallback((e) => {
+    if (!isSelecting || !selectionStartRef.current) return;
+    
+    const stage = stageRef.current;
+    if (!stage) return;
+    
+    const pointerPosition = stage.getPointerPosition();
+    if (!pointerPosition) return;
+    
+    // Convert screen coordinates to canvas coordinates
+    const x = (pointerPosition.x - position.x) / scale;
+    const y = (pointerPosition.y - position.y) / scale;
+    
+    const startX = selectionStartRef.current.x;
+    const startY = selectionStartRef.current.y;
+    
+    // Calculate box dimensions (handle negative widths/heights)
+    const width = x - startX;
+    const height = y - startY;
+    
+    setSelectionBox({
+      visible: true,
+      x: width < 0 ? x : startX,
+      y: height < 0 ? y : startY,
+      width: Math.abs(width),
+      height: Math.abs(height),
+    });
+  }, [isSelecting, scale, position]);
+
+  // Handle mouse up to complete selection
+  const handleStageMouseUp = useCallback((e) => {
+    if (isSelecting) {
+      // Calculate which shapes intersect with the selection box
+      const box = selectionBox;
+      
+      if (box.width > 5 && box.height > 5) {
+        // Only select if box is large enough (avoids accidental tiny drags)
+        const selectedShapeIds = shapes
+          .filter(shape => {
+            // Check if shape intersects with selection box
+            const shapeRight = shape.x + (shape.width || shape.radius * 2 || 100);
+            const shapeBottom = shape.y + (shape.height || shape.radius * 2 || 50);
+            
+            return (
+              shape.x < box.x + box.width &&
+              shapeRight > box.x &&
+              shape.y < box.y + box.height &&
+              shapeBottom > box.y
+            );
+          })
+          .map(shape => shape.id);
+        
+        if (selectedShapeIds.length > 0) {
+          actions.setSelectedIds(selectedShapeIds);
+        }
+      } else {
+        // Box too small (was a click, not a drag) - clear selection
+        actions.clearSelection();
+      }
+      
+      // Reset selection box
+      setIsSelecting(false);
+      setSelectionBox({ visible: false, x: 0, y: 0, width: 0, height: 0 });
+      selectionStartRef.current = null;
+    }
+  }, [isSelecting, selectionBox, shapes, actions]);
+
   // Handle stage click for shape creation or deselection
   const handleStageClick = useCallback((e) => {
     // Click on empty area
@@ -88,12 +191,12 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
         
         // Optionally clear tool after creating shape (comment out to keep tool active)
         // actions.setCurrentTool(null);
-      } else {
-        // Deselect when clicking empty area in select mode
+      } else if (!isSelecting) {
+        // Deselect when clicking empty area in select mode (but not if we were dragging)
         actions.clearSelection();
       }
     }
-  }, [currentTool, actions, scale, position, firestoreActions]);
+  }, [currentTool, actions, scale, position, firestoreActions, isSelecting]);
 
   const handlePointerMove = useCallback(() => {
     const stage = stageRef.current;
@@ -170,33 +273,43 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
         return;
       }
       
-      // Copy selected shape (Cmd/Ctrl + C)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && selectedId) {
+      // Copy selected shapes (Cmd/Ctrl + C)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && selectedIds.length > 0) {
         e.preventDefault();
-        const shapeToCopy = shapes.find(s => s.id === selectedId);
-        if (shapeToCopy) {
-          setClipboard(shapeToCopy);
+        const shapesToCopy = shapes.filter(s => selectedIds.includes(s.id));
+        if (shapesToCopy.length > 0) {
+          setClipboard(shapesToCopy);
         }
       }
       
-      // Paste shape (Cmd/Ctrl + V)
+      // Paste shapes (Cmd/Ctrl + V)
       if ((e.metaKey || e.ctrlKey) && e.key === 'v' && clipboard) {
         e.preventDefault();
-        const newShape = {
-          ...clipboard,
-          id: crypto.randomUUID(),
-          x: clipboard.x + 20,
-          y: clipboard.y + 20,
-        };
-        firestoreActions.addShape(newShape);
-        actions.setSelectedId(newShape.id);
+        const clipboardArray = Array.isArray(clipboard) ? clipboard : [clipboard];
+        const newIds = [];
+        
+        clipboardArray.forEach((shapeToPaste) => {
+          const newShape = {
+            ...shapeToPaste,
+            id: crypto.randomUUID(),
+            x: shapeToPaste.x + 20,
+            y: shapeToPaste.y + 20,
+          };
+          firestoreActions.addShape(newShape);
+          newIds.push(newShape.id);
+        });
+        
+        // Select all newly pasted shapes
+        actions.setSelectedIds(newIds);
       }
       
-      // Duplicate selected shape (Cmd/Ctrl + D)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'd' && selectedId) {
+      // Duplicate selected shapes (Cmd/Ctrl + D)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd' && selectedIds.length > 0) {
         e.preventDefault();
-        const shapeToDuplicate = shapes.find(s => s.id === selectedId);
-        if (shapeToDuplicate) {
+        const shapesToDuplicate = shapes.filter(s => selectedIds.includes(s.id));
+        const newIds = [];
+        
+        shapesToDuplicate.forEach((shapeToDuplicate) => {
           const newShape = {
             ...shapeToDuplicate,
             id: crypto.randomUUID(),
@@ -204,40 +317,48 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
             y: shapeToDuplicate.y + 20,
           };
           firestoreActions.addShape(newShape);
-          actions.setSelectedId(newShape.id);
-        }
+          newIds.push(newShape.id);
+        });
+        
+        // Select all newly duplicated shapes
+        actions.setSelectedIds(newIds);
       }
       
-      // Delete selected shape
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
+      // Delete selected shapes
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
         e.preventDefault();
-        firestoreActions.deleteShape(selectedId);
+        selectedIds.forEach(id => {
+          firestoreActions.deleteShape(id);
+        });
       }
       
       // Arrow key movement (10px, or 1px with Shift)
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selectedId) {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selectedIds.length > 0) {
         e.preventDefault();
         const step = e.shiftKey ? 1 : 10;
-        const shape = shapes.find(s => s.id === selectedId);
-        if (!shape) return;
         
-        let updates = {};
-        switch (e.key) {
-          case 'ArrowUp':
-            updates = { y: shape.y - step };
-            break;
-          case 'ArrowDown':
-            updates = { y: shape.y + step };
-            break;
-          case 'ArrowLeft':
-            updates = { x: shape.x - step };
-            break;
-          case 'ArrowRight':
-            updates = { x: shape.x + step };
-            break;
-        }
-        
-        firestoreActions.updateShape(selectedId, updates);
+        selectedIds.forEach(shapeId => {
+          const shape = shapes.find(s => s.id === shapeId);
+          if (!shape) return;
+          
+          let updates = {};
+          switch (e.key) {
+            case 'ArrowUp':
+              updates = { y: shape.y - step };
+              break;
+            case 'ArrowDown':
+              updates = { y: shape.y + step };
+              break;
+            case 'ArrowLeft':
+              updates = { x: shape.x - step };
+              break;
+            case 'ArrowRight':
+              updates = { x: shape.x + step };
+              break;
+          }
+          
+          firestoreActions.updateShape(shapeId, updates);
+        });
       }
       
       // Escape to clear selection and tool
@@ -249,7 +370,7 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, shapes, clipboard, actions, editingTextId, firestoreActions]);
+  }, [selectedIds, shapes, clipboard, actions, editingTextId, firestoreActions]);
 
   return (
     <div className="canvas-container">
@@ -266,11 +387,16 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
         scaleY={scale}
         x={position.x}
         y={position.y}
-        draggable={!currentTool} // Only draggable in select mode
+        draggable={!currentTool && !isSelecting} // Only draggable in select mode and not selecting
         onWheel={handleWheel}
         onClick={handleStageClick}
         onTap={handleStageClick}
-        onMouseMove={handlePointerMove}
+        onMouseDown={handleStageMouseDown}
+        onMouseMove={(e) => {
+          handlePointerMove(e);
+          handleStageMouseMove(e);
+        }}
+        onMouseUp={handleStageMouseUp}
         onTouchMove={handlePointerMove}
         onDragMove={handleStageDrag}
         onMouseLeave={handlePointerLeave}
@@ -299,12 +425,25 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
             return (
               <Shape
                 key={shape.id}
+                ref={(node) => {
+                  if (node) {
+                    shapeRefsRef.current[shape.id] = node;
+                  } else {
+                    delete shapeRefsRef.current[shape.id];
+                  }
+                }}
                 shape={shape}
-                isSelected={shape.id === selectedId}
+                isSelected={selectedIds.includes(shape.id)}
                 onSelect={() => {
                   // Only allow selection in select mode
                   if (!currentTool) {
                     actions.setSelectedId(shape.id);
+                  }
+                }}
+                onToggleSelect={(shapeId) => {
+                  // Toggle selection with shift/cmd key
+                  if (!currentTool) {
+                    actions.toggleSelectedId(shapeId);
                   }
                 }}
                 onChange={(newAttrs) => {
@@ -315,6 +454,29 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
               />
             );
           })}
+          
+          {/* Global Transformer for selected shapes */}
+          {selectedIds.length > 0 && (
+            <Transformer
+              ref={transformerRef}
+              boundBoxFunc={(oldBox, newBox) => {
+                // Limit minimum size
+                if (newBox.width < 5 || newBox.height < 5) {
+                  return oldBox;
+                }
+                return newBox;
+              }}
+            />
+          )}
+          
+          {/* Selection box for lasso selection */}
+          <SelectionBox
+            x={selectionBox.x}
+            y={selectionBox.y}
+            width={selectionBox.width}
+            height={selectionBox.height}
+            visible={selectionBox.visible}
+          />
         </Layer>
 
         {/* Remote cursors layer */}

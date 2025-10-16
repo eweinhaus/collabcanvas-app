@@ -25,6 +25,10 @@ export const CANVAS_ACTIONS = {
   
   // Selection actions
   SET_SELECTED_ID: 'SET_SELECTED_ID',
+  SET_SELECTED_IDS: 'SET_SELECTED_IDS',
+  ADD_SELECTED_ID: 'ADD_SELECTED_ID',
+  REMOVE_SELECTED_ID: 'REMOVE_SELECTED_ID',
+  TOGGLE_SELECTED_ID: 'TOGGLE_SELECTED_ID',
   CLEAR_SELECTION: 'CLEAR_SELECTION',
   
   // Tool actions
@@ -43,7 +47,8 @@ export const CANVAS_ACTIONS = {
 // Initial state
 const initialState = {
   shapes: [],
-  selectedId: null,
+  selectedId: null, // Keep for backward compatibility
+  selectedIds: [], // Multi-select support
   currentTool: null, // 'rect', 'circle', 'text', or null for select mode
   scale: 1,
   position: { x: 0, y: 0 },
@@ -77,6 +82,7 @@ const canvasReducer = (state, action) => {
         ...state,
         shapes: state.shapes.filter(shape => shape.id !== action.payload),
         selectedId: state.selectedId === action.payload ? null : state.selectedId,
+        selectedIds: state.selectedIds.filter(id => id !== action.payload),
       };
       
     case CANVAS_ACTIONS.SET_SHAPES:
@@ -107,12 +113,55 @@ const canvasReducer = (state, action) => {
       return {
         ...state,
         selectedId: action.payload,
+        selectedIds: action.payload ? [action.payload] : [],
       };
+      
+    case CANVAS_ACTIONS.SET_SELECTED_IDS:
+      return {
+        ...state,
+        selectedIds: action.payload,
+        selectedId: action.payload.length === 1 ? action.payload[0] : null,
+      };
+      
+    case CANVAS_ACTIONS.ADD_SELECTED_ID:
+      if (state.selectedIds.includes(action.payload)) {
+        return state;
+      }
+      return {
+        ...state,
+        selectedIds: [...state.selectedIds, action.payload],
+        selectedId: null, // Clear single selection when multi-selecting
+      };
+      
+    case CANVAS_ACTIONS.REMOVE_SELECTED_ID:
+      const newSelectedIds = state.selectedIds.filter(id => id !== action.payload);
+      return {
+        ...state,
+        selectedIds: newSelectedIds,
+        selectedId: newSelectedIds.length === 1 ? newSelectedIds[0] : null,
+      };
+      
+    case CANVAS_ACTIONS.TOGGLE_SELECTED_ID:
+      if (state.selectedIds.includes(action.payload)) {
+        const filtered = state.selectedIds.filter(id => id !== action.payload);
+        return {
+          ...state,
+          selectedIds: filtered,
+          selectedId: filtered.length === 1 ? filtered[0] : null,
+        };
+      } else {
+        return {
+          ...state,
+          selectedIds: [...state.selectedIds, action.payload],
+          selectedId: null,
+        };
+      }
       
     case CANVAS_ACTIONS.CLEAR_SELECTION:
       return {
         ...state,
         selectedId: null,
+        selectedIds: [],
       };
       
     case CANVAS_ACTIONS.SET_CURRENT_TOOL:
@@ -120,6 +169,7 @@ const canvasReducer = (state, action) => {
         ...state,
         currentTool: action.payload,
         selectedId: null, // Clear selection when changing tools
+        selectedIds: [],
       };
       
     case CANVAS_ACTIONS.SET_SCALE:
@@ -450,6 +500,10 @@ export const useCanvasActions = () => {
     updateShape: (id, updates) => dispatch({ type: CANVAS_ACTIONS.UPDATE_SHAPE, payload: { id, updates } }),
     deleteShape: (id) => dispatch({ type: CANVAS_ACTIONS.DELETE_SHAPE, payload: id }),
     setSelectedId: (id) => dispatch({ type: CANVAS_ACTIONS.SET_SELECTED_ID, payload: id }),
+    setSelectedIds: (ids) => dispatch({ type: CANVAS_ACTIONS.SET_SELECTED_IDS, payload: ids }),
+    addSelectedId: (id) => dispatch({ type: CANVAS_ACTIONS.ADD_SELECTED_ID, payload: id }),
+    removeSelectedId: (id) => dispatch({ type: CANVAS_ACTIONS.REMOVE_SELECTED_ID, payload: id }),
+    toggleSelectedId: (id) => dispatch({ type: CANVAS_ACTIONS.TOGGLE_SELECTED_ID, payload: id }),
     clearSelection: () => dispatch({ type: CANVAS_ACTIONS.CLEAR_SELECTION }),
     setCurrentTool: (tool) => dispatch({ type: CANVAS_ACTIONS.SET_CURRENT_TOOL, payload: tool }),
     setScale: (scale) => dispatch({ type: CANVAS_ACTIONS.SET_SCALE, payload: scale }),
