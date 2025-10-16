@@ -3,7 +3,7 @@
   background-color: white;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
   overflow-x: hidden; /* Prevent horizontal scroll */
   overflow-y: auto;
   /* Dynamic height based on content (number of users) */
@@ -12,6 +12,12 @@
   right: 20px; /* Same spacing as toolbar from left */
   max-height: calc(100vh - 100px); /* Allow scroll if many users, but keep compact */
   z-index: 100; /* Same as toolbar */
+}
+
+.sidebar--hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .sidebar__content {

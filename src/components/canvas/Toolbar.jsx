@@ -9,7 +9,7 @@ import { SHAPE_TYPES } from '../../utils/shapes';
 import { exportCanvasToPNG, exportCanvasToSVG } from '../../utils/exportCanvas';
 import './Toolbar.css';
 
-const Toolbar = () => {
+const Toolbar = ({ onToggleLayers, layersPanelOpen }) => {
   const { state, stageRef, setIsExportingRef } = useCanvas();
   const actions = useCanvasActions();
   const { currentTool } = state;
@@ -123,43 +123,62 @@ const Toolbar = () => {
         ))}
       </div>
       
-      {/* Export Section */}
+      {/* Actions Section */}
       <div className="toolbar-divider" />
-      <div className="toolbar-title">Export</div>
-      <div className="toolbar-export" ref={exportButtonRef}>
+      <div className="toolbar-title">Actions</div>
+      <div className="toolbar-buttons">
+        {/* Layers button */}
         <button
-          className="toolbar-button export-button"
-          onClick={handleExportClick}
-          title="Export canvas"
-          aria-label="Export canvas"
-          aria-expanded={showExportMenu}
+          className={`toolbar-button ${layersPanelOpen ? 'active' : ''}`}
+          onClick={onToggleLayers}
+          title="Toggle layers panel"
+          aria-label="Toggle layers panel"
+          aria-pressed={layersPanelOpen}
         >
           <svg className="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
+            <rect x="3" y="3" width="18" height="6" rx="1" />
+            <rect x="3" y="11" width="18" height="6" rx="1" />
+            <rect x="3" y="19" width="18" height="2" rx="1" />
           </svg>
-          <span className="toolbar-label">Export</span>
+          <span className="toolbar-label">Layers</span>
         </button>
-        
-        {showExportMenu && (
-          <div className="export-dropdown" role="menu">
-            <button
-              className="export-option"
-              onClick={handleExportPNG}
-              role="menuitem"
-            >
-              Export as PNG
-            </button>
-            <button
-              className="export-option"
-              onClick={handleExportSVG}
-              role="menuitem"
-            >
-              Export as SVG
-            </button>
-          </div>
-        )}
+
+        {/* Export button with dropdown */}
+        <div className="toolbar-export" ref={exportButtonRef}>
+          <button
+            className={`toolbar-button ${showExportMenu ? 'active' : ''}`}
+            onClick={handleExportClick}
+            title="Export canvas"
+            aria-label="Export canvas"
+            aria-expanded={showExportMenu}
+          >
+            <svg className="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span className="toolbar-label">Export</span>
+          </button>
+          
+          {showExportMenu && (
+            <div className="export-dropdown" role="menu">
+              <button
+                className="export-option"
+                onClick={handleExportPNG}
+                role="menuitem"
+              >
+                Export as PNG
+              </button>
+              <button
+                className="export-option"
+                onClick={handleExportSVG}
+                role="menuitem"
+              >
+                Export as SVG
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       
       <div className="toolbar-hint" aria-live="polite">

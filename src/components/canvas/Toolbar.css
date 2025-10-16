@@ -111,6 +111,11 @@
 
 .toolbar-export {
   position: relative;
+  width: 100%;
+}
+
+.toolbar-export .toolbar-button {
+  width: 100%;
 }
 
 .export-dropdown {

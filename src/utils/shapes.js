@@ -41,6 +41,7 @@ export const createRectangle = (x, y, overrides = {}) => {
     stroke: '#000000',
     strokeWidth: 2,
     draggable: true,
+    zIndex: Date.now(), // Default to timestamp for creation order
     ...overrides,
   };
 };
@@ -63,6 +64,7 @@ export const createCircle = (x, y, overrides = {}) => {
     stroke: '#000000',
     strokeWidth: 2,
     draggable: true,
+    zIndex: Date.now(), // Default to timestamp for creation order
     ...overrides,
   };
 };
@@ -88,6 +90,7 @@ export const createTriangle = (x, y, overrides = {}) => {
     stroke: '#000000',
     strokeWidth: 2,
     draggable: true,
+    zIndex: Date.now(), // Default to timestamp for creation order
     ...overrides,
   };
 };
@@ -114,6 +117,7 @@ export const createText = (x, y, text = 'Double-click to edit', overrides = {}) 
     fontSize,
     fill: '#000000',
     draggable: true,
+    zIndex: Date.now(), // Default to timestamp for creation order
     ...overrides,
   };
 };

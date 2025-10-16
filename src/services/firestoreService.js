@@ -277,6 +277,96 @@ export async function updateShapeText(shapeId, text, boardId = DEFAULT_BOARD_ID)
   return { id: shapeId };
 }
 
+/**
+ * Update the zIndex (layer order) of a shape
+ * @param {string} shapeId - Shape ID to update
+ * @param {number} newZIndex - New zIndex value
+ * @param {string} boardId - Board ID
+ * @returns {Promise<Object>} Result with shape ID
+ */
+export async function updateZIndex(shapeId, newZIndex, boardId = DEFAULT_BOARD_ID) {
+  try {
+    const ref = shapeDocRef(shapeId, boardId);
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('User must be authenticated to update shape z-index');
+    }
+
+    await updateDoc(ref, {
+      'props.zIndex': newZIndex,
+      updatedBy: currentUser.uid,
+      updatedByName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Anonymous',
+      updatedAt: serverTimestamp(),
+    });
+    return { id: shapeId };
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[firestoreService] Error updating zIndex:', error);
+    
+    if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+      console.error('[firestoreService] Permission denied. Auth state:', {
+        hasCurrentUser: !!auth.currentUser,
+        userId: auth.currentUser?.uid,
+        userEmail: auth.currentUser?.email,
+      });
+      toast.error('Permission denied. Please refresh the page and sign in again.');
+    } else {
+      toast.error('Failed to update layer order. Please try again.');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Batch update zIndex for multiple shapes
+ * Useful for swap operations and normalization
+ * @param {Array<{id: string, zIndex: number}>} updates - Array of shape updates
+ * @param {string} boardId - Board ID
+ * @returns {Promise<void>}
+ */
+export async function batchUpdateZIndex(updates, boardId = DEFAULT_BOARD_ID) {
+  if (!updates || updates.length === 0) {
+    return;
+  }
+
+  try {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('User must be authenticated to update shape z-index');
+    }
+
+    const batch = writeBatch(firestore);
+    const userName = currentUser.displayName || currentUser.email?.split('@')[0] || 'Anonymous';
+    
+    updates.forEach(({ id, zIndex }) => {
+      const ref = shapeDocRef(id, boardId);
+      batch.update(ref, {
+        'props.zIndex': zIndex,
+        updatedBy: currentUser.uid,
+        updatedByName: userName,
+        updatedAt: serverTimestamp(),
+      });
+    });
+
+    await batch.commit();
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[firestoreService] Error batch updating zIndex:', error);
+    
+    if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+      console.error('[firestoreService] Permission denied. Auth state:', {
+        hasCurrentUser: !!auth.currentUser,
+        userId: auth.currentUser?.uid,
+        userEmail: auth.currentUser?.email,
+      });
+      toast.error('Permission denied. Please refresh the page and sign in again.');
+    } else {
+      toast.error('Failed to update layer order. Please try again.');
+    }
+    throw error;
+  }
+}
+
 export async function deleteShape(shapeId, boardId = DEFAULT_BOARD_ID) {
   const ref = shapeDocRef(shapeId, boardId);
   const currentUser = auth.currentUser;
