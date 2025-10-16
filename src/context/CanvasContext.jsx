@@ -3,13 +3,15 @@
  * Manages shapes, selection, current tool, pan, and zoom
  */
 
-import { createContext, useContext, useReducer, useMemo, useEffect, useRef, useCallback } from 'react';
+import { createContext, useContext, useReducer, useMemo, useEffect, useRef, useCallback, useState } from 'react';
 import { getAllShapes, subscribeToShapes, createShape as fsCreateShape, updateShape as fsUpdateShape, deleteShape as fsDeleteShape, updateShapeText as fsUpdateShapeText } from '../services/firestoreService';
 import { throttle } from '../utils/throttle';
 import { setCursorPosition, subscribeToCursors, removeCursor, registerDisconnectCleanup } from '../services/realtimeCursorService';
 import { subscribeToPresence } from '../services/presenceService';
 import { registerBeforeUnloadFlush } from '../utils/beforeUnloadFlush';
 import { auth } from '../services/firebase';
+import CommandHistory from '../utils/CommandHistory';
+import { CreateShapeCommand, DeleteShapeCommand } from '../utils/commands';
 
 const DEFAULT_BOARD_ID = 'default';
 
@@ -225,6 +227,13 @@ export const CanvasProvider = ({ children }) => {
   const cursorDisconnectCancelRef = useRef(null);
   const presenceUnsubscribeRef = useRef(null);
   const firstSnapshotReceivedRef = useRef(false);
+  const stageRef = useRef(null); // Shared stage ref for export functionality
+  const setIsExportingRef = useRef(null); // Callback to set export mode in Canvas
+  
+  // Command history for undo/redo
+  const [commandHistory] = useState(() => new CommandHistory());
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   const setupCursorDisconnect = useCallback(({ uid, boardId = DEFAULT_BOARD_ID } = {}) => {
     if (cursorDisconnectCancelRef.current) {
@@ -399,6 +408,12 @@ export const CanvasProvider = ({ children }) => {
     return unsubscribe;
   }, []);
 
+  // Update undo/redo state
+  const updateUndoRedoState = useCallback(() => {
+    setCanUndo(commandHistory.canUndo());
+    setCanRedo(commandHistory.canRedo());
+  }, [commandHistory]);
+
   // Memoize context value to prevent unnecessary re-renders
   const firestoreActions = useMemo(() => {
     const ensureThrottler = (id) => {
@@ -453,10 +468,41 @@ export const CanvasProvider = ({ children }) => {
     };
   }, []);
 
+  // Command history actions
+  const commandActions = useMemo(() => ({
+    executeCommand: async (command) => {
+      await commandHistory.execute(command);
+      updateUndoRedoState();
+    },
+    undo: async () => {
+      try {
+        await commandHistory.undo();
+        updateUndoRedoState();
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to undo:', err);
+      }
+    },
+    redo: async () => {
+      try {
+        await commandHistory.redo();
+        updateUndoRedoState();
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to redo:', err);
+      }
+    },
+    canUndo,
+    canRedo,
+  }), [commandHistory, updateUndoRedoState, canUndo, canRedo]);
+
   const value = useMemo(() => ({
     state,
     dispatch,
     firestoreActions,
+    commandActions,
+    stageRef,
+    setIsExportingRef,
     cursor: {
       publishCursor,
       startCursorSubscription,
@@ -468,7 +514,7 @@ export const CanvasProvider = ({ children }) => {
       startPresenceSubscription,
       stopPresenceSubscription,
     },
-  }), [state, firestoreActions, publishCursor, startCursorSubscription, stopCursorSubscription, setupCursorDisconnect, removeCursorCallback, startPresenceSubscription, stopPresenceSubscription]);
+  }), [state, firestoreActions, commandActions, publishCursor, startCursorSubscription, stopCursorSubscription, setupCursorDisconnect, removeCursorCallback, startPresenceSubscription, stopPresenceSubscription]);
 
   return (
     <CanvasContext.Provider value={value}>

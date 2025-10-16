@@ -10,6 +10,7 @@ import { calculateNewScale, calculateZoomPosition } from '../../utils/canvas';
 import { createShape } from '../../utils/shapes';
 import { useRealtimeCursor } from '../../hooks/useRealtimeCursor';
 import { useRealtimePresence } from '../../hooks/useRealtimePresence';
+import { CreateShapeCommand, DeleteShapeCommand, MoveShapeCommand, UpdateShapeCommand } from '../../utils/commands';
 import Shape from './Shape';
 import GridBackground from './GridBackground';
 import TextEditor from './TextEditor';
@@ -20,10 +21,9 @@ import SelectionBox from './SelectionBox';
 import './Canvas.css';
 
 const Canvas = ({ showGrid = false, boardId = 'default' }) => {
-  const stageRef = useRef(null);
+  const { state, firestoreActions, commandActions, stageRef, setIsExportingRef } = useCanvas();
   const transformerRef = useRef(null);
   const shapeRefsRef = useRef({});
-  const { state, firestoreActions } = useCanvas();
   const actions = useCanvasActions();
   const [editingTextId, setEditingTextId] = useState(null);
   const [editingText, setEditingText] = useState('');
@@ -32,10 +32,17 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
   const [clipboard, setClipboard] = useState(null);
   const [selectionBox, setSelectionBox] = useState({ visible: false, x: 0, y: 0, width: 0, height: 0 });
   const [isSelecting, setIsSelecting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false); // Hide UI elements during export
   const selectionStartRef = useRef(null);
+  const transformStartStateRef = useRef({}); // Store state before transform for undo
   const { remoteCursors, publishLocalCursor, clearLocalCursor } = useRealtimeCursor({ boardId });
 
   const { shapes, selectedId, selectedIds, currentTool, scale, position, stageSize, loadingShapes } = state;
+
+  // Expose setIsExporting to context for Toolbar
+  useEffect(() => {
+    setIsExportingRef.current = setIsExporting;
+  }, [setIsExportingRef]);
 
   // Presence subscription lifecycle tied to Canvas mount
   useRealtimePresence({ boardId });
@@ -187,7 +194,10 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
         const y = (pointerPosition.y - position.y) / scale;
         
         const newShape = createShape(currentTool, x, y);
-        firestoreActions.addShape(newShape);
+        
+        // Use CommandHistory for undo/redo support
+        const command = new CreateShapeCommand(newShape, firestoreActions, actions);
+        commandActions.executeCommand(command);
         
         // Optionally clear tool after creating shape (comment out to keep tool active)
         // actions.setCurrentTool(null);
@@ -196,7 +206,7 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
         actions.clearSelection();
       }
     }
-  }, [currentTool, actions, scale, position, firestoreActions, isSelecting]);
+  }, [currentTool, actions, scale, position, firestoreActions, commandActions, isSelecting]);
 
   const handlePointerMove = useCallback(() => {
     const stage = stageRef.current;
@@ -248,9 +258,19 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
 
   const handleSelectColor = useCallback((color) => {
     if (colorPickerState.shapeId) {
-      firestoreActions.updateShape(colorPickerState.shapeId, { fill: color });
+      const shape = shapes.find(s => s.id === colorPickerState.shapeId);
+      if (shape) {
+        // Use UpdateShapeCommand for undo/redo support
+        const command = new UpdateShapeCommand(
+          colorPickerState.shapeId,
+          { fill: shape.fill }, // old color
+          { fill: color }, // new color
+          firestoreActions
+        );
+        commandActions.executeCommand(command);
+      }
     }
-  }, [colorPickerState.shapeId, firestoreActions]);
+  }, [colorPickerState.shapeId, shapes, firestoreActions, commandActions]);
 
   const handleFinishEdit = useCallback(() => {
     if (editingTextId) {
@@ -260,11 +280,106 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
     }
   }, [editingTextId, editingText, actions]);
 
+  // Handle transform start - capture state for undo
+  const handleTransformStart = useCallback(() => {
+    // Store the current state of all selected shapes
+    transformStartStateRef.current = {};
+    selectedIds.forEach(id => {
+      const shape = shapes.find(s => s.id === id);
+      if (shape) {
+        // Only capture properties that exist (not undefined)
+        const state = {
+          x: shape.x,
+          y: shape.y,
+          rotation: shape.rotation || 0,
+        };
+        
+        // Add shape-specific properties only if they exist
+        if (shape.width !== undefined) state.width = shape.width;
+        if (shape.height !== undefined) state.height = shape.height;
+        if (shape.radius !== undefined) state.radius = shape.radius;
+        if (shape.fontSize !== undefined) state.fontSize = shape.fontSize;
+        
+        transformStartStateRef.current[id] = state;
+      }
+    });
+  }, [selectedIds, shapes]);
+
+  // Handle transform end - create undo commands
+  const handleTransformEnd = useCallback(() => {
+    const transformer = transformerRef.current;
+    if (!transformer) return;
+
+    const nodes = transformer.nodes();
+
+    nodes.forEach(node => {
+      const shapeId = node.id();
+      const shape = shapes.find(s => s.id === shapeId);
+      if (!shape) return;
+
+      const oldState = transformStartStateRef.current[shapeId];
+      if (!oldState) return;
+
+      // Get the new state from the node
+      const scaleX = node.scaleX();
+      const scaleY = node.scaleY();
+
+      // Reset scale
+      node.scaleX(1);
+      node.scaleY(1);
+
+      const newState = {
+        x: node.x(),
+        y: node.y(),
+        rotation: node.rotation(),
+      };
+
+      // Update dimensions based on shape type (only add properties that should exist)
+      if (shape.type === 'rect' || shape.type === 'triangle') {
+        newState.width = Math.max(5, node.width() * scaleX);
+        newState.height = Math.max(5, node.height() * scaleY);
+      } else if (shape.type === 'circle') {
+        newState.radius = Math.max(5, node.radius() * Math.max(scaleX, scaleY));
+      } else if (shape.type === 'text') {
+        newState.fontSize = Math.max(5, node.fontSize() * scaleX);
+      }
+
+      // Create and execute command
+      const command = new UpdateShapeCommand(
+        shapeId,
+        oldState,
+        newState,
+        firestoreActions
+      );
+      commandActions.executeCommand(command);
+    });
+
+    transformStartStateRef.current = {};
+  }, [shapes, firestoreActions, commandActions]);
+
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Don't trigger shortcuts when editing text
       if (editingTextId) return;
+      
+      // Undo (Cmd/Ctrl + Z) - must be before other shortcuts to prevent conflicts
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        if (commandActions.canUndo) {
+          commandActions.undo();
+        }
+        return;
+      }
+      
+      // Redo (Cmd/Ctrl + Shift + Z)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'z') {
+        e.preventDefault();
+        if (commandActions.canRedo) {
+          commandActions.redo();
+        }
+        return;
+      }
       
       // Show shortcuts modal
       if (e.key === '?' || (e.key === '/' && (e.metaKey || e.ctrlKey))) {
@@ -295,7 +410,9 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
             x: shapeToPaste.x + 20,
             y: shapeToPaste.y + 20,
           };
-          firestoreActions.addShape(newShape);
+          // Use CommandHistory for undo/redo support
+          const command = new CreateShapeCommand(newShape, firestoreActions, actions);
+          commandActions.executeCommand(command);
           newIds.push(newShape.id);
         });
         
@@ -316,7 +433,9 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
             x: shapeToDuplicate.x + 20,
             y: shapeToDuplicate.y + 20,
           };
-          firestoreActions.addShape(newShape);
+          // Use CommandHistory for undo/redo support
+          const command = new CreateShapeCommand(newShape, firestoreActions, actions);
+          commandActions.executeCommand(command);
           newIds.push(newShape.id);
         });
         
@@ -328,36 +447,50 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
         e.preventDefault();
         selectedIds.forEach(id => {
-          firestoreActions.deleteShape(id);
+          const shape = shapes.find(s => s.id === id);
+          if (shape) {
+            // Use CommandHistory for undo/redo support
+            const command = new DeleteShapeCommand(id, shape, firestoreActions);
+            commandActions.executeCommand(command);
+          }
         });
       }
       
-      // Arrow key movement (10px, or 1px with Shift)
+      // Arrow key movement (5px normal, 20px with Shift)
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selectedIds.length > 0) {
         e.preventDefault();
-        const step = e.shiftKey ? 1 : 10;
+        const step = e.shiftKey ? 20 : 5;
         
         selectedIds.forEach(shapeId => {
           const shape = shapes.find(s => s.id === shapeId);
           if (!shape) return;
           
-          let updates = {};
+          const oldPosition = { x: shape.x, y: shape.y };
+          const newPosition = { x: shape.x, y: shape.y };
+          
           switch (e.key) {
             case 'ArrowUp':
-              updates = { y: shape.y - step };
+              newPosition.y -= step;
               break;
             case 'ArrowDown':
-              updates = { y: shape.y + step };
+              newPosition.y += step;
               break;
             case 'ArrowLeft':
-              updates = { x: shape.x - step };
+              newPosition.x -= step;
               break;
             case 'ArrowRight':
-              updates = { x: shape.x + step };
+              newPosition.x += step;
               break;
           }
           
-          firestoreActions.updateShape(shapeId, updates);
+          // Use MoveShapeCommand for undo/redo support
+          const command = new MoveShapeCommand(
+            shapeId,
+            oldPosition,
+            newPosition,
+            firestoreActions
+          );
+          commandActions.executeCommand(command);
         });
       }
       
@@ -370,7 +503,7 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIds, shapes, clipboard, actions, editingTextId, firestoreActions]);
+  }, [selectedIds, shapes, clipboard, actions, editingTextId, firestoreActions, commandActions, stageRef]);
 
   return (
     <div className="canvas-container">
@@ -402,8 +535,8 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
         onMouseLeave={handlePointerLeave}
         onTouchEnd={handlePointerLeave}
       >
-        {/* Grid background layer (optional) */}
-        {showGrid && (
+        {/* Grid background layer (optional) - hide during export */}
+        {showGrid && !isExporting && (
           <Layer listening={false}>
             <GridBackground
               width={stageSize.width / scale}
@@ -446,8 +579,32 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
                     actions.toggleSelectedId(shapeId);
                   }
                 }}
-                onChange={(newAttrs) => {
-                  firestoreActions.updateShape(shape.id, newAttrs);
+                onChange={(newAttrs, metadata) => {
+                  // Check if this change should use undo/redo
+                  if (metadata && metadata.oldState) {
+                    if (metadata.isMove) {
+                      // Drag operation - use MoveShapeCommand
+                      const command = new MoveShapeCommand(
+                        shape.id,
+                        metadata.oldState, // { x, y }
+                        { x: newAttrs.x, y: newAttrs.y },
+                        firestoreActions
+                      );
+                      commandActions.executeCommand(command);
+                    } else if (metadata.isTransform) {
+                      // Transform operation - use UpdateShapeCommand
+                      const command = new UpdateShapeCommand(
+                        shape.id,
+                        metadata.oldState, // all old properties
+                        newAttrs, // all new properties
+                        firestoreActions
+                      );
+                      commandActions.executeCommand(command);
+                    }
+                  } else {
+                    // Direct update without undo/redo (e.g., text editing during drag)
+                    firestoreActions.updateShape(shape.id, newAttrs);
+                  }
                 }}
                 onStartEdit={handleStartEdit}
                 onColorChange={handleColorChange}
@@ -455,10 +612,12 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
             );
           })}
           
-          {/* Global Transformer for selected shapes */}
-          {selectedIds.length > 0 && (
+          {/* Global Transformer for selected shapes - hide during export */}
+          {selectedIds.length > 0 && !isExporting && (
             <Transformer
               ref={transformerRef}
+              onTransformStart={handleTransformStart}
+              onTransformEnd={handleTransformEnd}
               boundBoxFunc={(oldBox, newBox) => {
                 // Limit minimum size
                 if (newBox.width < 5 || newBox.height < 5) {

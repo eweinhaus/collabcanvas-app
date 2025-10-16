@@ -9,6 +9,8 @@ import { SHAPE_TYPES } from '../../utils/shapes';
 
 const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, onColorChange, onToggleSelect }, ref) => {
   const shapeRef = ref || useRef();
+  const dragStartStateRef = useRef(null);
+  const transformStartStateRef = useRef(null);
 
   const handleClick = (e) => {
     // Check if shift key is pressed for multi-select
@@ -19,6 +21,14 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
     } else {
       onSelect();
     }
+  };
+
+  const handleDragStart = (e) => {
+    // Capture state before drag for undo
+    dragStartStateRef.current = {
+      x: shape.x,
+      y: shape.y,
+    };
   };
 
   const handleDragMove = (e) => {
@@ -34,11 +44,44 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
   const handleDragEnd = (e) => {
     const x = e.target.x();
     const y = e.target.y();
-    onChange({ x, y });
+    
+    // Pass both old and new state for undo/redo
+    onChange({ 
+      x, 
+      y 
+    }, {
+      oldState: dragStartStateRef.current,
+      isMove: true
+    });
+    
+    dragStartStateRef.current = null;
+    
     try {
       sessionStorage.removeItem(`editBuffer:${shape.id}`);
     } catch {
       // ignore session storage errors
+    }
+  };
+
+  const handleTransformStart = () => {
+    // Capture state before transform for undo
+    const node = shapeRef.current;
+    if (!node) return;
+
+    transformStartStateRef.current = {
+      x: shape.x,
+      y: shape.y,
+      rotation: shape.rotation || 0,
+    };
+
+    // Capture dimension-specific properties
+    if (shape.type === SHAPE_TYPES.RECT || shape.type === SHAPE_TYPES.TRIANGLE) {
+      transformStartStateRef.current.width = shape.width;
+      transformStartStateRef.current.height = shape.height;
+    } else if (shape.type === SHAPE_TYPES.CIRCLE) {
+      transformStartStateRef.current.radius = shape.radius;
+    } else if (shape.type === SHAPE_TYPES.TEXT) {
+      transformStartStateRef.current.fontSize = shape.fontSize;
     }
   };
 
@@ -72,7 +115,13 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
       updates.height = Math.max(5, node.height() * scaleY);
     }
 
-    onChange(updates);
+    // Pass both old and new state for undo/redo
+    onChange(updates, {
+      oldState: transformStartStateRef.current,
+      isTransform: true
+    });
+    
+    transformStartStateRef.current = null;
   };
 
   const handleDoubleClick = (e) => {
@@ -91,11 +140,14 @@ const Shape = forwardRef(({ shape, isSelected, onSelect, onChange, onStartEdit, 
   const renderShape = () => {
     const commonProps = {
       ref: shapeRef,
+      id: shape.id, // Important: Set ID so Transformer can identify nodes
       onClick: handleClick,
       onTap: handleClick,
       draggable: shape.draggable !== false,
+      onDragStart: handleDragStart,
       onDragMove: handleDragMove,
       onDragEnd: handleDragEnd,
+      onTransformStart: handleTransformStart,
       onTransformEnd: handleTransformEnd,
     };
 
