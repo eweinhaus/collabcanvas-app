@@ -1,0 +1,127 @@
+/* AlignmentToolbar - Figma-inspired floating toolbar */
+
+.alignment-toolbar {
+  position: absolute;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  z-index: 1000;
+  animation: fadeInUp 0.2s ease-out;
+  pointer-events: auto;
+  user-select: none;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.alignment-toolbar__section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.alignment-toolbar__label {
+  font-size: 11px;
+  color: #666;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 4px;
+}
+
+.alignment-toolbar__buttons {
+  display: flex;
+  gap: 2px;
+}
+
+.alignment-toolbar__button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #333;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.alignment-toolbar__button:hover {
+  background: #f5f5f5;
+  border-color: #d0d0d0;
+}
+
+.alignment-toolbar__button:active {
+  background: #e8e8e8;
+  transform: scale(0.95);
+}
+
+.alignment-toolbar__button svg {
+  display: block;
+}
+
+.alignment-toolbar__divider {
+  width: 1px;
+  height: 24px;
+  background: #e0e0e0;
+  margin: 0 4px;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .alignment-toolbar {
+    background: #2a2a2a;
+    border-color: #444;
+  }
+
+  .alignment-toolbar__label {
+    color: #999;
+  }
+
+  .alignment-toolbar__button {
+    background: #2a2a2a;
+    color: #e0e0e0;
+  }
+
+  .alignment-toolbar__button:hover {
+    background: #333;
+    border-color: #555;
+  }
+
+  .alignment-toolbar__button:active {
+    background: #3a3a3a;
+  }
+
+  .alignment-toolbar__divider {
+    background: #444;
+  }
+}
+
+/* Responsive - make buttons slightly smaller on mobile */
+@media (max-width: 768px) {
+  .alignment-toolbar__button {
+    width: 28px;
+    height: 28px;
+  }
+
+  .alignment-toolbar__label {
+    font-size: 10px;
+  }
+}
+

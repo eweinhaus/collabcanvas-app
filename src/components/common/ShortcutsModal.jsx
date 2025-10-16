@@ -63,6 +63,14 @@ const ShortcutsModal = ({ isOpen, onClose }) => {
     { key: 'Drag handles', description: 'Resize/rotate selected shape(s)' },
     { key: 'Click + Drag', description: 'Pan canvas (in select mode)' },
     { key: 'Scroll', description: 'Zoom in/out' },
+    // Alignment & Distribution
+    { key: 'Cmd/Ctrl + Shift + L', description: 'Align Left (2+ shapes)' },
+    { key: 'Cmd/Ctrl + Shift + R', description: 'Align Right (2+ shapes)' },
+    { key: 'Cmd/Ctrl + Shift + T', description: 'Align Top (2+ shapes)' },
+    { key: 'Cmd/Ctrl + Shift + M', description: 'Align Middle (2+ shapes)' },
+    { key: 'Cmd/Ctrl + Shift + B', description: 'Align Bottom (2+ shapes)' },
+    { key: 'Cmd/Ctrl + Shift + H', description: 'Distribute Horizontally (3+ shapes)' },
+    { key: 'Cmd/Ctrl + Shift + V', description: 'Distribute Vertically (3+ shapes)' },
     { key: '?', description: 'Show this help' },
   ];
 

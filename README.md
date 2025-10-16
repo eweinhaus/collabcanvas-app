@@ -14,6 +14,8 @@ A real-time collaborative canvas application where multiple users can create and
 - **Presence Awareness:** View who's currently active on the canvas
 - **Shape Manipulation:** Select, move, resize, rotate, and delete shapes
 - **Collaborative Comments:** Add, edit, and view comments on any shape with real-time sync
+- **Layers Panel:** Manage shape stacking order with drag-and-drop reordering and visibility toggles
+- **Alignment Tools:** Align and distribute multiple shapes with toolbar or keyboard shortcuts
 - **Color Picker:** Customize shape colors
 - **Undo/Redo:** Full command history for all shape operations
 - **Pan & Zoom:** Navigate large canvases easily
@@ -64,6 +66,69 @@ For tighter collaboration scenarios, we may explore:
 - **Shape locking** to prevent simultaneous edits
 - **Edit history** to recover overwritten changes
 - **Conflict warnings** when multiple users select the same shape
+
+## 📚 Layers Panel
+
+Manage the stacking order and visibility of shapes on your canvas:
+
+### Features
+
+- **Drag-and-Drop Reordering:** Rearrange shapes in the z-index stack by dragging layers
+- **Visibility Toggle:** Show/hide individual shapes without deleting them (eye icon)
+- **Layer Selection:** Click a layer to select the corresponding shape on canvas
+- **Quick Actions:** Duplicate or delete shapes directly from the layers panel
+- **Real-time Sync:** Layer changes sync instantly across all users
+- **Persistent State:** Panel open/closed state saved to localStorage
+
+### How to Use
+
+1. **Open the Layers Panel:** Click the "Layers" button in the Actions toolbar
+2. **Reorder layers:** Drag and drop layers to change z-index (top = front, bottom = back)
+3. **Toggle visibility:** Click the eye icon to hide/show shapes
+4. **Select shapes:** Click a layer to select it on the canvas
+5. **Quick actions:** Use duplicate or delete icons on each layer
+
+### Keyboard Shortcuts
+
+- `Cmd/Ctrl + ]` - Bring selected shape to front
+- `Cmd/Ctrl + [` - Send selected shape to back
+- `]` - Bring selected shape forward one level
+- `[` - Send selected shape backward one level
+
+## ⚡ Alignment Tools
+
+Quickly align and distribute multiple shapes with precision:
+
+### Features
+
+- **6 Alignment Options:** Left, Center, Right, Top, Middle, Bottom
+- **2 Distribution Options:** Horizontal and Vertical (requires 3+ shapes)
+- **Floating Toolbar:** Appears automatically when 2+ shapes are selected
+- **Keyboard Shortcuts:** Fast access to all alignment operations
+- **Batch Updates:** All aligned shapes update in a single atomic operation
+- **Real-time Sync:** Alignment changes sync instantly to all collaborators
+
+### How to Use
+
+1. **Select multiple shapes:** Shift+click or drag selection box over 2+ shapes
+2. **Use the toolbar:** Click alignment buttons in the floating toolbar above selection
+3. **Or use shortcuts:** Press keyboard combinations for instant alignment
+
+### Keyboard Shortcuts
+
+- `Cmd/Ctrl + Shift + L` - Align Left
+- `Cmd/Ctrl + Shift + R` - Align Right
+- `Cmd/Ctrl + Shift + T` - Align Top
+- `Cmd/Ctrl + Shift + B` - Align Bottom
+- `Cmd/Ctrl + Shift + M` - Align Middle (vertical center)
+- `Cmd/Ctrl + Shift + H` - Distribute Horizontally (3+ shapes)
+- `Cmd/Ctrl + Shift + V` - Distribute Vertically (3+ shapes)
+
+### Alignment Behavior
+
+- **Align Left/Right/Top/Bottom:** Aligns all shapes to the extreme edge of the selection
+- **Align Center/Middle:** Aligns shapes to the center of the selection bounds
+- **Distribute Horizontally/Vertically:** Creates even spacing between shapes while maintaining their relative order
 
 ## 💬 Collaborative Comments
 

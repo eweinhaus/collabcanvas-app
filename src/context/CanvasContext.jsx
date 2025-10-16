@@ -1002,6 +1002,22 @@ export const CanvasProvider = ({ children }) => {
           console.error('Failed to batch update zIndex in Firestore', err);
         }
       },
+      batchUpdatePosition: async (updates) => {
+        // optimistic update for all shapes positions
+        updates.forEach(({ id, x, y }) => {
+          const positionUpdates = { updatedAt: Date.now() };
+          if (x !== undefined) positionUpdates.x = x;
+          if (y !== undefined) positionUpdates.y = y;
+          dispatch({ type: CANVAS_ACTIONS.UPDATE_SHAPE, payload: { id, updates: positionUpdates } });
+        });
+        try {
+          const { batchUpdatePosition: fsBatchUpdatePosition } = await import('../services/firestoreService');
+          await fsBatchUpdatePosition(updates);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Failed to batch update positions in Firestore', err);
+        }
+      },
     };
   }, []);
 
