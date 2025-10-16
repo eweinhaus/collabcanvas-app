@@ -367,6 +367,66 @@ export async function batchUpdateZIndex(updates, boardId = DEFAULT_BOARD_ID) {
   }
 }
 
+/**
+ * Batch update shape positions (for alignment operations)
+ * @param {Array} updates - Array of { id, x, y } objects
+ * @param {string} boardId - Board ID
+ * @returns {Promise<void>}
+ */
+export async function batchUpdatePosition(updates, boardId = DEFAULT_BOARD_ID) {
+  if (!updates || updates.length === 0) {
+    return;
+  }
+
+  try {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('User must be authenticated to update shape positions');
+    }
+
+    const batch = writeBatch(firestore);
+    const userName = currentUser.displayName || currentUser.email?.split('@')[0] || 'Anonymous';
+    
+    updates.forEach(({ id, x, y }) => {
+      const ref = shapeDocRef(id, boardId);
+      const updateData = {
+        updatedBy: currentUser.uid,
+        updatedByName: userName,
+        updatedAt: serverTimestamp(),
+      };
+      
+      // Only update x if provided
+      if (x !== undefined) {
+        updateData['props.x'] = x;
+      }
+      
+      // Only update y if provided
+      if (y !== undefined) {
+        updateData['props.y'] = y;
+      }
+      
+      batch.update(ref, updateData);
+    });
+
+    await batch.commit();
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[firestoreService] Error batch updating positions:', error);
+    
+    if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+      console.error('[firestoreService] Permission denied. Auth state:', {
+        hasCurrentUser: !!auth.currentUser,
+        userId: auth.currentUser?.uid,
+        userEmail: auth.currentUser?.email,
+      });
+      toast.error('Permission denied. Please refresh the page and sign in again.');
+    } else {
+      toast.error('Failed to align shapes. Please try again.');
+    }
+    throw error;
+  }
+}
+
 export async function deleteShape(shapeId, boardId = DEFAULT_BOARD_ID) {
   const ref = shapeDocRef(shapeId, boardId);
   const currentUser = auth.currentUser;

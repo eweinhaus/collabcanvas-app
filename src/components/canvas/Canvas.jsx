@@ -24,8 +24,19 @@ import ColorPicker from './ColorPicker';
 import SelectionBox from './SelectionBox';
 import ShapeContextMenu from './ShapeContextMenu';
 import ShapeTooltip from './ShapeTooltip';
+import AlignmentToolbar from './AlignmentToolbar';
 import CommentIndicator from '../collaboration/CommentIndicator';
 import CommentThread from '../collaboration/CommentThread';
+import {
+  alignLeft,
+  alignCenter,
+  alignRight,
+  alignTop,
+  alignMiddle,
+  alignBottom,
+  distributeHorizontally,
+  distributeVertically,
+} from '../../utils/alignment';
 import './Canvas.css';
 
 const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
@@ -48,6 +59,7 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
   const [recentEdits, setRecentEdits] = useState({}); // Map of shapeId -> { userId, timestamp } for 1s flash
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, shapeId: null });
   const [hoveredShapes, setHoveredShapes] = useState({}); // Track which shapes are being hovered { [shapeId]: true }
+  const [alignmentToolbarPos, setAlignmentToolbarPos] = useState(null); // Position for alignment toolbar
   const selectionStartRef = useRef(null);
   const transformStartStateRef = useRef({}); // Store state before transform for undo
   const { remoteCursors, publishLocalCursor, clearLocalCursor } = useRealtimeCursor({ boardId });
@@ -515,6 +527,54 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
     transformStartStateRef.current = {};
   }, [shapes, firestoreActions, commandActions]);
 
+  // Handle alignment operations
+  const handleAlign = useCallback((updates, alignmentType) => {
+    if (!updates || updates.length === 0) return;
+
+    // Batch update all aligned shapes
+    firestoreActions.batchUpdatePosition(updates);
+  }, [firestoreActions]);
+
+  // Calculate alignment toolbar position based on selected shapes
+  useEffect(() => {
+    if (selectedIds.length >= 2 && stageRef.current) {
+      const selectedShapes = shapes.filter(s => selectedIds.includes(s.id));
+      if (selectedShapes.length < 2) {
+        setAlignmentToolbarPos(null);
+        return;
+      }
+
+      // Calculate bounding box of selection
+      const xs = selectedShapes.flatMap(s => {
+        if (s.type === 'circle') {
+          return [s.x - (s.radius || 0), s.x + (s.radius || 0)];
+        }
+        return [s.x, s.x + (s.width || 100)];
+      });
+      const ys = selectedShapes.flatMap(s => {
+        if (s.type === 'circle') {
+          return [s.y - (s.radius || 0), s.y + (s.radius || 0)];
+        }
+        return [s.y, s.y + (s.height || 100)];
+      });
+
+      const minX = Math.min(...xs);
+      const minY = Math.min(...ys);
+
+      // Transform to screen coordinates
+      const stage = stageRef.current;
+      const scale = stage.scaleX();
+      const stagePos = stage.position();
+      
+      const screenX = minX * scale + stagePos.x;
+      const screenY = minY * scale + stagePos.y - 50; // Position above selection
+
+      setAlignmentToolbarPos({ x: screenX, y: Math.max(70, screenY) });
+    } else {
+      setAlignmentToolbarPos(null);
+    }
+  }, [selectedIds, shapes, stageRef]);
+
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -685,6 +745,67 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
         }
       }
       
+      // Alignment shortcuts (require 2+ selected shapes)
+      if (selectedIds.length >= 2) {
+        const selectedShapes = shapes.filter(s => selectedIds.includes(s.id));
+        
+        // Align Left: Ctrl/Cmd + Shift + L
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'L' || e.key === 'l')) {
+          e.preventDefault();
+          const updates = alignLeft(selectedShapes);
+          handleAlign(updates, 'left');
+          return;
+        }
+        
+        // Align Right: Ctrl/Cmd + Shift + R
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'R' || e.key === 'r')) {
+          e.preventDefault();
+          const updates = alignRight(selectedShapes);
+          handleAlign(updates, 'right');
+          return;
+        }
+        
+        // Align Top: Ctrl/Cmd + Shift + T
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'T' || e.key === 't')) {
+          e.preventDefault();
+          const updates = alignTop(selectedShapes);
+          handleAlign(updates, 'top');
+          return;
+        }
+        
+        // Align Bottom: Ctrl/Cmd + Shift + B
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'B' || e.key === 'b')) {
+          e.preventDefault();
+          const updates = alignBottom(selectedShapes);
+          handleAlign(updates, 'bottom');
+          return;
+        }
+        
+        // Align Middle (vertical): Ctrl/Cmd + Shift + M
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'M' || e.key === 'm')) {
+          e.preventDefault();
+          const updates = alignMiddle(selectedShapes);
+          handleAlign(updates, 'middle');
+          return;
+        }
+        
+        // Distribute Horizontally: Ctrl/Cmd + Shift + H (requires 3+ shapes)
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'H' || e.key === 'h') && selectedIds.length >= 3) {
+          e.preventDefault();
+          const updates = distributeHorizontally(selectedShapes);
+          handleAlign(updates, 'distribute-h');
+          return;
+        }
+        
+        // Distribute Vertically: Ctrl/Cmd + Shift + V (requires 3+ shapes)
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'V' || e.key === 'v') && selectedIds.length >= 3) {
+          e.preventDefault();
+          const updates = distributeVertically(selectedShapes);
+          handleAlign(updates, 'distribute-v');
+          return;
+        }
+      }
+      
       // Open comments with Cmd/Ctrl + Shift + C
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
         e.preventDefault();
@@ -704,7 +825,7 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIds, shapes, clipboard, actions, editingTextId, firestoreActions, commandActions, stageRef, sortedShapes, openThread]);
+  }, [selectedIds, shapes, clipboard, actions, editingTextId, firestoreActions, commandActions, stageRef, sortedShapes, openThread, handleAlign]);
 
   return (
     <div className="canvas-container">
@@ -997,6 +1118,15 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
             const command = new SendBackwardCommand(contextMenu.shapeId, sortedShapes, firestoreActions);
             commandActions.executeCommand(command);
           }}
+        />
+      )}
+      
+      {/* Alignment Toolbar */}
+      {alignmentToolbarPos && selectedIds.length >= 2 && !isExporting && (
+        <AlignmentToolbar
+          selectedShapes={shapes.filter(s => selectedIds.includes(s.id))}
+          onAlign={handleAlign}
+          position={alignmentToolbarPos}
         />
       )}
       

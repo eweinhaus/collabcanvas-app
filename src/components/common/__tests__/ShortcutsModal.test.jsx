@@ -26,6 +26,18 @@ describe('ShortcutsModal', () => {
     expect(screen.getByText('?')).toBeInTheDocument();
   });
 
+  it('includes alignment and distribution shortcuts', () => {
+    render(<ShortcutsModal isOpen={true} onClose={() => {}} />);
+
+    expect(screen.getByText('Cmd/Ctrl + Shift + L')).toBeInTheDocument();
+    expect(screen.getByText('Cmd/Ctrl + Shift + R')).toBeInTheDocument();
+    expect(screen.getByText('Cmd/Ctrl + Shift + T')).toBeInTheDocument();
+    expect(screen.getByText('Cmd/Ctrl + Shift + M')).toBeInTheDocument();
+    expect(screen.getByText('Cmd/Ctrl + Shift + B')).toBeInTheDocument();
+    expect(screen.getByText('Cmd/Ctrl + Shift + H')).toBeInTheDocument();
+    expect(screen.getByText('Cmd/Ctrl + Shift + V')).toBeInTheDocument();
+  });
+
   it('calls onClose when close button is clicked', () => {
     const onClose = jest.fn();
     render(<ShortcutsModal isOpen={true} onClose={onClose} />);
