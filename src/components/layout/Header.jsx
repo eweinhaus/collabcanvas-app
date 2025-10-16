@@ -3,19 +3,93 @@ import LoginButton from '../auth/LoginButton';
 import UserAvatar from '../collaboration/UserAvatar';
 import './Header.css';
 import { useState, useEffect } from 'react';
+import { realtimeDB } from '../../services/firebase';
+
+// Connection status states
+const CONNECTION_STATES = {
+  OFFLINE: { status: 'offline', label: 'Offline', color: '#f44336' },
+  CONNECTED: { status: 'connected', label: 'Connected', color: '#4caf50' }
+};
+
+// Helper function to get detailed tooltip text
+const getConnectionStatusTooltip = (state) => {
+  const tooltips = {
+    [CONNECTION_STATES.OFFLINE.status]: 'No internet connection - working offline',
+    [CONNECTION_STATES.CONNECTED.status]: 'Connected - real-time collaboration available'
+  };
+  return tooltips[state.status] || 'Connection status unknown';
+};
 
 const Header = ({ onMenuToggle, showMenuButton = true }) => {
   const { user } = useAuth();
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [connectionState, setConnectionState] = useState(
+    navigator.onLine ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.OFFLINE
+  );
+  const [firebaseConnected, setFirebaseConnected] = useState(false);
 
+  // Monitor network connectivity
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    const handleOnline = () => {
+      setConnectionState(CONNECTION_STATES.CONNECTED);
+    };
+    const handleOffline = () => {
+      setConnectionState(CONNECTION_STATES.OFFLINE);
+      setFirebaseConnected(false);
+    };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Monitor Firebase connectivity
+  useEffect(() => {
+    if (!navigator.onLine) {
+      setFirebaseConnected(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    const checkFirebaseConnection = async () => {
+      try {
+        const { ref, onValue } = await import('firebase/database');
+        const testRef = ref(realtimeDB, '.info/connected');
+
+        const unsubscribe = onValue(testRef, (snapshot) => {
+          if (!isMounted) return;
+
+          const isConnected = snapshot.val();
+          setFirebaseConnected(isConnected);
+
+          // If Firebase is connected and we're online, show as connected
+          // If Firebase connection fails, still show as connected (network connectivity is primary indicator)
+          if (navigator.onLine) {
+            setConnectionState(CONNECTION_STATES.CONNECTED);
+          }
+        }, (error) => {
+          if (!isMounted) return;
+          console.warn('[Header] Firebase connection error:', error);
+          // Don't change state on Firebase errors - network connectivity is the primary indicator
+        });
+
+        return unsubscribe;
+      } catch (error) {
+        if (!isMounted) return;
+        console.warn('[Header] Firebase connection check failed:', error);
+        // Firebase check failure doesn't change the connection state
+        return () => {};
+      }
+    };
+
+    let unsubscribe;
+    checkFirebaseConnection().then(unsub => { unsubscribe = unsub; });
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) unsubscribe();
     };
   }, []);
 
@@ -40,8 +114,12 @@ const Header = ({ onMenuToggle, showMenuButton = true }) => {
         <h1 className="header__title">CollabCanvas</h1>
       </div>
       <div className="header__right">
-        <div className="connection-status" title={isOnline ? 'Connected' : 'Disconnected'}>
-          <span className={`status-dot ${isOnline ? 'online' : 'offline'}`} />
+        <div className="connection-status" title={`${connectionState.label}: ${getConnectionStatusTooltip(connectionState)}`}>
+          <span
+            className={`status-dot ${connectionState.status}`}
+            style={{ backgroundColor: connectionState.color }}
+          />
+          <span className="connection-status-text">{connectionState.label}</span>
         </div>
         {user ? (
           <div className="header__user-info">

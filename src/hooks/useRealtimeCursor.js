@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { throttle } from '../utils/throttle';
 import { getColorForUser, getInitials } from '../utils/cursorColors';
 
-const THROTTLE_MS = 50;
+// Cursor update throttle - configurable via env for production tuning
+const THROTTLE_MS = Number(import.meta.env.VITE_CURSOR_THROTTLE_MS) || 35;
 
 export function useRealtimeCursor({ boardId } = {}) {
   const { user } = useAuth();

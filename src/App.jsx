@@ -2,6 +2,7 @@ import { useState, lazy, Suspense } from 'react'
 import './App.css'
 import PrivateRoute from './components/auth/PrivateRoute'
 import Header from './components/layout/Header'
+import ConnectionBanner from './components/common/ConnectionBanner'
 import Spinner from './components/common/Spinner'
 import { useCanvas } from './context/CanvasContext'
 import { CanvasProvider } from './context/CanvasContext'
@@ -34,6 +35,7 @@ function AppShell() {
   return (
     <div className="app">
       <Header onMenuToggle={handleMenuToggle} />
+      <ConnectionBanner boardId="default" />
       <PrivateRoute>
         <main className="app-main">
           {isLoading ? (

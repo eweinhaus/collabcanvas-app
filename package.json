@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "firebase": "^12.4.0",
+    "idb-keyval": "^6.2.2",
     "konva": "^10.0.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

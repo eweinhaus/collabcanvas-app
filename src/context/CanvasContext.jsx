@@ -4,12 +4,18 @@
  */
 
 import { createContext, useContext, useReducer, useMemo, useEffect, useRef, useCallback } from 'react';
-import { getAllShapes, subscribeToShapes, createShape as fsCreateShape, updateShape as fsUpdateShape, deleteShape as fsDeleteShape, updateShapeText as fsUpdateShapeText } from '../services/firestoreService';
+import { getAllShapes, subscribeToShapes } from '../services/firestoreService';
+import { createShape as fsCreateShape, createShapesBatch as fsCreateShapesBatch, updateShape as fsUpdateShape, deleteShape as fsDeleteShape, updateShapeText as fsUpdateShapeText } from '../services/firestoreServiceWithQueue';
 import { throttle } from '../utils/throttle';
 import { setCursorPosition, subscribeToCursors, removeCursor, registerDisconnectCleanup } from '../services/realtimeCursorService';
 import { subscribeToPresence } from '../services/presenceService';
+import { subscribeToDragUpdates, publishDragPosition, clearDragPosition, subscribeToTransformUpdates, publishTransform, clearTransform } from '../services/dragBroadcastService';
 import { registerBeforeUnloadFlush } from '../utils/beforeUnloadFlush';
-import { auth } from '../services/firebase';
+import { auth, realtimeDB } from '../services/firebase';
+import { getAllEditBuffers, removeEditBuffer, registerEditBufferCleanup } from '../offline/editBuffers';
+import { flush as flushOperationQueue } from '../offline/operationQueue';
+import { ref, onValue } from 'firebase/database';
+import toast from 'react-hot-toast';
 
 const DEFAULT_BOARD_ID = 'default';
 
@@ -174,6 +180,8 @@ export const CanvasProvider = ({ children }) => {
   const cursorUnsubscribeRef = useRef(null);
   const cursorDisconnectCancelRef = useRef(null);
   const presenceUnsubscribeRef = useRef(null);
+  const dragUnsubscribeRef = useRef(null);
+  const transformUnsubscribeRef = useRef(null);
   const firstSnapshotReceivedRef = useRef(false);
 
   const setupCursorDisconnect = useCallback(({ uid, boardId = DEFAULT_BOARD_ID } = {}) => {
@@ -245,11 +253,318 @@ export const CanvasProvider = ({ children }) => {
     return unsubscribe;
   }, [stopCursorSubscription]);
 
-  // Beforeunload flush
+  // Drag broadcasting callbacks
+  const stopDragSubscription = useCallback(() => {
+    if (dragUnsubscribeRef.current) {
+      dragUnsubscribeRef.current();
+      dragUnsubscribeRef.current = null;
+    }
+  }, []);
+
+  const startDragSubscription = useCallback(({
+    boardId = DEFAULT_BOARD_ID,
+    excludeUserId,
+  } = {}) => {
+    stopDragSubscription();
+    const unsubscribe = subscribeToDragUpdates({
+      boardId,
+      excludeUserId,
+      onUpdate: (updates) => {
+        // Apply drag updates as temporary position changes
+        updates.forEach((update) => {
+          dispatch({
+            type: CANVAS_ACTIONS.UPDATE_SHAPE,
+            payload: {
+              id: update.shapeId,
+              updates: {
+                x: update.x,
+                y: update.y,
+              },
+            },
+          });
+        });
+      },
+      onError: (err) => {
+        // eslint-disable-next-line no-console
+        console.error('[CanvasContext] Drag subscription error:', err);
+      },
+    });
+    dragUnsubscribeRef.current = unsubscribe;
+    return unsubscribe;
+  }, [stopDragSubscription]);
+
+  const publishDrag = useCallback(({ boardId = DEFAULT_BOARD_ID, shapeId, x, y }) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      return Promise.resolve();
+    }
+    return publishDragPosition({
+      boardId,
+      shapeId,
+      x,
+      y,
+      userId: currentUser.uid,
+    }).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error('[CanvasContext] Failed to publish drag position', err);
+    });
+  }, []);
+
+  const clearDrag = useCallback(({ boardId = DEFAULT_BOARD_ID, shapeId }) => {
+    return clearDragPosition({ boardId, shapeId }).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error('[CanvasContext] Failed to clear drag position', err);
+    });
+  }, []);
+
+  // Transform broadcasting callbacks
+  const stopTransformSubscription = useCallback(() => {
+    if (transformUnsubscribeRef.current) {
+      transformUnsubscribeRef.current();
+      transformUnsubscribeRef.current = null;
+    }
+  }, []);
+
+  const startTransformSubscription = useCallback(({
+    boardId = DEFAULT_BOARD_ID,
+    excludeUserId,
+  } = {}) => {
+    stopTransformSubscription();
+    const unsubscribe = subscribeToTransformUpdates({
+      boardId,
+      excludeUserId,
+      onUpdate: (updates) => {
+        // Apply transform updates as temporary changes
+        updates.forEach((update) => {
+          dispatch({
+            type: CANVAS_ACTIONS.UPDATE_SHAPE,
+            payload: {
+              id: update.shapeId,
+              updates: {
+                x: update.x,
+                y: update.y,
+                scaleX: update.scaleX,
+                scaleY: update.scaleY,
+                rotation: update.rotation,
+              },
+            },
+          });
+        });
+      },
+      onError: (err) => {
+        // eslint-disable-next-line no-console
+        console.error('[CanvasContext] Transform subscription error:', err);
+      },
+    });
+    transformUnsubscribeRef.current = unsubscribe;
+    return unsubscribe;
+  }, [stopTransformSubscription]);
+
+  const publishTransformUpdate = useCallback(({ boardId = DEFAULT_BOARD_ID, shapeId, x, y, scaleX, scaleY, rotation }) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      return Promise.resolve();
+    }
+    return publishTransform({
+      boardId,
+      shapeId,
+      x,
+      y,
+      scaleX,
+      scaleY,
+      rotation,
+      userId: currentUser.uid,
+    }).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error('[CanvasContext] Failed to publish transform', err);
+    });
+  }, []);
+
+  const clearTransformUpdate = useCallback(({ boardId = DEFAULT_BOARD_ID, shapeId }) => {
+    return clearTransform({ boardId, shapeId }).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error('[CanvasContext] Failed to clear transform', err);
+    });
+  }, []);
+
+  // Beforeunload flush for edit buffers
   useEffect(() => {
     const cleanup = registerBeforeUnloadFlush();
-    return cleanup;
+    const cleanupBuffers = registerEditBufferCleanup();
+    return () => {
+      cleanup();
+      cleanupBuffers();
+    };
   }, []);
+
+  // Operation queue flush on online/reconnect
+  useEffect(() => {
+    let reconnectUnsubscribe;
+
+    const handleOnline = async () => {
+      // eslint-disable-next-line no-console
+      console.log('[CanvasContext] Network online, flushing operation queue...');
+      const results = await flushOperationQueue(DEFAULT_BOARD_ID);
+      if (results.success > 0) {
+        toast.success(`Synced ${results.success} operation${results.success === 1 ? '' : 's'}`);
+      }
+      if (results.failed > 0) {
+        toast.error(`Failed to sync ${results.failed} operation${results.failed === 1 ? '' : 's'}`);
+      }
+    };
+
+    const setupFirebaseReconnectListener = async () => {
+      try {
+        const connectedRef = ref(realtimeDB, '.info/connected');
+        reconnectUnsubscribe = onValue(connectedRef, async (snapshot) => {
+          const isConnected = snapshot.val();
+          if (isConnected) {
+            // eslint-disable-next-line no-console
+            console.log('[CanvasContext] Firebase connected, flushing operation queue...');
+            const results = await flushOperationQueue(DEFAULT_BOARD_ID);
+            if (results.success > 0) {
+              toast.success(`Synced ${results.success} operation${results.success === 1 ? '' : 's'}`);
+            }
+          }
+        });
+      } catch (error) {
+        console.error('[CanvasContext] Error setting up reconnect listener:', error);
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    setupFirebaseReconnectListener();
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      if (reconnectUnsubscribe) reconnectUnsubscribe();
+    };
+  }, []);
+
+  // Periodic shape reconciliation (self-healing for missed updates)
+  useEffect(() => {
+    const RECONCILE_INTERVAL_MS = 3000; // 3 seconds (reduced from 10s for faster recovery)
+    const RECONCILE_ENABLED = import.meta.env.VITE_ENABLE_RECONCILE !== 'false'; // default true
+    
+    if (!RECONCILE_ENABLED) {
+      return undefined;
+    }
+
+    let intervalId = null;
+    let isLeader = false;
+
+    // Simple leader election: lowest UID becomes leader
+    const checkLeadership = () => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        isLeader = false;
+        return;
+      }
+
+      // If we're the only online user, we're the leader
+      const onlineUserIds = state.onlineUsers.map((u) => u.uid);
+      if (onlineUserIds.length === 0) {
+        isLeader = true;
+        return;
+      }
+
+      // Leader is the user with the lowest UID (deterministic)
+      const sortedIds = [...onlineUserIds].sort();
+      isLeader = sortedIds[0] === currentUser.uid;
+    };
+
+    const reconcile = async () => {
+      // Only reconcile if tab is visible and we're the leader
+      if (document.hidden || !isLeader) {
+        return;
+      }
+
+      try {
+        const serverShapes = await getAllShapes();
+        const serverShapeMap = new Map(serverShapes.map((s) => [s.id, s]));
+        const localShapeMap = new Map(state.shapes.map((s) => [s.id, s]));
+
+        let needsUpdate = false;
+
+        // Check for missing or outdated shapes
+        serverShapes.forEach((serverShape) => {
+          const localShape = localShapeMap.get(serverShape.id);
+          if (!localShape) {
+            needsUpdate = true;
+          } else {
+            // Check if server version is newer
+            const serverTs = serverShape.updatedAt ?? 0;
+            const localTs = localShape.updatedAt ?? 0;
+            if (serverTs > localTs + 100) {
+              // 100ms tolerance
+              needsUpdate = true;
+            }
+          }
+        });
+
+        // Check for shapes that exist locally but not on server
+        state.shapes.forEach((localShape) => {
+          if (!serverShapeMap.has(localShape.id)) {
+            needsUpdate = true;
+          }
+        });
+
+        if (needsUpdate) {
+          // eslint-disable-next-line no-console
+          console.log('[CanvasContext] Reconciliation: syncing shapes from server');
+          dispatch({ type: CANVAS_ACTIONS.SET_SHAPES, payload: serverShapes });
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('[CanvasContext] Reconciliation error:', error);
+      }
+    };
+
+    // Check leadership and start interval
+    checkLeadership();
+    intervalId = setInterval(() => {
+      checkLeadership();
+      reconcile();
+    }, RECONCILE_INTERVAL_MS);
+
+    // Re-check leadership when online users change
+    const leadershipCheckTimeout = setTimeout(checkLeadership, 100);
+
+    // Instant reconciliation on Firebase reconnect
+    let reconnectUnsubscribe;
+    let lastReconcileTime = 0;
+    const MIN_RECONCILE_INTERVAL = 2000; // Debounce to avoid thrashing
+
+    const setupReconnectReconcile = async () => {
+      try {
+        const connectedRef = ref(realtimeDB, '.info/connected');
+        reconnectUnsubscribe = onValue(connectedRef, async (snapshot) => {
+          const isConnected = snapshot.val();
+          const now = Date.now();
+          
+          // Trigger reconciliation immediately on reconnect (with debounce)
+          if (isConnected && now - lastReconcileTime > MIN_RECONCILE_INTERVAL) {
+            lastReconcileTime = now;
+            // eslint-disable-next-line no-console
+            console.log('[CanvasContext] Firebase reconnected, triggering instant reconciliation');
+            reconcile();
+          }
+        });
+      } catch (error) {
+        console.error('[CanvasContext] Error setting up reconnect reconciliation:', error);
+      }
+    };
+
+    setupReconnectReconcile();
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      clearTimeout(leadershipCheckTimeout);
+      if (reconnectUnsubscribe) reconnectUnsubscribe();
+    };
+  }, [state.shapes, state.onlineUsers]);
 
   // Initial load then subscribe - WAIT FOR AUTH FIRST
   useEffect(() => {
@@ -267,15 +582,44 @@ export const CanvasProvider = ({ children }) => {
       try {
         dispatch({ type: CANVAS_ACTIONS.SET_LOADING_SHAPES, payload: true });
         let initial = await getAllShapes();
+        
+        // Merge edit buffers from IndexedDB (full props, not just x,y)
         try {
-          initial = initial.map((s) => {
-            const bufRaw = sessionStorage.getItem(`editBuffer:${s.id}`);
-            if (!bufRaw) return s;
-            const buf = JSON.parse(bufRaw);
-            if (!buf || typeof buf.x !== 'number' || typeof buf.y !== 'number') return s;
-            return { ...s, x: buf.x, y: buf.y, updatedAt: Math.max(Date.now(), s.updatedAt ?? 0) };
+          const buffers = await getAllEditBuffers();
+          const bufferMap = new Map(buffers.map(b => [b.shapeId, b.data]));
+          
+          initial = initial.map((serverShape) => {
+            const buffer = bufferMap.get(serverShape.id);
+            if (!buffer) return serverShape;
+            
+            // Only apply buffer if it's newer than server shape
+            const bufferTime = buffer.bufferedAt || buffer.updatedAt || 0;
+            const serverTime = serverShape.updatedAt || 0;
+            
+            if (bufferTime > serverTime) {
+              // eslint-disable-next-line no-console
+              console.log(`[CanvasContext] Restoring buffered state for shape ${serverShape.id}`);
+              // Remove buffer after merging
+              removeEditBuffer(serverShape.id);
+              
+              // Merge buffer with server shape (buffer takes precedence)
+              return {
+                ...serverShape,
+                ...buffer,
+                id: serverShape.id, // Preserve ID
+                type: serverShape.type, // Preserve type
+                updatedAt: Math.max(bufferTime, serverTime),
+              };
+            }
+            
+            // Buffer is older, discard it
+            removeEditBuffer(serverShape.id);
+            return serverShape;
           });
-        } catch (_) {}
+        } catch (error) {
+          console.error('[CanvasContext] Error merging edit buffers:', error);
+        }
+        
         if (isMounted) {
           dispatch({ type: CANVAS_ACTIONS.SET_SHAPES, payload: initial });
         }
@@ -351,6 +695,9 @@ export const CanvasProvider = ({ children }) => {
 
   // Memoize context value to prevent unnecessary re-renders
   const firestoreActions = useMemo(() => {
+    // Shape update throttle - configurable via env for production tuning
+    const SHAPE_UPDATE_THROTTLE_MS = Number(import.meta.env.VITE_SHAPE_UPDATE_THROTTLE_MS) || 50;
+    
     const ensureThrottler = (id) => {
       if (!throttledUpdatesRef.current[id]) {
         throttledUpdatesRef.current[id] = throttle((shapeId, updates) => {
@@ -358,7 +705,7 @@ export const CanvasProvider = ({ children }) => {
             // eslint-disable-next-line no-console
             console.error('Failed to update shape in Firestore', err);
           });
-        }, 100);
+        }, SHAPE_UPDATE_THROTTLE_MS);
       }
       return throttledUpdatesRef.current[id];
     };
@@ -374,6 +721,22 @@ export const CanvasProvider = ({ children }) => {
           dispatch({ type: CANVAS_ACTIONS.DELETE_SHAPE, payload: shape.id });
           // eslint-disable-next-line no-console
           console.error('Failed to create shape in Firestore', err);
+        }
+      },
+      addShapesBatch: async (shapes) => {
+        // optimistic - add all shapes locally first
+        shapes.forEach((shape) => {
+          dispatch({ type: CANVAS_ACTIONS.ADD_SHAPE, payload: { ...shape, updatedAt: Date.now() } });
+        });
+        try {
+          await fsCreateShapesBatch(shapes);
+        } catch (err) {
+          // rollback all shapes on error
+          shapes.forEach((shape) => {
+            dispatch({ type: CANVAS_ACTIONS.DELETE_SHAPE, payload: shape.id });
+          });
+          // eslint-disable-next-line no-console
+          console.error('Failed to create shapes batch in Firestore', err);
         }
       },
       updateShape: (id, updates) => {
@@ -418,7 +781,19 @@ export const CanvasProvider = ({ children }) => {
       startPresenceSubscription,
       stopPresenceSubscription,
     },
-  }), [state, firestoreActions, publishCursor, startCursorSubscription, stopCursorSubscription, setupCursorDisconnect, removeCursorCallback, startPresenceSubscription, stopPresenceSubscription]);
+    drag: {
+      publishDrag,
+      clearDrag,
+      startDragSubscription,
+      stopDragSubscription,
+    },
+    transform: {
+      publishTransform: publishTransformUpdate,
+      clearTransform: clearTransformUpdate,
+      startTransformSubscription,
+      stopTransformSubscription,
+    },
+  }), [state, firestoreActions, publishCursor, startCursorSubscription, stopCursorSubscription, setupCursorDisconnect, removeCursorCallback, startPresenceSubscription, stopPresenceSubscription, publishDrag, clearDrag, startDragSubscription, stopDragSubscription, publishTransformUpdate, clearTransformUpdate, startTransformSubscription, stopTransformSubscription]);
 
   return (
     <CanvasContext.Provider value={value}>

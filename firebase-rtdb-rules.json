@@ -13,6 +13,18 @@
           "$uid": {
             ".write": "auth != null && auth.uid == $uid"
           }
+        },
+        "activeEdits": {
+          ".read": "auth != null",
+          "$shapeId": {
+            ".write": "auth != null"
+          }
+        },
+        "activeTransforms": {
+          ".read": "auth != null",
+          "$shapeId": {
+            ".write": "auth != null"
+          }
         }
       }
     }

@@ -34,10 +34,21 @@ const toFirestoreDoc = (shape) => {
   const { id, type, ...rest } = shape;
   const currentUser = auth.currentUser;
   if (!currentUser) {
+    console.error('[firestoreService] No authenticated user found when creating shape');
+    toast.error('You must be signed in to create shapes. Please refresh and sign in again.');
     throw new Error('User must be authenticated to create shapes');
   }
+  
+  // Ensure we have a valid UID
+  if (!currentUser.uid) {
+    console.error('[firestoreService] Authenticated user missing UID:', currentUser);
+    toast.error('Authentication error. Please refresh and sign in again.');
+    throw new Error('Authenticated user missing UID');
+  }
+  
   const userName = currentUser.displayName || currentUser.email?.split('@')[0] || 'Anonymous';
-  return {
+  
+  const doc = {
     id,
     type,
     props: { ...rest },
@@ -49,6 +60,19 @@ const toFirestoreDoc = (shape) => {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
+  
+  // Log for debugging in production
+  console.log('[firestoreService] Creating shape with auth:', {
+    shapeId: id,
+    userId: currentUser.uid,
+    userName,
+    hasCreatedBy: !!doc.createdBy,
+    hasUpdatedBy: !!doc.updatedBy,
+    hasCreatedByName: !!doc.createdByName,
+    hasUpdatedByName: !!doc.updatedByName,
+  });
+  
+  return doc;
 };
 
 const fromFirestoreDoc = (docSnap) => {
@@ -98,14 +122,99 @@ export async function createShape(shape, boardId = DEFAULT_BOARD_ID) {
       const existingUpdatedAt = existing?.updatedAt?.toMillis?.() ?? 0;
       const now = Date.now();
       if (now > existingUpdatedAt) {
-        tx.update(ref, payload);
+        // For updates, only send fields that should be modified
+        // Never update createdBy, createdByName, or createdAt
+        const updatePayload = {
+          id: payload.id,
+          type: payload.type,
+          props: payload.props,
+          deleted: payload.deleted,
+          updatedBy: payload.updatedBy,
+          updatedByName: payload.updatedByName,
+          updatedAt: payload.updatedAt,
+        };
+        tx.update(ref, updatePayload);
       }
     });
     return { id: shape.id };
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('[firestoreService] Error creating shape:', error);
-    toast.error('Failed to create shape. Please try again.');
+    
+    // Check for permission denied (403) errors
+    if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+      console.error('[firestoreService] Permission denied. Auth state:', {
+        hasCurrentUser: !!auth.currentUser,
+        userId: auth.currentUser?.uid,
+        userEmail: auth.currentUser?.email,
+      });
+      toast.error('Permission denied. Please refresh the page and sign in again.');
+    } else {
+      toast.error('Failed to create shape. Please try again.');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Create multiple shapes in a single batch operation
+ * Firestore batch limit is 500 operations, so we chunk if needed
+ * @param {Array} shapes - Array of shape objects to create
+ * @param {string} boardId - Board ID
+ * @returns {Promise<Array>} Array of created shape IDs
+ */
+export async function createShapesBatch(shapes, boardId = DEFAULT_BOARD_ID) {
+  if (!shapes || shapes.length === 0) {
+    return [];
+  }
+
+  // Single shape - use regular create
+  if (shapes.length === 1) {
+    await createShape(shapes[0], boardId);
+    return [{ id: shapes[0].id }];
+  }
+
+  try {
+    const BATCH_SIZE = 500; // Firestore batch limit
+    const chunks = [];
+    
+    // Split into chunks if needed
+    for (let i = 0; i < shapes.length; i += BATCH_SIZE) {
+      chunks.push(shapes.slice(i, i + BATCH_SIZE));
+    }
+
+    const results = [];
+
+    // Process each chunk
+    for (const chunk of chunks) {
+      const batch = writeBatch(firestore);
+      
+      chunk.forEach((shape) => {
+        const ref = shapeDocRef(shape.id, boardId);
+        const payload = toFirestoreDoc(shape);
+        batch.set(ref, payload);
+      });
+
+      await batch.commit();
+      results.push(...chunk.map((s) => ({ id: s.id })));
+    }
+
+    return results;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[firestoreService] Error creating shapes batch:', error);
+    
+    // Check for permission denied (403) errors
+    if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+      console.error('[firestoreService] Permission denied in batch. Auth state:', {
+        hasCurrentUser: !!auth.currentUser,
+        userId: auth.currentUser?.uid,
+        userEmail: auth.currentUser?.email,
+      });
+      toast.error('Permission denied. Please refresh the page and sign in again.');
+    } else {
+      toast.error(`Failed to create ${shapes.length} shapes. Please try again.`);
+    }
     throw error;
   }
 }
