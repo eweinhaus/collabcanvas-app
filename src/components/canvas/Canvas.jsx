@@ -23,11 +23,12 @@ import ShortcutsModal from '../common/ShortcutsModal';
 import ColorPicker from './ColorPicker';
 import SelectionBox from './SelectionBox';
 import ShapeContextMenu from './ShapeContextMenu';
+import ShapeTooltip from './ShapeTooltip';
 import CommentIndicator from '../collaboration/CommentIndicator';
 import CommentThread from '../collaboration/CommentThread';
 import './Canvas.css';
 
-const Canvas = ({ showGrid = false, boardId = 'default' }) => {
+const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
   const { state, firestoreActions, commandActions, stageRef, setIsExportingRef, drag, transform } = useCanvas();
   const { user } = useAuth();
   const { openThread, getCommentCount, subscribeToShape } = useComments();
@@ -46,17 +47,33 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
   const [locallyEditingShapes, setLocallyEditingShapes] = useState(new Set()); // Track shapes user is currently editing
   const [recentEdits, setRecentEdits] = useState({}); // Map of shapeId -> { userId, timestamp } for 1s flash
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, shapeId: null });
+  const [hoveredShapes, setHoveredShapes] = useState({}); // Track which shapes are being hovered { [shapeId]: true }
   const selectionStartRef = useRef(null);
   const transformStartStateRef = useRef({}); // Store state before transform for undo
   const { remoteCursors, publishLocalCursor, clearLocalCursor } = useRealtimeCursor({ boardId });
   const debouncedTextSaveRef = useRef(null);
 
-  const { shapes, selectedId, selectedIds, currentTool, scale, position, stageSize, loadingShapes, onlineUsers } = state;
+  const { shapes, selectedId, selectedIds, currentTool, scale, position, stageSize, loadingShapes, onlineUsers, hiddenLayers } = state;
 
-  // Sort shapes by zIndex for proper layering (memoized for performance)
+  // Sort shapes by zIndex and filter out hidden layers (memoized for performance)
   const sortedShapes = useMemo(() => {
-    return [...shapes].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
-  }, [shapes]);
+    return [...shapes]
+      .filter(shape => !hiddenLayers.has(shape.id))
+      .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+  }, [shapes, hiddenLayers]);
+  
+  // Handle shape hover state changes
+  const handleShapeHover = useCallback((shapeId, isHovered) => {
+    setHoveredShapes(prev => {
+      if (isHovered) {
+        return { ...prev, [shapeId]: true };
+      } else {
+        const next = { ...prev };
+        delete next[shapeId];
+        return next;
+      }
+    });
+  }, []);
 
   // Expose setIsExporting to context for Toolbar
   useEffect(() => {
@@ -853,6 +870,7 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
                     actions.setSelectedId(shape.id);
                   }
                 }}
+                onHoverChange={handleShapeHover}
               />
             );
           })}
@@ -894,6 +912,34 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
                 y={cursor.y}
                 color={cursor.color}
                 label={cursor.name}
+              />
+            );
+          })}
+        </Layer>
+        
+        {/* Tooltips layer - renders on top of everything */}
+        <Layer listening={false}>
+          {sortedShapes.map((shape) => {
+            if (!hoveredShapes[shape.id]) return null;
+
+            const stage = stageRef.current;
+            if (!stage) return null;
+
+            const transform = stage.getAbsoluteTransform().copy();
+            const stageBox = stage.container().getBoundingClientRect();
+
+            const tooltipPoint = transform.point({
+              x: shape.x + (shape.width || shape.radius || 50) / 2,
+              y: shape.y,
+            });
+
+            return (
+              <ShapeTooltip
+                key={`tooltip-${shape.id}`}
+                shape={shape}
+                x={stageBox.left + tooltipPoint.x}
+                y={stageBox.top + tooltipPoint.y}
+                onlineUsers={onlineUsers}
               />
             );
           })}
@@ -959,26 +1005,27 @@ const Canvas = ({ showGrid = false, boardId = 'default' }) => {
         const count = getCommentCount(shape.id);
         if (!count) return null;
         
-        const stageBox = stage.container().getBoundingClientRect();
-        
         // Calculate top-right corner position based on shape type
-        let shapeRight, shapeTop;
-        
+        let shapeRight;
+        let shapeTop;
+
         if (shape.type === 'circle') {
-          // For circles, use center + radius for right edge and center - radius for top
           shapeRight = shape.x + (shape.radius || 50);
           shapeTop = shape.y - (shape.radius || 50);
         } else {
-          // For rectangles and text, use x + width for right edge
           shapeRight = shape.x + (shape.width || 100);
           shapeTop = shape.y;
         }
-        
-        // Apply scale and pan, with small offset to position badge nicely
-        const offsetX = -8; // Slightly inward from right edge
-        const offsetY = -8; // Slightly inward from top edge
-        const x = stageBox.left + (shapeRight + offsetX) * scale + position.x * scale;
-        const y = stageBox.top + (shapeTop + offsetY) * scale + position.y * scale;
+
+        // Convert canvas coordinates to screen coordinates using Konva's absolute transform
+        const transform = stage.getAbsoluteTransform().copy();
+        const absolutePoint = transform.point({ x: shapeRight, y: shapeTop });
+        const stageBox = stage.container().getBoundingClientRect();
+
+        const offsetX = -8; // Screen-space offsets to tuck badge toward shape corner
+        const offsetY = -8;
+        const x = stageBox.left + absolutePoint.x + offsetX;
+        const y = stageBox.top + absolutePoint.y + offsetY;
         
         return (
           <CommentIndicator

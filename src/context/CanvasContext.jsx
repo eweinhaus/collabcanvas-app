@@ -50,6 +50,10 @@ export const CANVAS_ACTIONS = {
   SET_REMOTE_CURSORS: 'SET_REMOTE_CURSORS',
   SET_ONLINE_USERS: 'SET_ONLINE_USERS',
   SET_LOADING_SHAPES: 'SET_LOADING_SHAPES',
+  
+  // Layer actions
+  TOGGLE_LAYER_VISIBILITY: 'TOGGLE_LAYER_VISIBILITY',
+  SET_HIDDEN_LAYERS: 'SET_HIDDEN_LAYERS',
 };
 
 // Initial state
@@ -64,6 +68,7 @@ const initialState = {
   remoteCursors: [],
   onlineUsers: [],
   loadingShapes: true,
+  hiddenLayers: new Set(), // Set of shape IDs that are hidden
 };
 
 // Reducer
@@ -214,6 +219,25 @@ const canvasReducer = (state, action) => {
       return {
         ...state,
         loadingShapes: action.payload,
+      };
+    
+    case CANVAS_ACTIONS.TOGGLE_LAYER_VISIBILITY: {
+      const newHiddenLayers = new Set(state.hiddenLayers);
+      if (newHiddenLayers.has(action.payload)) {
+        newHiddenLayers.delete(action.payload);
+      } else {
+        newHiddenLayers.add(action.payload);
+      }
+      return {
+        ...state,
+        hiddenLayers: newHiddenLayers,
+      };
+    }
+    
+    case CANVAS_ACTIONS.SET_HIDDEN_LAYERS:
+      return {
+        ...state,
+        hiddenLayers: new Set(action.payload),
       };
       
     default:

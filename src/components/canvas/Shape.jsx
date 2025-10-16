@@ -8,14 +8,13 @@ import { Rect, Circle, Text, Line, Group } from 'react-konva';
 import { SHAPE_TYPES } from '../../utils/shapes';
 import { throttle } from '../../utils/throttle';
 import { getUserColor } from '../../utils/getUserColor';
-import ShapeTooltip from './ShapeTooltip';
 import { setEditBuffer, removeEditBuffer } from '../../offline/editBuffers';
 
 const DRAG_THROTTLE_MS = 100;
 const TRANSFORM_THROTTLE_MS = 100;
 const BUFFER_THROTTLE_MS = 250; // Throttle buffer writes
 
-const Shape = forwardRef(({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, flashEditorUserId, onlineUsers = [], onSelect, onChange, onDragStart, onDragMove, onDragEnd, onTransformStart, onTransformMove, onTransformEnd, onStartEdit, onColorChange, onToggleSelect, onContextMenu }, ref) => {
+const Shape = forwardRef(({ shape, isSelected, isBeingEdited, editorUserId, showEditFlash, flashEditorUserId, onlineUsers = [], onSelect, onChange, onDragStart, onDragMove, onDragEnd, onTransformStart, onTransformMove, onTransformEnd, onStartEdit, onColorChange, onToggleSelect, onContextMenu, onHoverChange }, ref) => {
   const shapeRef = ref || useRef();
   const dragStartStateRef = useRef(null);
   const transformStartStateRef = useRef(null);
@@ -23,6 +22,13 @@ const Shape = forwardRef(({ shape, isSelected, isBeingEdited, editorUserId, show
   const throttledTransformRef = useRef(null);
   const throttledBufferRef = useRef(null);
   const [showTooltip, setShowTooltip] = useState(false);
+  
+  // Notify parent when hover state changes
+  useEffect(() => {
+    if (onHoverChange) {
+      onHoverChange(shape.id, showTooltip);
+    }
+  }, [showTooltip, shape.id, onHoverChange]);
 
   const handleClick = (e) => {
     // Check if shift key is pressed for multi-select
@@ -411,27 +417,10 @@ const Shape = forwardRef(({ shape, isSelected, isBeingEdited, editorUserId, show
     );
   };
 
-  // Calculate tooltip position
-  const getTooltipPosition = () => {
-    const x = shape.x + (shape.width || shape.radius || 50) / 2;
-    const y = shape.y;
-    return { x, y };
-  };
-
-  const tooltipPos = getTooltipPosition();
-
   return (
     <>
       {renderShape()}
       {renderLockIcon()}
-      {showTooltip && (
-        <ShapeTooltip 
-          shape={shape} 
-          x={tooltipPos.x} 
-          y={tooltipPos.y} 
-          onlineUsers={onlineUsers} 
-        />
-      )}
     </>
   );
 });

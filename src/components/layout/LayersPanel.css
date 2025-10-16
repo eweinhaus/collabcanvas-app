@@ -1,0 +1,152 @@
+/* LayersPanel - Figma-inspired design */
+
+.layers-panel {
+  position: fixed;
+  right: 0;
+  top: 60px; /* Start below the header */
+  bottom: 0;
+  width: 280px;
+  background: #ffffff;
+  border-left: 1px solid #e5e5e5;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.layers-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 12px;
+  border-bottom: 1px solid #e5e5e5;
+  background: #fafafa;
+}
+
+.layers-panel__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.layers-panel__close {
+  background: #fff;
+  border: 1px solid #d0d0d0;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: #666;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.layers-panel__close:hover {
+  background: #f5f5f5;
+  border-color: #999;
+  color: #1a1a1a;
+  transform: scale(1.05);
+}
+
+.layers-panel__content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar */
+.layers-panel__content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.layers-panel__content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.layers-panel__content::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+  border-radius: 4px;
+}
+
+.layers-panel__content::-webkit-scrollbar-thumb:hover {
+  background: #b0b0b0;
+}
+
+.layers-panel__empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: #999;
+}
+
+.layers-panel__empty p {
+  margin: 8px 0;
+}
+
+.layers-panel__hint {
+  font-size: 12px;
+  color: #bbb;
+}
+
+.layers-panel__list {
+  padding: 4px 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .layers-panel {
+    width: 100%;
+    max-width: 320px;
+  }
+}
+
+/* Dark mode support (optional) */
+@media (prefers-color-scheme: dark) {
+  .layers-panel {
+    background: #1e1e1e;
+    border-left-color: #333;
+  }
+
+  .layers-panel__header {
+    background: #252525;
+    border-bottom-color: #333;
+  }
+
+  .layers-panel__title {
+    color: #e5e5e5;
+  }
+
+  .layers-panel__close {
+    color: #999;
+  }
+
+  .layers-panel__close:hover {
+    background: #333;
+    color: #fff;
+  }
+
+  .layers-panel__empty {
+    color: #666;
+  }
+
+  .layers-panel__hint {
+    color: #444;
+  }
+}
+
