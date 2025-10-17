@@ -5,8 +5,10 @@
 
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { useCanvas } from './CanvasContext';
 import { postChat, getErrorMessage, isRateLimitError, isAuthError } from '../services/openaiService';
-import { getInitialMessages, createUserMessage, createAssistantMessage } from '../utils/aiPrompts';
+import { getInitialMessages, createUserMessage, createAssistantMessage, createToolMessage } from '../utils/aiPrompts';
+import { createAIToolExecutor } from '../services/aiToolExecutor';
 import toast from 'react-hot-toast';
 
 const AIContext = createContext(null);
@@ -27,6 +29,7 @@ export const useAI = () => {
  */
 export const AIProvider = ({ children }) => {
   const { user } = useAuth();
+  const canvas = useCanvas();
   const [messages, setMessages] = useState(() => {
     // Load messages from localStorage on init
     try {
@@ -109,6 +112,67 @@ export const AIProvider = ({ children }) => {
   }, []);
 
   /**
+   * Execute tool calls from the AI
+   * @param {Array} toolCalls - Array of tool call objects from OpenAI
+   * @param {Object} assistantMessage - The assistant message that contains the tool calls
+   */
+  const executeToolCalls = useCallback(async (toolCalls, assistantMessage) => {
+    if (!canvas || !canvas.firestoreActions || !canvas.state) {
+      console.error('Canvas context not available for tool execution');
+      return;
+    }
+
+    // Create tool executor with canvas dependencies
+    const executor = createAIToolExecutor({
+      addShape: canvas.firestoreActions.addShape,
+      addShapesBatch: canvas.firestoreActions.addShapesBatch,
+      getShapes: () => canvas.state.shapes,
+    });
+
+    // Execute each tool call
+    for (const toolCall of toolCalls) {
+      try {
+        const { name, arguments: argsString } = toolCall.function;
+        const args = JSON.parse(argsString);
+
+        let result;
+        if (name === 'createShape') {
+          result = await executor.executeCreateShape(args);
+        } else if (name === 'getCanvasState') {
+          result = executor.executeGetCanvasState();
+        } else {
+          result = { success: false, error: `Unknown tool: ${name}` };
+        }
+
+        // Show user feedback
+        if (result.success) {
+          if (name === 'createShape') {
+            toast.success(result.message || 'Shape created successfully');
+          } else if (name === 'getCanvasState') {
+            // Silent success for read operations
+            console.log('Canvas state retrieved:', result);
+          }
+        } else {
+          toast.error(result.error || 'Tool execution failed');
+        }
+
+        // Add tool result to message history for AI context
+        const toolMessage = createToolMessage(toolCall.id, result);
+        setMessages(prev => [...prev, toolMessage]);
+
+      } catch (error) {
+        console.error('Tool execution error:', error);
+        toast.error(`Failed to execute ${toolCall.function.name}: ${error.message}`);
+        
+        // Add error result to message history
+        const errorResult = { success: false, error: error.message };
+        const toolMessage = createToolMessage(toolCall.id, errorResult);
+        setMessages(prev => [...prev, toolMessage]);
+      }
+    }
+  }, [canvas]);
+
+  /**
    * Send a message to the AI
    * @param {string} content - User message content
    */
@@ -166,10 +230,9 @@ export const AIProvider = ({ children }) => {
         const assistantMessage = createAssistantMessage(assistantContent, toolCalls);
         setMessages(prev => [...prev, assistantMessage]);
 
-        // Note: Tool execution will be implemented in PR 14+
-        // For now, we just display the assistant's response
+        // Execute tool calls if present
         if (toolCalls && toolCalls.length > 0) {
-          console.log('Tool calls received (execution in PR 14+):', toolCalls);
+          await executeToolCalls(toolCalls, assistantMessage);
         }
       } else {
         throw new Error('Invalid response from AI service');
@@ -208,7 +271,7 @@ export const AIProvider = ({ children }) => {
       setLoading(false);
       abortControllerRef.current = null;
     }
-  }, [user, messages, loading]);
+  }, [user, messages, loading, executeToolCalls]);
 
   /**
    * Clear conversation history

@@ -1,5 +1,6 @@
 # AI Canvas Agent - Product Requirements Document
-**Implementation Approach**: OpenAI SDK with Function Calling (Direct Integration)
+**Implementation Approach**: OpenAI SDK with Function Calling (Direct Integration)  
+**Scope**: Focused implementation with 7 core commands (1, 2, 3, 4, 6, 8, 10)
 
 ---
 
@@ -159,12 +160,12 @@ Toast feedback + history entry
 
 ## Command Requirements
 
-### Creation Commands
-| Command | Example | Tool |
-|---------|---------|------|
-| Create shape with color | "Create a red circle at 100, 200" | `createShape` |
-| Create text | "Add a text layer that says 'Hello World'" | `createShape` |
-| Create with dimensions | "Make a 200x300 blue rectangle" | `createShape` |
+### ✅ Creation Commands (All 3 Implemented)
+| Command | Example | Tool | Status |
+|---------|---------|------|--------|
+| Create shape with color | "Create a red circle at 100, 200" | `createShape` | ✅ **IN SCOPE** |
+| Create text | "Add a text layer that says 'Hello World'" | `createShape` | ✅ **IN SCOPE** |
+| Create with dimensions | "Make a 200x300 blue rectangle" | `createShape` | ✅ **IN SCOPE** |
 
 **Requirements**:
 - Extract color from natural language (blue → #0000ff)
@@ -172,41 +173,43 @@ Toast feedback + history entry
 - Support circle, rectangle, triangle, text types
 - Validate coordinates (allow negative for off-canvas)
 
-### Manipulation Commands
-| Command | Example | Tool |
-|---------|---------|------|
-| Move by descriptor | "Move the blue rectangle to 500, 300" | `moveShape` |
-| Resize | "Resize the circle to radius 100" | `resizeShape` |
-| Rotate | "Rotate the text 45 degrees" | `rotateShape` |
-| Change color | "Change the red square to green" | `updateShapeColor` |
-| Delete | "Delete the blue triangle" | `deleteShape` |
+### ⚠️ Manipulation Commands (2 of 5 Implemented)
+| Command | Example | Tool | Status |
+|---------|---------|------|--------|
+| Move by descriptor | "Move the blue rectangle to 500, 300" | `moveShape` | ✅ **IN SCOPE** |
+| Resize | "Resize the circle to radius 100" | `resizeShape` | ❌ **NOT IMPLEMENTED** |
+| Rotate | "Rotate the text 45 degrees" | `rotateShape` | ✅ **IN SCOPE** |
+| Change color | "Change the red square to green" | `updateShapeColor` | ❌ **NOT IMPLEMENTED** |
+| Delete | "Delete the blue triangle" | `deleteShape` | ❌ **NOT IMPLEMENTED** |
 
-**Requirements**:
+**Requirements** (for implemented commands only):
 - Identify shapes by descriptor (color + type) without needing ID
-- Support "all X" commands ("delete all circles")
 - Handle ambiguity (prefer most recent if singular)
-- Compound conditions ("all large red circles")
+- ~~Support "all X" commands~~ (not in current scope)
+- ~~Compound conditions~~ (not in current scope)
 
-### Layout Commands
-| Command | Example | Tool |
-|---------|---------|------|
-| Create grid | "Create a 3x3 grid of blue squares" | `createGrid` |
-| Arrange horizontal | "Arrange these shapes in a row" | `arrangeHorizontally` |
-| Arrange vertical | "Line up these shapes vertically" | `arrangeVertically` |
-| Distribute evenly | "Space these elements evenly" | `distributeEvenly` |
+### ⚠️ Layout Commands (1 of 4 Implemented)
+| Command | Example | Tool | Status |
+|---------|---------|------|--------|
+| Create grid | "Create a 3x3 grid of blue squares" | `createGrid` | ✅ **IN SCOPE** |
+| Arrange horizontal | "Arrange these shapes in a row" | `arrangeHorizontally` | ❌ **NOT IMPLEMENTED** |
+| Arrange vertical | "Line up these shapes vertically" | `arrangeVertically` | ❌ **NOT IMPLEMENTED** |
+| Distribute evenly | "Space these elements evenly" | `distributeEvenly` | ❌ **NOT IMPLEMENTED** |
 
-**Requirements**:
+**Requirements** (for implemented commands only):
 - Grid: max 20×20, total ≤100 shapes
-- Spacing: 10-500 pixels
+- Spacing: 10-500 pixels (default 120)
 - Batch Firestore writes for performance
 - Deterministic, idempotent calculations
 
-### Complex Commands
-| Command | Example | Tool |
-|---------|---------|------|
-| Login form template | "Create a login form at 300, 200" | `createTemplate` |
+### ✅ Complex Commands (1 of 3 Implemented)
+| Command | Example | Tool | Status |
+|---------|---------|------|--------|
+| Login form template | "Create a login form at 300, 200" | `createTemplate` or batch `createShape` | ✅ **IN SCOPE** |
+| Navigation bar | "Build a navigation bar with 4 menu items" | `createTemplate` | ❌ **NOT IMPLEMENTED** |
+| Card layout | "Make a card layout with title, image, and description" | `createTemplate` | ❌ **NOT IMPLEMENTED** |
 
-**Requirements**:
+**Requirements** (for login form only):
 - Generate 6+ properly arranged shapes
 - Username label + input field
 - Password label + input field  
@@ -217,7 +220,21 @@ Toast feedback + history entry
 
 ## Tool Schemas (OpenAI Function Calling)
 
-### 1. createShape
+**Implemented Tools**: 5 core tools + 1 template function
+- ✅ `createShape` (commands 1, 2, 3, 10)
+- ✅ `getCanvasState` (commands 4, 6)
+- ✅ `moveShape` (command 4)
+- ✅ `rotateShape` (command 6)
+- ✅ `createGrid` (command 8)
+- ❌ `updateShapeColor` (not in scope)
+- ❌ `deleteShape` (not in scope)
+- ❌ `arrangeHorizontally` (not in scope)
+- ❌ `arrangeVertically` (not in scope)
+- ❌ `distributeEvenly` (not in scope)
+
+---
+
+### 1. createShape ✅ **IMPLEMENTED**
 ```javascript
 {
   type: 'function',
@@ -249,7 +266,7 @@ Toast feedback + history entry
 }
 ```
 
-### 2. getCanvasState
+### 2. getCanvasState ✅ **IMPLEMENTED**
 ```javascript
 {
   type: 'function',
@@ -265,7 +282,7 @@ Toast feedback + history entry
 }
 ```
 
-### 3. moveShape
+### 3. moveShape ✅ **IMPLEMENTED**
 ```javascript
 {
   type: 'function',
@@ -291,7 +308,7 @@ Toast feedback + history entry
 }
 ```
 
-### 4. updateShapeColor
+### 4. updateShapeColor ❌ **NOT IMPLEMENTED** (optional for future)
 ```javascript
 {
   type: 'function',
@@ -319,7 +336,7 @@ Toast feedback + history entry
 }
 ```
 
-### 5. deleteShape
+### 5. deleteShape ❌ **NOT IMPLEMENTED** (optional for future)
 ```javascript
 {
   type: 'function',
@@ -343,7 +360,7 @@ Toast feedback + history entry
 }
 ```
 
-### 6. rotateShape
+### 6. rotateShape ✅ **IMPLEMENTED**
 ```javascript
 {
   type: 'function',
@@ -373,7 +390,7 @@ Toast feedback + history entry
 }
 ```
 
-### 7. createGrid
+### 7. createGrid ✅ **IMPLEMENTED**
 ```javascript
 {
   type: 'function',
@@ -412,7 +429,7 @@ Toast feedback + history entry
 }
 ```
 
-### 8. arrangeHorizontally
+### 8. arrangeHorizontally ❌ **NOT IMPLEMENTED** (optional for future)
 ```javascript
 {
   type: 'function',
@@ -441,7 +458,7 @@ Toast feedback + history entry
 }
 ```
 
-### 9. arrangeVertically
+### 9. arrangeVertically ❌ **NOT IMPLEMENTED** (optional for future)
 ```javascript
 {
   type: 'function',
@@ -470,7 +487,7 @@ Toast feedback + history entry
 }
 ```
 
-### 10. distributeEvenly
+### 10. distributeEvenly ❌ **NOT IMPLEMENTED** (optional for future)
 ```javascript
 {
   type: 'function',
@@ -681,9 +698,9 @@ exports.openaiChat = functions
 - Multi-round: getCanvasState → manipulation flow
 - Error handling: Invalid args, network failures
 
-### Manual Test Suite (30 cases)
+### Manual Test Suite (16 cases - Focused Scope)
 
-**Creation (6 cases)**
+**✅ Creation (6 cases)**
 1. "Create a blue circle at 300, 400"
 2. "Add a text that says 'Test'"
 3. "Make a 200x150 red rectangle"
@@ -691,37 +708,37 @@ exports.openaiChat = functions
 5. "Add a purple square at 100, 100"
 6. "Create blue circle" (test defaults)
 
-**Manipulation (8 cases)**
+**⚠️ Manipulation (2 cases - 2 of 5 commands)**
 7. "Move the blue rectangle to 600, 200"
 8. "Rotate the blue rectangle 45 degrees"
-9. "Resize the circle to radius 80"
-10. "Change the red square to green"
-11. "Delete the blue triangle"
-12. "Delete all circles"
-13. "Change all red shapes to blue"
-14. "Move all purple shapes to 500, 300"
+~~9. "Resize the circle to radius 80"~~ (not implemented)
+~~10. "Change the red square to green"~~ (not implemented)
+~~11. "Delete the blue triangle"~~ (not implemented)
+~~12. "Delete all circles"~~ (not implemented)
+~~13. "Change all red shapes to blue"~~ (not implemented)
+~~14. "Move all purple shapes to 500, 300"~~ (not implemented)
 
-**Layout (6 cases)**
-15. "Create a 3x3 grid of red squares"
-16. "Create a 2x5 grid of blue circles at 400, 300"
-17. "Create grid with 150px spacing"
-18. "Arrange these three shapes horizontally"
-19. "Line up these shapes vertically with 50px spacing"
-20. "Space these elements evenly"
+**⚠️ Layout (3 cases - 1 of 4 commands)**
+9. "Create a 3x3 grid of red squares"
+10. "Create a 2x5 grid of blue circles at 400, 300"
+11. "Create grid with 150px spacing"
+~~18. "Arrange these three shapes horizontally"~~ (not implemented)
+~~19. "Line up these shapes vertically with 50px spacing"~~ (not implemented)
+~~20. "Space these elements evenly"~~ (not implemented)
 
-**Complex (4 cases)**
-21. "Create a login form at 300, 200"
-22-24. Verify login form components positioned correctly
+**✅ Complex (4 cases)**
+12. "Create a login form at 300, 200"
+13-15. Verify login form components positioned correctly
 
-**Edge Cases (6 cases)**
-25. "Move the rectangle" (multiple exist) → most recent
-26. "Create a circle" (missing color) → use default
-27. "Delete the flying saucer" → friendly error
-28. "Delete all large red circles" → AND logic
-29. "Create a 15x15 grid" → reject (>100 shapes)
-30. Concurrent: Two users use AI simultaneously
+**Edge Cases (1 case)**
+16. "Move the rectangle" (multiple exist) → most recent
+~~26. "Create a circle" (missing color) → use default~~ (test in creation)
+~~27. "Delete the flying saucer" → friendly error~~ (delete not implemented)
+~~28. "Delete all large red circles" → AND logic~~ (not implemented)
+~~29. "Create a 15x15 grid" → reject (>100 shapes)~~ (test in layout)
+~~30. Concurrent: Two users use AI simultaneously~~ (general test, not specific)
 
-**Accuracy Target**: 27+/30 passed (90%+)
+**Accuracy Target**: 14+/16 passed (87.5%+)
 
 ---
 
@@ -783,81 +800,85 @@ exports.openaiChat = functions
 
 ---
 
-## Implementation Phases
+## Implementation Phases (Focused Scope)
 
-### Phase 1: Infrastructure (PR 13)
-- Set up Firebase Cloud Function `openaiChat`
-- Configure OpenAI API key in Functions config
-- Implement authentication, CORS, rate limiting
-- Create `openaiService.js` frontend client
-- Create `aiTools.js` with all 10 tool schemas
-- Create `aiPrompts.js` with comprehensive system prompt
-- **Build UI Components**:
-  - Create `AIPanel.jsx` with slide-in animation
-  - Create `AIPrompt.jsx` input component
-  - Create `AIMessage.jsx` message display
-  - Add "Agent" button to Toolbar
-  - Implement keyboard shortcuts (Cmd/Ctrl+K)
-  - Add localStorage persistence for panel state
-  - Update ShortcutsModal with AI shortcuts
-- Test basic "ping" with mock tools
-- Test panel UI/UX (animations, responsiveness)
+### Phase 1: Infrastructure (PR 13) ✅ **COMPLETE**
+- ✅ Set up Firebase Cloud Function `openaiChat`
+- ✅ Configure OpenAI API key in Functions config
+- ✅ Implement authentication, CORS, rate limiting
+- ✅ Create `openaiService.js` frontend client
+- ✅ Create `aiTools.js` with 5 core tool schemas + template
+- ✅ Create `aiPrompts.js` with focused system prompt
+- ✅ **Build UI Components**:
+  - ✅ Create `AIPanel.jsx` with slide-in animation
+  - ✅ Create `AIPrompt.jsx` input component
+  - ✅ Create `AIMessage.jsx` message display
+  - ✅ Add "Agent" button to Toolbar
+  - ✅ Implement keyboard shortcuts (Cmd/Ctrl+K)
+  - ✅ Add localStorage persistence for panel state
+  - ✅ Update ShortcutsModal with AI shortcuts
+- ✅ Test basic "ping" with mock tools
+- ✅ Test panel UI/UX (animations, responsiveness)
 
-### Phase 2: Foundation Tools (PR 14)
-- Implement `createShape` executor
-- Implement `getCanvasState` executor
+### Phase 2: Creation Commands (PR 14) - **6-8 hours**
+- Implement `createShape` executor (commands 1, 2, 3)
+- Implement `getCanvasState` executor (for commands 4, 6)
 - Create `colorNormalizer.js` utility
-- Create `AIContext.jsx` controller with think-act loop
-- Create `AIPrompt.jsx` UI component
-- Test creation commands end-to-end
+- Test all 6 creation test cases
+- Verify color extraction works correctly
 
-### Phase 3: Manipulation Tools (PR 15)
-- Implement `moveShape`, `updateShapeColor`, `deleteShape`, `rotateShape` executors
+### Phase 3: Manipulation Commands (PR 15) - **4-6 hours**
+- Implement `moveShape` executor (command 4)
+- Implement `rotateShape` executor (command 6)
 - Create `shapeIdentification.js` utility (descriptor matching)
-- Implement "all X" fan-out logic in AIContext
-- Test manipulation commands end-to-end
+- Test 2 manipulation test cases
+- Handle ambiguity (prefer most recent)
 
-### Phase 4: Layout Tools (PR 16)
-- Implement `createGrid` executor
-- Implement `arrangeHorizontally`, `arrangeVertically`, `distributeEvenly` executors
+### Phase 4: Layout Commands (PR 16) - **4-6 hours**
+- Implement `createGrid` executor (command 8)
 - Create `gridGenerator.js` utility
-- Create `arrangementAlgorithms.js` utility
-- Test layout commands end-to-end
+- Test 3 grid test cases
+- Validate grid limits (max 20×20, ≤100 shapes)
+- Batch Firestore writes for performance
 
-### Phase 5: Complex Templates (PR 17)
-- Implement template generator for login form
-- Optional: nav bar and card templates
+### Phase 5: Complex Template (PR 17) - **6-8 hours**
+- Implement login form template generator (command 10)
+- Generate 6+ properly arranged shapes
+- Test login form test cases
+- Run full manual test suite (16 cases)
+- Calculate accuracy rate (target: 14+/16 = 87.5%+)
 - Performance testing with 5+ concurrent AI users
-- Run full manual test suite (30 cases)
-- Calculate accuracy rate, refine prompts if needed
-- Update documentation with demo commands
+- Update documentation with supported commands
 
 ---
 
-## Files to Create
+## Files to Create (Focused Scope)
 
-### Backend
-- `functions/index.js` - openaiChat function with OpenAI SDK integration
+### Backend (PR 13) ✅ **COMPLETE**
+- ✅ `functions/index.js` - openaiChat function with OpenAI SDK integration
 
-### Frontend
-- `src/context/AIContext.jsx` - Controller with think-act loop
-- `src/components/ai/AIPanel.jsx` - Right-side chat panel component
-- `src/components/ai/AIPrompt.jsx` - Input component within panel
-- `src/components/ai/AIMessage.jsx` - Individual message component
-- `src/components/ai/AIPanel.css` - Panel styling
-- `src/services/openaiService.js` - Fetch wrapper to Cloud Function
-- `src/services/aiTools.js` - 10 tool schemas
-- `src/services/aiToolExecutor.js` - Tool execution bridge
-- `src/utils/aiPrompts.js` - System prompt builder
-- `src/utils/colorNormalizer.js` - CSS → hex conversion
-- `src/utils/shapeIdentification.js` - Descriptor matching
-- `src/utils/gridGenerator.js` - Grid layout calculations
-- `src/utils/arrangementAlgorithms.js` - Alignment utilities
+### Frontend (PR 13) ✅ **COMPLETE**
+- ✅ `src/context/AIContext.jsx` - Controller with think-act loop
+- ✅ `src/components/ai/AIPanel.jsx` - Right-side chat panel component
+- ✅ `src/components/ai/AIPrompt.jsx` - Input component within panel
+- ✅ `src/components/ai/AIMessage.jsx` - Individual message component
+- ✅ `src/components/ai/AIPanel.css` - Panel styling
+- ✅ `src/services/openaiService.js` - Fetch wrapper to Cloud Function
+- ✅ `src/services/aiTools.js` - 5 core tool schemas (createShape, getCanvasState, moveShape, rotateShape, createGrid)
+- ✅ `src/utils/aiPrompts.js` - System prompt builder
+
+### Tool Executors (PR 14-17)
+- `src/services/aiToolExecutor.js` - Tool execution bridge (PR 14)
+- `src/utils/colorNormalizer.js` - CSS → hex conversion (PR 14)
+- `src/utils/shapeIdentification.js` - Descriptor matching (PR 15)
+- `src/utils/gridGenerator.js` - Grid layout calculations (PR 16)
+- ~~`src/utils/arrangementAlgorithms.js`~~ - NOT NEEDED (arrange commands not implemented)
 
 ### Tests
-- Unit tests for each utility
-- Integration tests for full flow
-- Manual test documentation
+- Unit tests for colorNormalizer, shapeIdentification, gridGenerator
+- Unit tests for each executor function
+- Integration tests for full flow (prompt → execution → Firestore)
+- Manual test documentation (16 cases)
 
 ---
 
