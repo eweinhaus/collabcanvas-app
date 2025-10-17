@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { normalizeColor } from '../utils/colorNormalizer';
 import { SHAPE_TYPES } from '../utils/shapes';
 import { identifyShape } from '../utils/shapeIdentification';
+import { generateGrid, validateGridConfig } from '../utils/gridGenerator';
 
 // Canvas bounds for validation
 const CANVAS_BOUNDS = {
@@ -402,11 +403,190 @@ export function createAIToolExecutor({ addShape, addShapesBatch, updateShape, ge
     }
   }
 
+  /**
+   * Execute createGrid tool
+   * Creates a grid of identical shapes using batch write
+   * @param {Object} args - Tool arguments from AI
+   * @param {string} args.shapeType - Shape type (circle, rectangle, triangle, text)
+   * @param {number} args.rows - Number of rows (1-20)
+   * @param {number} args.cols - Number of columns (1-20)
+   * @param {string} args.color - Color for all shapes
+   * @param {number} [args.originX=200] - Top-left X coordinate
+   * @param {number} [args.originY=200] - Top-left Y coordinate
+   * @param {number} [args.spacing=120] - Spacing between shape centers (10-500)
+   * @param {number} [args.size=50] - Shape size (10-200)
+   * @param {string} [args.text] - Text content (for text shapes)
+   * @param {number} [args.fontSize=24] - Font size (for text shapes)
+   * @returns {Promise<Object>} Result object { success: boolean, shapeIds?: string[], error?: string }
+   */
+  async function executeCreateGrid(args) {
+    try {
+      // Support both 'shapeType' and 'type' parameter names
+      const shapeType = args.shapeType || args.type;
+      const color = args.color || args.fill;
+
+      // Validate required fields
+      if (!shapeType) {
+        return { success: false, error: 'Missing required field: shapeType' };
+      }
+      if (typeof args.rows !== 'number') {
+        return { success: false, error: 'Missing required field: rows (number)' };
+      }
+      if (typeof args.cols !== 'number') {
+        return { success: false, error: 'Missing required field: cols (number)' };
+      }
+      if (!color) {
+        return { success: false, error: 'Missing required field: color' };
+      }
+
+      // Normalize shape type
+      let normalizedType;
+      const typeNormalized = shapeType.toLowerCase();
+      if (typeNormalized === 'rectangle' || typeNormalized === 'rect') {
+        normalizedType = 'rectangle';
+      } else if (typeNormalized === 'circle') {
+        normalizedType = 'circle';
+      } else if (typeNormalized === 'text') {
+        normalizedType = 'text';
+      } else if (typeNormalized === 'triangle') {
+        normalizedType = 'triangle';
+      } else {
+        return { 
+          success: false, 
+          error: `Invalid shape type: ${shapeType}. Supported types: rectangle, circle, text, triangle`,
+        };
+      }
+
+      // Normalize color
+      let hexColor;
+      try {
+        const colorResult = normalizeColor(color);
+        hexColor = colorResult.hex;
+      } catch (error) {
+        return { success: false, error: `Invalid color: ${error.message}` };
+      }
+
+      // Build grid configuration with safety clamps (executor-level validation)
+      const rawSpacing = args.spacing;
+      const safeSpacing = (typeof rawSpacing === 'number' && rawSpacing >= 10 && rawSpacing <= 500)
+        ? rawSpacing
+        : 120;
+
+      const rawSize = args.size;
+      const safeSize = (typeof rawSize === 'number' && rawSize >= 10 && rawSize <= 200)
+        ? rawSize
+        : 50;
+
+      const rawOriginX = (args.originX !== undefined ? args.originX : (args.x !== undefined ? args.x : 200));
+      const rawOriginY = (args.originY !== undefined ? args.originY : (args.y !== undefined ? args.y : 200));
+      const safeOriginX = Math.max(0, rawOriginX);
+      const safeOriginY = Math.max(0, rawOriginY);
+
+      // Build grid configuration
+      const gridConfig = {
+        shapeType: normalizedType,
+        rows: args.rows,
+        cols: args.cols,
+        color: hexColor,
+        spacing: safeSpacing,
+        // Support both originX/originY (our utility) and x/y (tool schema)
+        originX: safeOriginX,
+        originY: safeOriginY,
+        size: safeSize,
+      };
+
+      // Add text-specific fields if needed
+      if (normalizedType === 'text') {
+        if (!args.text || typeof args.text !== 'string') {
+          return { success: false, error: 'Text grid requires text content' };
+        }
+        gridConfig.text = args.text;
+        gridConfig.fontSize = args.fontSize !== undefined ? args.fontSize : 24;
+      }
+
+      // Validate grid configuration (task 16.13)
+      const validation = validateGridConfig(gridConfig);
+      if (!validation.valid) {
+        return { success: false, error: validation.error };
+      }
+
+      // Generate grid layout
+      let shapeConfigs;
+      try {
+        shapeConfigs = generateGrid(gridConfig);
+      } catch (error) {
+        return { 
+          success: false, 
+          error: `Failed to generate grid: ${error.message}`,
+        };
+      }
+
+      // Convert grid configs to full shape objects with IDs and metadata
+      const shapes = shapeConfigs.map((config) => {
+        const shapeId = uuidv4();
+        
+        // Map to internal shape type constants
+        let internalType;
+        switch (config.type) {
+          case 'rectangle':
+            internalType = SHAPE_TYPES.RECT;
+            break;
+          case 'circle':
+            internalType = SHAPE_TYPES.CIRCLE;
+            break;
+          case 'text':
+            internalType = SHAPE_TYPES.TEXT;
+            break;
+          case 'triangle':
+            internalType = SHAPE_TYPES.TRIANGLE;
+            break;
+          default:
+            internalType = config.type;
+        }
+
+        return {
+          id: shapeId,
+          type: internalType,
+          x: config.x,
+          y: config.y,
+          fill: config.fill,
+          stroke: '#000000',
+          strokeWidth: 2,
+          draggable: true,
+          zIndex: config.zIndex,
+          createdBy: 'AI',
+          ...(config.width !== undefined && { width: config.width }),
+          ...(config.height !== undefined && { height: config.height }),
+          ...(config.radius !== undefined && { radius: config.radius }),
+          ...(config.text !== undefined && { text: config.text }),
+          ...(config.fontSize !== undefined && { fontSize: config.fontSize }),
+        };
+      });
+
+      // Batch create all shapes (task 16.14)
+      await addShapesBatch(shapes);
+
+      const totalShapes = shapes.length;
+      return {
+        success: true,
+        shapeIds: shapes.map(s => s.id),
+        message: `Created ${totalShapes} ${normalizedType}${totalShapes !== 1 ? 's' : ''} in ${args.rows}×${args.cols} grid at (${gridConfig.originX}, ${gridConfig.originY})`,
+        totalShapes,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to create grid: ${error.message}`,
+      };
+    }
+  }
+
   return {
     executeCreateShape,
     executeGetCanvasState,
     executeMoveShape,
     executeRotateShape,
+    executeCreateGrid,
   };
 }
 

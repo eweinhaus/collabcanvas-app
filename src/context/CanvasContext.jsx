@@ -554,7 +554,7 @@ export const CanvasProvider = ({ children }) => {
 
     const handleOnline = async () => {
       // eslint-disable-next-line no-console
-      console.log('[CanvasContext] Network online, flushing operation queue...');
+      //console.log('[CanvasContext] Network online, flushing operation queue...');
       const results = await flushOperationQueue(DEFAULT_BOARD_ID);
       if (results.success > 0) {
         toast.success(`Synced ${results.success} operation${results.success === 1 ? '' : 's'}`);
@@ -571,7 +571,7 @@ export const CanvasProvider = ({ children }) => {
           const isConnected = snapshot.val();
           if (isConnected) {
             // eslint-disable-next-line no-console
-            console.log('[CanvasContext] Firebase connected, flushing operation queue...');
+            //console.log('[CanvasContext] Firebase connected, flushing operation queue...');
             const results = await flushOperationQueue(DEFAULT_BOARD_ID);
             if (results.success > 0) {
               toast.success(`Synced ${results.success} operation${results.success === 1 ? '' : 's'}`);
@@ -685,7 +685,7 @@ export const CanvasProvider = ({ children }) => {
 
         if (hasChanges) {
           // eslint-disable-next-line no-console
-          console.log('[CanvasContext] Reconciliation: applied granular updates');
+          //console.log('[CanvasContext] Reconciliation: applied granular updates');
         }
       } catch (error) {
         // eslint-disable-next-line no-console
