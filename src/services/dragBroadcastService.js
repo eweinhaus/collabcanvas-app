@@ -5,6 +5,7 @@
 
 import { ref, set, remove, onValue, onDisconnect } from 'firebase/database';
 import { realtimeDB } from './firebase';
+import { logger } from '../utils/logger';
 
 const DEFAULT_BOARD_ID = 'default';
 
@@ -66,8 +67,7 @@ export async function publishDragPosition({
     const disconnect = onDisconnect(refToUse);
     await disconnect.remove();
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[dragBroadcastService] Error publishing drag:', error);
+    logger.error('dragBroadcastService: Error publishing drag:', error);
     throw error;
   }
 }
@@ -88,8 +88,7 @@ export async function clearDragPosition({ boardId = DEFAULT_BOARD_ID, shapeId })
   try {
     await remove(refToUse);
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[dragBroadcastService] Error clearing drag:', error);
+    logger.error('dragBroadcastService: Error clearing drag:', error);
     throw error;
   }
 }
@@ -136,8 +135,7 @@ export function subscribeToDragUpdates({
       }
     },
     (error) => {
-      // eslint-disable-next-line no-console
-      console.error('[dragBroadcastService] Subscription error:', error);
+      logger.error('dragBroadcastService: Subscription error:', error);
       if (onError) {
         onError(error);
       }
@@ -190,8 +188,7 @@ export async function publishTransform({
     const disconnect = onDisconnect(refToUse);
     await disconnect.remove();
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[dragBroadcastService] Error publishing transform:', error);
+    logger.error('dragBroadcastService: Error publishing transform:', error);
     throw error;
   }
 }
@@ -212,8 +209,7 @@ export async function clearTransform({ boardId = DEFAULT_BOARD_ID, shapeId }) {
   try {
     await remove(refToUse);
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[dragBroadcastService] Error clearing transform:', error);
+    logger.error('dragBroadcastService: Error clearing transform:', error);
     throw error;
   }
 }
@@ -263,8 +259,7 @@ export function subscribeToTransformUpdates({
       }
     },
     (error) => {
-      // eslint-disable-next-line no-console
-      console.error('[dragBroadcastService] Transform subscription error:', error);
+      logger.error('dragBroadcastService: Transform subscription error:', error);
       if (onError) {
         onError(error);
       }

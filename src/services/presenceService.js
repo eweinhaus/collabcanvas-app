@@ -1,6 +1,7 @@
 import { ref, onValue, set, remove, onDisconnect, serverTimestamp } from 'firebase/database';
 import toast from 'react-hot-toast';
 import { realtimeDB } from './firebase';
+import { logger } from '../utils/logger';
 
 const DEFAULT_BOARD_ID = 'default';
 
@@ -29,8 +30,7 @@ export function setPresence({
     updatedAt: serverTimestamp(),
   };
   return set(presenceRef(uid, boardId), payload).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[presenceService] Error setting presence:', err);
+    logger.error('presenceService: Error setting presence:', err);
     toast.error('Failed to update presence status.');
     throw err;
   });
@@ -56,8 +56,7 @@ export function subscribeToPresence({
       onUpdate?.(users);
     },
     (error) => {
-      // eslint-disable-next-line no-console
-      console.error('[presenceService] Subscription error:', error);
+      logger.error('presenceService: Subscription error:', error);
       toast.error('Failed to load online users.');
       onError?.(error);
     }
@@ -73,8 +72,7 @@ export function removePresence({ uid, boardId = DEFAULT_BOARD_ID } = {}) {
     return Promise.resolve();
   }
   return remove(presenceRef(uid, boardId)).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[presenceService] Error removing presence:', err);
+    logger.error('presenceService: Error removing presence:', err);
     throw err;
   });
 }
@@ -86,8 +84,7 @@ export function registerDisconnectCleanup({ uid, boardId = DEFAULT_BOARD_ID } = 
   const refToUse = presenceRef(uid, boardId);
   const disconnect = onDisconnect(refToUse);
   disconnect.remove().catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[presenceService] Error setting disconnect handler:', err);
+    logger.error('presenceService: Error setting disconnect handler:', err);
   });
   return () => {
     disconnect.cancel().catch(() => {});

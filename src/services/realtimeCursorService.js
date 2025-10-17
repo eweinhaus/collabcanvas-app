@@ -1,5 +1,6 @@
 import { ref, onValue, set, remove, onDisconnect, serverTimestamp } from 'firebase/database';
 import { realtimeDB } from './firebase';
+import { logger } from '../utils/logger';
 
 const DEFAULT_BOARD_ID = 'default';
 
@@ -33,8 +34,7 @@ export function setCursorPosition({
     updatedAt: serverTimestamp(),
   };
   return set(cursorRef(uid, boardId), payload).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[realtimeCursorService] Error setting cursor position:', err);
+    logger.error('realtimeCursorService: Error setting cursor position:', err);
     throw err;
   });
 }
@@ -59,8 +59,7 @@ export function subscribeToCursors({
       onUpdate?.(cursors);
     },
     (error) => {
-      // eslint-disable-next-line no-console
-      console.error('[realtimeCursorService] Subscription error:', error);
+      logger.error('realtimeCursorService: Subscription error:', error);
       onError?.(error);
     }
   );
@@ -75,8 +74,7 @@ export function removeCursor({ uid, boardId = DEFAULT_BOARD_ID } = {}) {
     return Promise.resolve();
   }
   return remove(cursorRef(uid, boardId)).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[realtimeCursorService] Error removing cursor:', err);
+    logger.error('realtimeCursorService: Error removing cursor:', err);
     throw err;
   });
 }
@@ -88,8 +86,7 @@ export function registerDisconnectCleanup({ uid, boardId = DEFAULT_BOARD_ID } = 
   const refToUse = cursorRef(uid, boardId);
   const disconnect = onDisconnect(refToUse);
   disconnect.remove().catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('[realtimeCursorService] Error setting disconnect handler:', err);
+    logger.error('realtimeCursorService: Error setting disconnect handler:', err);
   });
   return () => {
     disconnect.cancel().catch(() => {});

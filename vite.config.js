@@ -10,10 +10,10 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true,
+        drop_console: false, // Keep console.error and console.warn for production debugging
         drop_debugger: true,
         passes: 2,
-        pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn'],
+        pure_funcs: ['console.log', 'console.info', 'console.debug'], // Only drop debug logs
       },
       mangle: {
         safari10: true,

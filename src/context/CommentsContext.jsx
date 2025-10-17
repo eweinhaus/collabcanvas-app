@@ -54,8 +54,6 @@ export function CommentsProvider({ children, boardId = DEFAULT_BOARD_ID }) {
       return; // Already subscribed
     }
 
-    //console.log(`[CommentsContext] Subscribing to comments for shape: ${shapeId}`);
-    
     setLoadingStates(prev => ({ ...prev, [shapeId]: true }));
 
     try {
@@ -212,7 +210,6 @@ export function CommentsProvider({ children, boardId = DEFAULT_BOARD_ID }) {
   // Cleanup all subscriptions on unmount
   useEffect(() => {
     return () => {
-      //console.log('[CommentsContext] Cleaning up all subscriptions');
       Object.keys(subscriptionsRef.current).forEach(shapeId => {
         subscriptionsRef.current[shapeId]?.();
       });
