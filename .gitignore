@@ -42,3 +42,8 @@ functions/.runtimeconfig.json
 *.swp
 *.swo
 *~
+
+# Temporary files
+*.tmp
+*.temp
+environment.json
