@@ -632,7 +632,7 @@ export const CanvasProvider = ({ children }) => {
 
       try {
         if (hasRecentLocalCreations()) {
-          console.log('[CanvasContext] Reconciliation skipped due to recent local creations');
+          //console.log('[CanvasContext] Reconciliation skipped due to recent local creations');
           return;
         }
 
@@ -723,7 +723,7 @@ export const CanvasProvider = ({ children }) => {
           // Only reconcile on transition from disconnected -> connected
           if (isConnected && !wasConnected && now - lastReconcileTime > MIN_RECONCILE_INTERVAL) {
             lastReconcileTime = now;
-            console.log('[CanvasContext] Firebase reconnected, triggering instant reconciliation');
+            //console.log('[CanvasContext] Firebase reconnected, triggering instant reconciliation');
             reconcile();
           }
 

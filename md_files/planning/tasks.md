@@ -542,16 +542,16 @@ boards/{boardId}/shapes/{shapeId}/comments/{commentId}
 - [x] **14.17** Write unit tests for executeCreateShape - *27 tests in suite*
 - [x] **14.18** Write unit tests for executeGetCanvasState - *7 tests in suite*
 - [x] **14.19** Write integration test: createShape → Firestore mock - *Covered in aiToolExecutor tests*
-- [ ] **14.20** Test command: "Create a blue circle at 300, 400" - *Manual testing required*
-- [ ] **14.21** Test command: "Add a text that says 'Test'" - *Manual testing required*
-- [ ] **14.22** Test command: "Make a 200x150 red rectangle" - *Manual testing required*
-- [ ] **14.23** Test command: "Create a green triangle" - *Manual testing required*
-- [ ] **14.24** Test command: "Add a purple square at 100, 100" - *Manual testing required*
-- [ ] **14.25** Test command: "Create blue circle" (test defaults) - *Manual testing required*
-- [ ] **14.26** Test color extraction: verify specified colors always used - *Manual testing required*
-- [ ] **14.27** Manual test: Multiple users using AI simultaneously - *Manual testing required*
+- [x] **14.20** Test command: "Create a blue circle at 300, 400" - *Manual testing required*
+- [x] **14.21** Test command: "Add a text that says 'Test'" - *Manual testing required*
+- [x] **14.22** Test command: "Make a 200x150 red rectangle" - *Manual testing required*
+- [x] **14.23** Test command: "Create a green triangle" - *Manual testing required*
+- [x] **14.24** Test command: "Add a purple square at 100, 100" - *Manual testing required*
+- [x] **14.25** Test command: "Create blue circle" (test defaults) - *Manual testing required*
+- [x] **14.26** Test color extraction: verify specified colors always used - *Manual testing required*
+- [x] **14.27** Manual test: Multiple users using AI simultaneously - *Manual testing required*
 - [ ] **14.28** Measure response latency (target: <2s P95) - *Manual testing required*
-- [ ] **14.29** Document supported creation commands - *To be documented in manual testing guide*
+- [ ] **14.29** Document supported creation commands - *To be documented in readme.md*
 
 **Files Created**: ✅
 - `src/utils/colorNormalizer.js` (NEW) - *348 lines, 140 CSS color keywords, hex/rgb/hsl conversion*

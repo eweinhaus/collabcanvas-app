@@ -10,6 +10,7 @@ import { postChat, getErrorMessage, isRateLimitError, isAuthError } from '../ser
 import { getInitialMessages, createUserMessage, createAssistantMessage, createToolMessage } from '../utils/aiPrompts';
 import { getToolDefinitions } from '../services/aiTools';
 import { createAIToolExecutor } from '../services/aiToolExecutor';
+import { setupPerformanceTesting } from '../utils/performanceTest';
 import toast from 'react-hot-toast';
 
 const AIContext = createContext(null);
@@ -118,11 +119,12 @@ export const AIProvider = ({ children }) => {
    * Execute tool calls from the AI
    * @param {Array} toolCalls - Array of tool call objects from OpenAI
    * @param {Object} assistantMessage - The assistant message that contains the tool calls
+   * @returns {Promise<boolean>} True if all tools executed successfully
    */
   const executeToolCalls = useCallback(async (toolCalls, assistantMessage) => {
     if (!canvas || !canvas.firestoreActions || !canvas.state) {
       console.error('Canvas context not available for tool execution');
-      return;
+      return false;
     }
 
     // Create tool executor with canvas dependencies
@@ -130,10 +132,19 @@ export const AIProvider = ({ children }) => {
       addShape: canvas.firestoreActions.addShape,
       addShapesBatch: canvas.firestoreActions.addShapesBatch,
       getShapes: () => canvas.state.shapes,
+      getViewportCenter: () => {
+        const { scale, position, stageSize } = canvas.state;
+        // Convert screen center to canvas coordinates
+        const canvasX = (stageSize.width / 2 - position.x) / scale;
+        const canvasY = (stageSize.height / 2 - position.y) / scale;
+        return { x: Math.round(canvasX), y: Math.round(canvasY) };
+      },
     });
 
-    // Execute each tool call
-    for (const toolCall of toolCalls) {
+    let allSuccessful = true;
+
+    // Execute tool calls in parallel for better performance
+    const toolPromises = toolCalls.map(async (toolCall) => {
       try {
         const { name, arguments: argsString } = toolCall.function;
         const args = JSON.parse(argsString);
@@ -147,28 +158,36 @@ export const AIProvider = ({ children }) => {
           result = { success: false, error: `Unknown tool: ${name}` };
         }
 
-        // Show user feedback
-        if (result.success) {
-          if (name === 'createShape') {
-            toast.success(result.message || 'Shape created successfully');
-          } else if (name === 'getCanvasState') {
-            // Silent success for read operations
-            console.log('Canvas state retrieved:', result);
-          }
-        } else {
-          toast.error(result.error || 'Tool execution failed');
-        }
-
-        // Note: We don't persist tool messages to conversation history
-        // Tool results are shown via toast notifications and success messages
-
+        return { name, result, success: true };
       } catch (error) {
         console.error('Tool execution error:', error);
-        toast.error(`Failed to execute ${toolCall.function.name}: ${error.message}`);
-        
-        // Tool execution errors shown via toast, not added to conversation
+        return { name: toolCall.function.name, error, success: false };
+      }
+    });
+
+    // Wait for all tools to complete
+    const results = await Promise.all(toolPromises);
+
+    // Show user feedback for each result
+    for (const { name, result, error, success } of results) {
+      if (success && result.success) {
+        if (name === 'createShape') {
+          toast.success(result.message || 'Shape created successfully');
+        } else if (name === 'getCanvasState') {
+          // Silent success for read operations
+          console.log('Canvas state retrieved:', result);
+        }
+      } else {
+        allSuccessful = false;
+        const errorMsg = error ? error.message : (result.error || 'Tool execution failed');
+        toast.error(errorMsg);
       }
     }
+
+    // Note: We don't persist tool messages to conversation history
+    // Tool results are shown via toast notifications and success messages
+
+    return allSuccessful;
   }, [canvas]);
 
   /**
@@ -214,7 +233,7 @@ export const AIProvider = ({ children }) => {
       // Strip out tool_calls from assistant messages (already executed)
       const recentMessages = messages
         .filter(m => m.role === 'user' || m.role === 'assistant')
-        .slice(-12) // Keep last 12 user/assistant messages
+        .slice(-8) // Keep last 8 user/assistant messages (optimized for speed)
         .map(m => {
           // Remove tool_calls from assistant messages (already processed)
           if (m.role === 'assistant' && m.tool_calls) {
@@ -257,20 +276,22 @@ export const AIProvider = ({ children }) => {
 
         // Execute tool calls if present
         if (toolCalls && toolCalls.length > 0) {
-          await executeToolCalls(toolCalls, assistantMessage);
+          const success = await executeToolCalls(toolCalls, assistantMessage);
           
-          // Add a follow-up message summarizing what was done
-          const toolNames = toolCalls.map(tc => tc.function.name);
-          let summary = '';
-          if (toolNames.includes('createShape')) {
-            summary = '✓ Shape created successfully!';
-          } else if (toolNames.includes('getCanvasState')) {
-            summary = '✓ Retrieved canvas state.';
-          }
-          
-          if (summary) {
-            const summaryMessage = createAssistantMessage(summary);
-            setMessages(prev => [...prev, summaryMessage]);
+          // Add a follow-up message only if successful
+          if (success) {
+            const toolNames = toolCalls.map(tc => tc.function.name);
+            let summary = '';
+            if (toolNames.includes('createShape')) {
+              summary = '✓ Shape created successfully!';
+            } else if (toolNames.includes('getCanvasState')) {
+              summary = '✓ Retrieved canvas state.';
+            }
+            
+            if (summary) {
+              const summaryMessage = createAssistantMessage(summary);
+              setMessages(prev => [...prev, summaryMessage]);
+            }
           }
         }
       } else {
@@ -332,6 +353,19 @@ export const AIProvider = ({ children }) => {
       toast('Request cancelled', { icon: '⏹️' });
     }
   }, []);
+
+  // Setup performance testing in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' || import.meta.env.DEV) {
+      setupPerformanceTesting();
+      // Expose sendMessage for testing
+      window.__aiSendMessage = sendMessage;
+      
+      return () => {
+        delete window.__aiSendMessage;
+      };
+    }
+  }, [sendMessage]);
 
   const value = {
     // State

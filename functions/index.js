@@ -115,6 +115,8 @@ exports.openaiChat = onRequest(
     {
       timeoutSeconds: 60,
       memory: "256MiB",
+      // Keep 1 instance warm in production, 0 in dev (save costs)
+      minInstances: process.env.FUNCTIONS_EMULATOR ? 0 : 1,
       maxInstances: 10,
       cors: true, // Enable CORS for all origins (can be restricted later)
     },
@@ -206,13 +208,12 @@ exports.openaiChat = onRequest(
         // 7. Call OpenAI API
         logger.info("Calling OpenAI API...");
         const completion = await openai.chat.completions.create({
-          model: process.env.NODE_ENV === "production" ?
-            "gpt-4" : "gpt-4o-mini",
+          model: "gpt-4o-mini", // Fast model for tool calls (was: gpt-4 in prod)
           messages: messages,
           tools: tools || undefined,
           tool_choice: tool_choice || undefined,
-          temperature: 0.3,
-          max_tokens: 1000,
+          temperature: 0.1, // Lower for deterministic tool calls (was: 0.3)
+          max_tokens: 500, // Sufficient for tool calls (was: 1000)
         });
 
         // 8. Extract and return response in format expected by frontend

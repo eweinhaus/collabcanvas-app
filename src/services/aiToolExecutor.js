@@ -39,9 +39,10 @@ function validateCoordinates(x, y) {
  * @param {Function} deps.addShape - Function to add a shape to the canvas
  * @param {Function} deps.addShapesBatch - Function to add multiple shapes at once
  * @param {Function} deps.getShapes - Function to get current canvas shapes
+ * @param {Function} deps.getViewportCenter - Function to get the center of the user's viewport in canvas coordinates
  * @returns {Object} Tool executor functions
  */
-export function createAIToolExecutor({ addShape, addShapesBatch, getShapes }) {
+export function createAIToolExecutor({ addShape, addShapesBatch, getShapes, getViewportCenter }) {
   /**
    * Execute createShape tool
    * @param {Object} args - Tool arguments from AI
@@ -62,25 +63,20 @@ export function createAIToolExecutor({ addShape, addShapesBatch, getShapes }) {
       const type = args.shapeType || args.type;
       const color = args.fill || args.color;
 
-      // Validate required fields
+      // Validate required fields (x, y, and color are optional - will use defaults)
       if (!type) {
         return { success: false, error: 'Missing required field: shapeType' };
-      }
-      if (typeof args.x !== 'number') {
-        return { success: false, error: 'Missing or invalid required field: x (must be a number)' };
-      }
-      if (typeof args.y !== 'number') {
-        return { success: false, error: 'Missing or invalid required field: y (must be a number)' };
-      }
-      if (!color) {
-        return { success: false, error: 'Missing required field: fill (color)' };
       }
 
       // Normalize shape type to internal format
       let shapeType;
+      let isSquare = false;
       const typeNormalized = type.toLowerCase();
       if (typeNormalized === 'rectangle' || typeNormalized === 'rect') {
         shapeType = SHAPE_TYPES.RECT;
+      } else if (typeNormalized === 'square') {
+        shapeType = SHAPE_TYPES.RECT;
+        isSquare = true; // Flag to ensure equal sides
       } else if (typeNormalized === 'circle') {
         shapeType = SHAPE_TYPES.CIRCLE;
       } else if (typeNormalized === 'text') {
@@ -88,20 +84,32 @@ export function createAIToolExecutor({ addShape, addShapesBatch, getShapes }) {
       } else if (typeNormalized === 'triangle') {
         shapeType = SHAPE_TYPES.TRIANGLE;
       } else {
-        return { success: false, error: `Invalid shape type: ${type}. Supported types: rectangle, circle, text, triangle` };
+        return { success: false, error: `Invalid shape type: ${type}. Supported types: rectangle, circle, text, triangle, square` };
       }
 
-      // Normalize color
+      // Normalize color (default to blue if not provided)
+      const colorToUse = color || '#0000FF';
       let hexColor;
       try {
-        const colorResult = normalizeColor(color);
+        const colorResult = normalizeColor(colorToUse);
         hexColor = colorResult.hex;
       } catch (error) {
         return { success: false, error: `Invalid color: ${error.message}` };
       }
 
+      // Get coordinates: use provided x,y or viewport center
+      let x = args.x;
+      let y = args.y;
+      
+      // If position not provided, use viewport center
+      if (typeof x !== 'number' || typeof y !== 'number') {
+        const viewportCenter = getViewportCenter ? getViewportCenter() : { x: 500, y: 400 };
+        x = typeof x === 'number' ? x : viewportCenter.x;
+        y = typeof y === 'number' ? y : viewportCenter.y;
+      }
+
       // Validate and clamp coordinates
-      const coords = validateCoordinates(args.x, args.y);
+      const coords = validateCoordinates(x, y);
 
       // Build shape object based on type
       const shapeId = uuidv4();
@@ -123,8 +131,24 @@ export function createAIToolExecutor({ addShape, addShapesBatch, getShapes }) {
       switch (shapeType) {
         case SHAPE_TYPES.RECT:
           // Use provided dimensions or defaults
-          const rectWidth = typeof args.width === 'number' ? args.width : 100;
-          const rectHeight = typeof args.height === 'number' ? args.height : 100;
+          let rectWidth = typeof args.width === 'number' ? args.width : 100;
+          let rectHeight = typeof args.height === 'number' ? args.height : 100;
+          
+          // For squares, ensure equal sides
+          if (isSquare) {
+            // If user specified a size, use it for both dimensions
+            if (typeof args.width === 'number' && typeof args.height !== 'number') {
+              rectHeight = rectWidth;
+            } else if (typeof args.height === 'number' && typeof args.width !== 'number') {
+              rectWidth = rectHeight;
+            } else if (typeof args.width === 'number' && typeof args.height === 'number') {
+              // Both specified - use the larger one to ensure it's a proper square
+              const size = Math.max(rectWidth, rectHeight);
+              rectWidth = size;
+              rectHeight = size;
+            }
+            // If neither specified, defaults (100x100) already make a square
+          }
           
           shape = {
             ...baseShape,

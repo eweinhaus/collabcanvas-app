@@ -14,17 +14,20 @@ describe('aiToolExecutor', () => {
   let mockAddShape;
   let mockAddShapesBatch;
   let mockGetShapes;
+  let mockGetViewportCenter;
   let executor;
 
   beforeEach(() => {
     mockAddShape = jest.fn().mockResolvedValue(undefined);
     mockAddShapesBatch = jest.fn().mockResolvedValue(undefined);
     mockGetShapes = jest.fn().mockReturnValue([]);
+    mockGetViewportCenter = jest.fn().mockReturnValue({ x: 500, y: 400 });
 
     executor = createAIToolExecutor({
       addShape: mockAddShape,
       addShapesBatch: mockAddShapesBatch,
       getShapes: mockGetShapes,
+      getViewportCenter: mockGetViewportCenter,
     });
   });
 
@@ -114,6 +117,90 @@ describe('aiToolExecutor', () => {
           expect.objectContaining({
             width: 10, // Clamped to minimum
             height: 10, // Clamped to minimum
+          })
+        );
+      });
+    });
+
+    describe('square creation', () => {
+      test('creates square with default size', async () => {
+        const args = {
+          shapeType: 'square',
+          x: 100,
+          y: 100,
+          fill: 'purple',
+        };
+
+        const result = await executor.executeCreateShape(args);
+
+        expect(result.success).toBe(true);
+        expect(mockAddShape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type: SHAPE_TYPES.RECT,
+            width: 100,
+            height: 100, // Equal to width
+            fill: '#800080', // purple
+          })
+        );
+      });
+
+      test('creates square with specified width', async () => {
+        const args = {
+          shapeType: 'square',
+          x: 100,
+          y: 100,
+          fill: 'red',
+          width: 150,
+        };
+
+        const result = await executor.executeCreateShape(args);
+
+        expect(result.success).toBe(true);
+        expect(mockAddShape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            width: 150,
+            height: 150, // Matches width
+          })
+        );
+      });
+
+      test('creates square with specified height', async () => {
+        const args = {
+          shapeType: 'square',
+          x: 100,
+          y: 100,
+          fill: 'blue',
+          height: 200,
+        };
+
+        const result = await executor.executeCreateShape(args);
+
+        expect(result.success).toBe(true);
+        expect(mockAddShape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            width: 200, // Matches height
+            height: 200,
+          })
+        );
+      });
+
+      test('uses larger dimension when both width and height specified', async () => {
+        const args = {
+          shapeType: 'square',
+          x: 100,
+          y: 100,
+          fill: 'green',
+          width: 150,
+          height: 200,
+        };
+
+        const result = await executor.executeCreateShape(args);
+
+        expect(result.success).toBe(true);
+        expect(mockAddShape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            width: 200, // Uses larger value
+            height: 200,
           })
         );
       });
@@ -404,6 +491,99 @@ describe('aiToolExecutor', () => {
       });
     });
 
+    describe('viewport center positioning', () => {
+      test('uses viewport center when position not provided', async () => {
+        mockGetViewportCenter.mockReturnValue({ x: 800, y: 600 });
+        
+        const args = {
+          shapeType: 'rectangle',
+          fill: 'blue',
+          width: 100,
+          height: 100,
+        };
+
+        const result = await executor.executeCreateShape(args);
+
+        expect(result.success).toBe(true);
+        expect(mockGetViewportCenter).toHaveBeenCalled();
+        expect(mockAddShape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            x: 800,
+            y: 600,
+          })
+        );
+      });
+
+      test('uses provided x coordinate even if y is missing', async () => {
+        mockGetViewportCenter.mockReturnValue({ x: 800, y: 600 });
+        
+        const args = {
+          shapeType: 'circle',
+          x: 300,
+          fill: 'red',
+          radius: 50,
+        };
+
+        const result = await executor.executeCreateShape(args);
+
+        expect(result.success).toBe(true);
+        expect(mockAddShape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            x: 300,
+            y: 600, // Uses viewport center for y
+          })
+        );
+      });
+
+      test('uses provided y coordinate even if x is missing', async () => {
+        mockGetViewportCenter.mockReturnValue({ x: 800, y: 600 });
+        
+        const args = {
+          shapeType: 'circle',
+          y: 400,
+          fill: 'red',
+          radius: 50,
+        };
+
+        const result = await executor.executeCreateShape(args);
+
+        expect(result.success).toBe(true);
+        expect(mockAddShape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            x: 800, // Uses viewport center for x
+            y: 400,
+          })
+        );
+      });
+
+      test('falls back to 500,400 if getViewportCenter not provided', async () => {
+        // Create executor without getViewportCenter
+        const executorWithoutViewport = createAIToolExecutor({
+          addShape: mockAddShape,
+          addShapesBatch: mockAddShapesBatch,
+          getShapes: mockGetShapes,
+          // No getViewportCenter
+        });
+        
+        const args = {
+          shapeType: 'rectangle',
+          fill: 'blue',
+          width: 100,
+          height: 100,
+        };
+
+        const result = await executorWithoutViewport.executeCreateShape(args);
+
+        expect(result.success).toBe(true);
+        expect(mockAddShape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            x: 500,
+            y: 400,
+          })
+        );
+      });
+    });
+
     describe('coordinate validation', () => {
       test('clamps x coordinate to canvas bounds', async () => {
         const args = {
@@ -478,7 +658,9 @@ describe('aiToolExecutor', () => {
         expect(result.error).toContain('shapeType');
       });
 
-      test('requires x coordinate', async () => {
+      test('uses viewport center for x when not provided', async () => {
+        mockGetViewportCenter.mockReturnValue({ x: 500, y: 400 });
+        
         const args = {
           type: 'circle',
           y: 100,
@@ -488,11 +670,18 @@ describe('aiToolExecutor', () => {
 
         const result = await executor.executeCreateShape(args);
 
-        expect(result.success).toBe(false);
-        expect(result.error).toContain('x');
+        expect(result.success).toBe(true);
+        expect(mockAddShape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            x: 500, // From viewport center
+            y: 100, // Provided value
+          })
+        );
       });
 
-      test('requires y coordinate', async () => {
+      test('uses viewport center for y when not provided', async () => {
+        mockGetViewportCenter.mockReturnValue({ x: 500, y: 400 });
+        
         const args = {
           type: 'circle',
           x: 100,
@@ -502,11 +691,16 @@ describe('aiToolExecutor', () => {
 
         const result = await executor.executeCreateShape(args);
 
-        expect(result.success).toBe(false);
-        expect(result.error).toContain('y');
+        expect(result.success).toBe(true);
+        expect(mockAddShape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            x: 100, // Provided value
+            y: 400, // From viewport center
+          })
+        );
       });
 
-      test('requires color field', async () => {
+      test('uses default blue color when not provided', async () => {
         const args = {
           type: 'circle',
           x: 100,
@@ -516,8 +710,12 @@ describe('aiToolExecutor', () => {
 
         const result = await executor.executeCreateShape(args);
 
-        expect(result.success).toBe(false);
-        expect(result.error).toContain('color');
+        expect(result.success).toBe(true);
+        expect(mockAddShape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            fill: '#0000ff', // Default blue color
+          })
+        );
       });
 
       test('rejects invalid shape type', async () => {

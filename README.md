@@ -20,6 +20,41 @@ A real-time collaborative canvas application where multiple users can create and
 - **Undo/Redo:** Full command history for all shape operations
 - **Pan & Zoom:** Navigate large canvases easily
 - **Google Authentication:** Secure login with Google OAuth
+- **AI Assistant:** Natural language commands to create and manipulate shapes
+
+## 🤖 AI Assistant
+
+Create shapes using natural language commands powered by OpenAI:
+
+### Supported Commands
+
+**Simple Creation:**
+- "Create a red circle"
+- "Add a blue square at 100, 100"
+- "Make a purple rectangle"
+- "Add text that says Hello World"
+
+**With Dimensions:**
+- "Create a 150x100 green rectangle"
+- "Make a circle with radius 80"
+- "Add a 200x200 yellow square"
+
+**Shape Types:**
+- Rectangles / Squares
+- Circles
+- Triangles
+- Text
+
+**Automatic Defaults:**
+- Position: Center of current viewport
+- Color: Blue
+- Size: 100x100 (rectangles/triangles), radius 50 (circles)
+
+### How to Use
+
+1. Click the AI chat icon to open the panel
+2. Type natural language commands
+3. Shapes appear instantly on the canvas
 
 ## 🔄 Collaboration & Conflict Resolution
 
@@ -164,7 +199,8 @@ Add context and discussion to any shape with real-time collaborative comments:
 
 - **Frontend:** React + Vite
 - **Canvas Rendering:** Konva + React Konva
-- **Backend:** Firebase (Authentication, Firestore, Realtime Database)
+- **Backend:** Firebase (Authentication, Firestore, Realtime Database, Cloud Functions)
+- **AI:** OpenAI GPT-4o-mini via Firebase Cloud Functions
 - **Deployment:** Render
 - **Testing:** Jest + React Testing Library
 
