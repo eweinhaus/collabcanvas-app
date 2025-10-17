@@ -7,8 +7,10 @@ import Spinner from './components/common/Spinner'
 import { useCanvas } from './context/CanvasContext'
 import { CanvasProvider } from './context/CanvasContext'
 import { CommentsProvider } from './context/CommentsContext'
+import { AIProvider, useAI } from './context/AIContext'
 import { useAuth } from './context/AuthContext'
 import LayersPanel from './components/layout/LayersPanel'
+import AIPanel from './components/ai/AIPanel'
 
 // Lazy load heavy components (includes Konva - 969KB)
 const Canvas = lazy(() => import('./components/canvas/Canvas'))
@@ -19,7 +21,9 @@ function App() {
   return (
     <CanvasProvider>
       <CommentsProvider>
-        <AppShell />
+        <AIProvider>
+          <AppShell />
+        </AIProvider>
       </CommentsProvider>
     </CanvasProvider>
   )
@@ -28,6 +32,7 @@ function App() {
 function AppShell() {
   const { state: { onlineUsers, loadingShapes } } = useCanvas();
   const { loading: authLoading } = useAuth();
+  const { togglePanel: toggleAIPanel } = useAI();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [layersPanelOpen, setLayersPanelOpen] = useState(() => {
     const saved = localStorage.getItem('layersPanelOpen');
@@ -46,6 +51,20 @@ function AppShell() {
   useEffect(() => {
     localStorage.setItem('layersPanelOpen', JSON.stringify(layersPanelOpen));
   }, [layersPanelOpen]);
+
+  // Global keyboard shortcut for AI panel (Cmd/Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Cmd/Ctrl + K to toggle AI panel
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        toggleAIPanel();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleAIPanel]);
 
   const isLoading = authLoading || loadingShapes;
 
@@ -76,6 +95,7 @@ function AppShell() {
                 isOpen={layersPanelOpen} 
                 onClose={() => setLayersPanelOpen(false)} 
               />
+              <AIPanel />
             </Suspense>
           )}
         </main>
