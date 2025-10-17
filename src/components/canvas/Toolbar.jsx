@@ -18,6 +18,7 @@ const Toolbar = ({ onToggleLayers, onToggleAI, layersPanelOpen, aiPanelOpen }) =
 
   const tools = [
     { id: null, label: 'Select', iconPath: '/icons/cursor.svg', title: 'Select and move shapes (Esc)' },
+    { id: 'pan', label: 'Pan', iconPath: '/icons/pan.svg', title: 'Pan the canvas (H)' },
     { id: SHAPE_TYPES.RECT, label: 'Rectangle', iconPath: '/icons/rectangle.svg', title: 'Draw rectangle' },
     { id: SHAPE_TYPES.CIRCLE, label: 'Circle', iconPath: '/icons/circle.svg', title: 'Draw circle' },
     { id: SHAPE_TYPES.TRIANGLE, label: 'Triangle', iconPath: '/icons/triangle.svg', title: 'Draw triangle' },
@@ -196,7 +197,9 @@ const Toolbar = ({ onToggleLayers, onToggleAI, layersPanelOpen, aiPanelOpen }) =
       </div>
       
       <div className="toolbar-hint" aria-live="polite">
-        {currentTool ? (
+        {currentTool === 'pan' ? (
+          <span>Drag to pan canvas</span>
+        ) : currentTool ? (
           <span>Click on canvas to add {currentTool}</span>
         ) : (
           <span>Select and drag shapes</span>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import './App.css'
 import PrivateRoute from './components/auth/PrivateRoute'
 import Header from './components/layout/Header'
@@ -38,10 +38,22 @@ function AppShell() {
     const saved = localStorage.getItem('layersPanelOpen');
     return saved ? JSON.parse(saved) : false;
   });
+  const openShortcutsRef = useRef(null);
+
+  const registerOpenShortcuts = useCallback((openFn) => {
+    // Store the provided open function without calling it
+    openShortcutsRef.current = openFn;
+  }, []);
 
   const handleMenuToggle = () => {
     setSidebarOpen(!sidebarOpen);
   };
+
+  const handleOpenShortcuts = useCallback(() => {
+    if (openShortcutsRef.current) {
+      openShortcutsRef.current();
+    }
+  }, []);
 
   const handleToggleLayers = useCallback(() => {
     const newLayersOpen = !layersPanelOpen;
@@ -88,7 +100,7 @@ function AppShell() {
 
   return (
     <div className="app">
-      <Header onMenuToggle={handleMenuToggle} />
+      <Header onMenuToggle={handleMenuToggle} onOpenShortcuts={handleOpenShortcuts} />
       <ConnectionBanner boardId="default" />
       <PrivateRoute>
         <main className="app-main">
@@ -107,7 +119,8 @@ function AppShell() {
                 />
                 <Canvas 
                   showGrid={true} 
-                  onCanvasClick={() => setLayersPanelOpen(false)} 
+                  onCanvasClick={() => setLayersPanelOpen(false)}
+                  onOpenShortcuts={registerOpenShortcuts}
                 />
               </div>
               <Sidebar open={sidebarOpen} users={onlineUsers} isHidden={layersPanelOpen} />

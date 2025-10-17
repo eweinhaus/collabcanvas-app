@@ -20,7 +20,7 @@ const getConnectionStatusTooltip = (state) => {
   return tooltips[state.status] || 'Connection status unknown';
 };
 
-const Header = ({ onMenuToggle, showMenuButton = true }) => {
+const Header = ({ onMenuToggle, showMenuButton = true, onOpenShortcuts }) => {
   const { user } = useAuth();
   const [connectionState, setConnectionState] = useState(
     navigator.onLine ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.OFFLINE
@@ -114,6 +114,17 @@ const Header = ({ onMenuToggle, showMenuButton = true }) => {
         <h1 className="header__title">CollabCanvas</h1>
       </div>
       <div className="header__right">
+        {onOpenShortcuts && (
+          <button
+            className="header__help-button"
+            onClick={onOpenShortcuts}
+            aria-label="Show keyboard shortcuts"
+            title="Show keyboard shortcuts (?)"
+          >
+            <span className="header__help-icon">?</span>
+            <span className="header__help-text">Help</span>
+          </button>
+        )}
         <div className="connection-status" title={`${connectionState.label}: ${getConnectionStatusTooltip(connectionState)}`}>
           <span
             className={`status-dot ${connectionState.status}`}
