@@ -550,8 +550,42 @@ describe('commentService', () => {
       commentService.subscribeToComments('shape-1', 'default', mockCallback);
 
       expect(toast.error).toHaveBeenCalledWith(
-        'Lost connection to comments. Please refresh the page.'
+        'Unable to load comments. Please refresh the page.'
       );
+    });
+
+    it('should handle permission-denied errors with specific message', () => {
+      const mockCallback = jest.fn();
+
+      mockOnSnapshot.mockImplementation((query, callback, errorHandler) => {
+        const error = new Error('Permission denied');
+        error.code = 'permission-denied';
+        errorHandler(error);
+        return jest.fn();
+      });
+
+      commentService.subscribeToComments('shape-1', 'default', mockCallback);
+
+      expect(toast.error).toHaveBeenCalledWith(
+        'Unable to load comments. Please refresh the page and sign in again.'
+      );
+    });
+
+    it('should not show error for transient unavailable errors', () => {
+      const mockCallback = jest.fn();
+
+      mockOnSnapshot.mockImplementation((query, callback, errorHandler) => {
+        const error = new Error('Unavailable');
+        error.code = 'unavailable';
+        errorHandler(error);
+        return jest.fn();
+      });
+
+      toast.error.mockClear();
+      commentService.subscribeToComments('shape-1', 'default', mockCallback);
+
+      // Should not show error toast for transient issues
+      expect(toast.error).not.toHaveBeenCalled();
     });
   });
 

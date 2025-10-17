@@ -19,6 +19,7 @@ import {
 import toast from 'react-hot-toast';
 
 import { firestore, auth } from './firebase';
+import { logger } from '../utils/logger';
 
 const DEFAULT_BOARD_ID = 'default';
 
@@ -34,14 +35,14 @@ const toFirestoreDoc = (shape) => {
   const { id, type, ...rest } = shape;
   const currentUser = auth.currentUser;
   if (!currentUser) {
-    console.error('[firestoreService] No authenticated user found when creating shape');
+    logger.error('firestoreService: No authenticated user found when creating shape');
     toast.error('You must be signed in to create shapes. Please refresh and sign in again.');
     throw new Error('User must be authenticated to create shapes');
   }
   
   // Ensure we have a valid UID
   if (!currentUser.uid) {
-    console.error('[firestoreService] Authenticated user missing UID:', currentUser);
+    logger.error('firestoreService: Authenticated user missing UID:', currentUser);
     toast.error('Authentication error. Please refresh and sign in again.');
     throw new Error('Authenticated user missing UID');
   }
@@ -61,8 +62,7 @@ const toFirestoreDoc = (shape) => {
     updatedAt: serverTimestamp(),
   };
   
-  // Log for debugging in production
-  console.log('[firestoreService] Creating shape with auth:', {
+  logger.debug('firestoreService: Creating shape with auth:', {
     shapeId: id,
     userId: currentUser.uid,
     userName,
@@ -138,12 +138,11 @@ export async function createShape(shape, boardId = DEFAULT_BOARD_ID) {
     });
     return { id: shape.id };
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[firestoreService] Error creating shape:', error);
+    logger.error('firestoreService: Error creating shape:', error);
     
     // Check for permission denied (403) errors
     if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
-      console.error('[firestoreService] Permission denied. Auth state:', {
+      logger.error('firestoreService: Permission denied. Auth state:', {
         hasCurrentUser: !!auth.currentUser,
         userId: auth.currentUser?.uid,
         userEmail: auth.currentUser?.email,
@@ -201,12 +200,11 @@ export async function createShapesBatch(shapes, boardId = DEFAULT_BOARD_ID) {
 
     return results;
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[firestoreService] Error creating shapes batch:', error);
+    logger.error('firestoreService: Error creating shapes batch:', error);
     
     // Check for permission denied (403) errors
     if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
-      console.error('[firestoreService] Permission denied in batch. Auth state:', {
+      logger.error('firestoreService: Permission denied in batch. Auth state:', {
         hasCurrentUser: !!auth.currentUser,
         userId: auth.currentUser?.uid,
         userEmail: auth.currentUser?.email,
@@ -300,11 +298,10 @@ export async function updateZIndex(shapeId, newZIndex, boardId = DEFAULT_BOARD_I
     });
     return { id: shapeId };
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[firestoreService] Error updating zIndex:', error);
+    logger.error('firestoreService: Error updating zIndex:', error);
     
     if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
-      console.error('[firestoreService] Permission denied. Auth state:', {
+      logger.error('firestoreService: Permission denied. Auth state:', {
         hasCurrentUser: !!auth.currentUser,
         userId: auth.currentUser?.uid,
         userEmail: auth.currentUser?.email,
@@ -350,11 +347,10 @@ export async function batchUpdateZIndex(updates, boardId = DEFAULT_BOARD_ID) {
 
     await batch.commit();
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[firestoreService] Error batch updating zIndex:', error);
+    logger.error('firestoreService: Error batch updating zIndex:', error);
     
     if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
-      console.error('[firestoreService] Permission denied. Auth state:', {
+      logger.error('firestoreService: Permission denied. Auth state:', {
         hasCurrentUser: !!auth.currentUser,
         userId: auth.currentUser?.uid,
         userEmail: auth.currentUser?.email,
@@ -410,11 +406,10 @@ export async function batchUpdatePosition(updates, boardId = DEFAULT_BOARD_ID) {
 
     await batch.commit();
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[firestoreService] Error batch updating positions:', error);
+    logger.error('firestoreService: Error batch updating positions:', error);
     
     if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
-      console.error('[firestoreService] Permission denied. Auth state:', {
+      logger.error('firestoreService: Permission denied. Auth state:', {
         hasCurrentUser: !!auth.currentUser,
         userId: auth.currentUser?.uid,
         userEmail: auth.currentUser?.email,

@@ -47,6 +47,7 @@ const ShortcutsModal = ({ isOpen, onClose }) => {
 
   const shortcuts = [
     { key: 'Esc', description: 'Switch to select mode' },
+    { key: 'H', description: 'Switch to pan mode' },
     { key: 'Click', description: 'Select single shape' },
     { key: 'Shift/Cmd + Click', description: 'Add/remove shape from selection' },
     { key: 'Click + Drag (empty area)', description: 'Lasso select multiple shapes' },

@@ -39,7 +39,7 @@ import {
 } from '../../utils/alignment';
 import './Canvas.css';
 
-const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
+const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenShortcuts }) => {
   const { state, firestoreActions, commandActions, stageRef, setIsExportingRef, drag, transform } = useCanvas();
   const { user } = useAuth();
   const { openThread, getCommentCount, subscribeToShape } = useComments();
@@ -92,15 +92,34 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
     setIsExportingRef.current = setIsExporting;
   }, [setIsExportingRef]);
 
+  // Expose shortcuts opener to parent component without calling it
+  useEffect(() => {
+    if (onOpenShortcuts) {
+      const openFn = () => setShowShortcuts(true);
+      onOpenShortcuts(openFn);
+    }
+  }, [onOpenShortcuts]);
+
   // Presence subscription lifecycle tied to Canvas mount
   useRealtimePresence({ boardId });
 
   // Subscribe to comments for all shapes to enable real-time badge updates
+  // Only subscribe when user is authenticated to prevent errors
   useEffect(() => {
-    shapes.forEach(shape => {
-      subscribeToShape(shape.id);
-    });
-  }, [shapes, subscribeToShape]);
+    if (!user) {
+      console.log('[Canvas] Skipping comment subscriptions - user not authenticated');
+      return;
+    }
+
+    // Add a small delay to ensure Firebase is fully ready in production
+    const timer = setTimeout(() => {
+      shapes.forEach(shape => {
+        subscribeToShape(shape.id);
+      });
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [shapes, subscribeToShape, user]);
 
   // Update transformer when selection changes
   useEffect(() => {
@@ -815,6 +834,14 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
         return;
       }
       
+      // H key to activate pan mode
+      if ((e.key === 'H' || e.key === 'h') && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        actions.setCurrentTool('pan');
+        actions.clearSelection();
+        return;
+      }
+      
       // Escape to clear selection and tool
       if (e.key === 'Escape') {
         actions.clearSelection();
@@ -828,7 +855,7 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
   }, [selectedIds, shapes, clipboard, actions, editingTextId, firestoreActions, commandActions, stageRef, sortedShapes, openThread, handleAlign]);
 
   return (
-    <div className="canvas-container">
+    <div className={`canvas-container ${currentTool === 'pan' ? 'panning' : ''} ${currentTool && currentTool !== 'pan' ? 'tool-active' : ''}`}>
       {loadingShapes && (
         <div className="canvas-loading-overlay" role="status" aria-live="polite">
           <div className="spinner" />
@@ -842,7 +869,7 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
         scaleY={scale}
         x={position.x}
         y={position.y}
-        draggable={!currentTool && !isSelecting} // Only draggable in select mode and not selecting
+        draggable={(!currentTool || currentTool === 'pan') && !isSelecting} // Draggable in select mode or pan mode
         onWheel={handleWheel}
         onClick={handleStageClick}
         onTap={handleStageClick}

@@ -185,9 +185,8 @@ exports.openaiChat = onRequest(
           return;
         }
 
-        // 4. Get OpenAI API key from environment/config
-        const openaiApiKey = process.env.OPENAI_API_KEY ||
-                           functions.config()?.openai?.key;
+        // 4. Get OpenAI API key from environment
+        const openaiApiKey = process.env.OPENAI_API_KEY;
 
         if (!openaiApiKey) {
           logger.error("OpenAI API key not configured");

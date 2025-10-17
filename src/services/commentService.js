@@ -19,6 +19,7 @@ import {
 import toast from 'react-hot-toast';
 
 import { firestore, auth } from './firebase';
+import { logger } from '../utils/logger';
 
 const DEFAULT_BOARD_ID = 'default';
 const MAX_COMMENT_LENGTH = 500;
@@ -34,14 +35,14 @@ const commentDocRef = (shapeId, commentId, boardId = DEFAULT_BOARD_ID) =>
 const toFirestoreDoc = (text) => {
   const currentUser = auth.currentUser;
   if (!currentUser) {
-    console.error('[commentService] No authenticated user found when creating comment');
+    logger.error('commentService: No authenticated user found when creating comment');
     toast.error('You must be signed in to comment. Please refresh and sign in again.');
     throw new Error('User must be authenticated to create comments');
   }
   
   // Ensure we have a valid UID
   if (!currentUser.uid) {
-    console.error('[commentService] Authenticated user missing UID:', currentUser);
+    logger.error('commentService: Authenticated user missing UID:', currentUser);
     toast.error('Authentication error. Please refresh and sign in again.');
     throw new Error('Authenticated user missing UID');
   }
@@ -69,8 +70,7 @@ const toFirestoreDoc = (text) => {
     edited: false,
   };
   
-  // Log for debugging in production
-  console.log('[commentService] Creating comment with auth:', {
+  logger.debug('commentService: Creating comment with auth:', {
     userId: currentUser.uid,
     userName,
     textLength: text.length,
@@ -149,14 +149,14 @@ export async function createComment(shapeId, text, boardId = DEFAULT_BOARD_ID) {
     const payload = toFirestoreDoc(text);
     const docRef = await addDoc(collectionRef, payload);
     
-    console.log('[commentService] Comment created successfully:', docRef.id);
+    logger.debug('commentService: Comment created successfully:', docRef.id);
     return { id: docRef.id };
   } catch (error) {
-    console.error('[commentService] Error creating comment:', error);
+    logger.error('commentService: Error creating comment:', error);
     
     // Check for permission denied (403) errors
     if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
-      console.error('[commentService] Permission denied. Auth state:', {
+      logger.error('commentService: Permission denied. Auth state:', {
         hasCurrentUser: !!auth.currentUser,
         userId: auth.currentUser?.uid,
         userEmail: auth.currentUser?.email,
@@ -203,10 +203,10 @@ export async function updateComment(shapeId, commentId, text, boardId = DEFAULT_
     };
 
     await updateDoc(ref, updatePayload);
-    console.log('[commentService] Comment updated successfully:', commentId);
+    logger.debug('commentService: Comment updated successfully:', commentId);
     return { id: commentId };
   } catch (error) {
-    console.error('[commentService] Error updating comment:', error);
+    logger.error('commentService: Error updating comment:', error);
     
     if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
       toast.error('Permission denied. Please refresh and try again.');
@@ -234,10 +234,10 @@ export async function deleteComment(shapeId, commentId, boardId = DEFAULT_BOARD_
     const ref = commentDocRef(shapeId, commentId, boardId);
     await deleteDoc(ref);
     
-    console.log('[commentService] Comment deleted successfully:', commentId);
+    logger.debug('commentService: Comment deleted successfully:', commentId);
     return { id: commentId };
   } catch (error) {
-    console.error('[commentService] Error deleting comment:', error);
+    logger.error('commentService: Error deleting comment:', error);
     
     if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
       toast.error('Permission denied. Please refresh and try again.');
@@ -275,10 +275,10 @@ export async function getComments(shapeId, boardId = DEFAULT_BOARD_ID) {
       }
     });
     
-    console.log(`[commentService] Fetched ${comments.length} comments for shape ${shapeId}`);
+    logger.debug(`commentService: Fetched ${comments.length} comments for shape ${shapeId}`);
     return comments;
   } catch (error) {
-    console.error('[commentService] Error fetching comments:', error);
+    logger.error('commentService: Error fetching comments:', error);
     toast.error('Failed to load comments. Please try again.');
     throw error;
   }
@@ -301,7 +301,19 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
     throw new Error('callback must be a function');
   }
 
-  //console.log(`[commentService] Subscribing to comments for shape ${shapeId}`);
+  // Check if user is authenticated before subscribing
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    logger.warn('commentService: Cannot subscribe - user not authenticated');
+    // Call onReady with empty result to prevent loading state
+    if (onReady) {
+      onReady();
+    }
+    // Return no-op unsubscribe
+    return () => {};
+  }
+
+  logger.debug(`commentService: Subscribing to comments for shape ${shapeId}`);
 
   const q = query(
     commentsCollectionRef(shapeId, boardId),
@@ -309,6 +321,7 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
   );
 
   let isFirstSnapshot = true;
+  let hasShownError = false;
 
   const unsubscribe = onSnapshot(
     q,
@@ -333,8 +346,31 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
       }
     },
     (error) => {
-      console.error('[commentService] Error in comment subscription:', error);
-      toast.error('Lost connection to comments. Please refresh the page.');
+      logger.error('commentService: Error in comment subscription:', error);
+      logger.error('commentService: Error details:', {
+        code: error.code,
+        message: error.message,
+        shapeId,
+        boardId,
+        hasAuth: !!auth.currentUser,
+        userId: auth.currentUser?.uid,
+      });
+
+      // Only show error once per subscription to avoid spam
+      if (!hasShownError) {
+        hasShownError = true;
+        
+        // Provide more specific error messages
+        if (error.code === 'permission-denied') {
+          logger.error('commentService: Permission denied - check Firestore rules and authentication');
+          toast.error('Unable to load comments. Please refresh the page and sign in again.');
+        } else if (error.code === 'unavailable') {
+          logger.warn('commentService: Firestore temporarily unavailable - will retry automatically');
+          // Don't show error for transient network issues - Firestore will retry
+        } else {
+          toast.error('Unable to load comments. Please refresh the page.');
+        }
+      }
     }
   );
 

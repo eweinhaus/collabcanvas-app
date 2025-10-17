@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import './App.css'
 import PrivateRoute from './components/auth/PrivateRoute'
 import Header from './components/layout/Header'
@@ -32,20 +32,50 @@ function App() {
 function AppShell() {
   const { state: { onlineUsers, loadingShapes } } = useCanvas();
   const { loading: authLoading } = useAuth();
-  const { togglePanel: toggleAIPanel } = useAI();
+  const { panelOpen: aiPanelOpen, openPanel: openAIPanel, closePanel: closeAIPanel } = useAI();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [layersPanelOpen, setLayersPanelOpen] = useState(() => {
     const saved = localStorage.getItem('layersPanelOpen');
     return saved ? JSON.parse(saved) : false;
   });
+  const openShortcutsRef = useRef(null);
+
+  const registerOpenShortcuts = useCallback((openFn) => {
+    // Store the provided open function without calling it
+    openShortcutsRef.current = openFn;
+  }, []);
 
   const handleMenuToggle = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
-  const handleToggleLayers = () => {
-    setLayersPanelOpen(!layersPanelOpen);
-  };
+  const handleOpenShortcuts = useCallback(() => {
+    if (openShortcutsRef.current) {
+      openShortcutsRef.current();
+    }
+  }, []);
+
+  const handleToggleLayers = useCallback(() => {
+    const newLayersOpen = !layersPanelOpen;
+    setLayersPanelOpen(newLayersOpen);
+    // Close AI panel when layers panel opens
+    if (newLayersOpen && aiPanelOpen) {
+      closeAIPanel();
+    }
+  }, [layersPanelOpen, aiPanelOpen, closeAIPanel]);
+
+  const handleToggleAI = useCallback(() => {
+    const newAIOpen = !aiPanelOpen;
+    if (newAIOpen) {
+      openAIPanel();
+      // Close layers panel when AI panel opens
+      if (layersPanelOpen) {
+        setLayersPanelOpen(false);
+      }
+    } else {
+      closeAIPanel();
+    }
+  }, [aiPanelOpen, layersPanelOpen, openAIPanel, closeAIPanel]);
 
   // Persist layers panel state
   useEffect(() => {
@@ -58,19 +88,19 @@ function AppShell() {
       // Cmd/Ctrl + K to toggle AI panel
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        toggleAIPanel();
+        handleToggleAI();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleAIPanel]);
+  }, [handleToggleAI]);
 
   const isLoading = authLoading || loadingShapes;
 
   return (
     <div className="app">
-      <Header onMenuToggle={handleMenuToggle} />
+      <Header onMenuToggle={handleMenuToggle} onOpenShortcuts={handleOpenShortcuts} />
       <ConnectionBanner boardId="default" />
       <PrivateRoute>
         <main className="app-main">
@@ -82,12 +112,15 @@ function AppShell() {
             <Suspense fallback={<div className="app-loading"><Spinner message="Loading canvas..." /></div>}>
               <div className="app-main__canvas-area">
                 <Toolbar 
-                  onToggleLayers={handleToggleLayers} 
-                  layersPanelOpen={layersPanelOpen} 
+                  onToggleLayers={handleToggleLayers}
+                  onToggleAI={handleToggleAI}
+                  layersPanelOpen={layersPanelOpen}
+                  aiPanelOpen={aiPanelOpen}
                 />
                 <Canvas 
                   showGrid={true} 
-                  onCanvasClick={() => setLayersPanelOpen(false)} 
+                  onCanvasClick={() => setLayersPanelOpen(false)}
+                  onOpenShortcuts={registerOpenShortcuts}
                 />
               </div>
               <Sidebar open={sidebarOpen} users={onlineUsers} isHidden={layersPanelOpen} />

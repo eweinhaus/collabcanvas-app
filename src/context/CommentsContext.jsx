@@ -45,73 +45,84 @@ export function CommentsProvider({ children, boardId = DEFAULT_BOARD_ID }) {
 
   // Subscribe to comments for a specific shape
   const subscribeToShape = useCallback((shapeId) => {
+    if (!shapeId) {
+      console.warn('[CommentsContext] Cannot subscribe - shapeId is required');
+      return;
+    }
+
     if (subscriptionsRef.current[shapeId]) {
       return; // Already subscribed
     }
 
-    //console.log(`[CommentsContext] Subscribing to comments for shape: ${shapeId}`);
-    
     setLoadingStates(prev => ({ ...prev, [shapeId]: true }));
 
-    const unsubscribe = subscribeToComments(
-      shapeId, 
-      boardId, 
-      ({ type, comment }) => {
-        // Process the change and update both comments and counts
-        setCommentsMap(prev => {
-          const existing = prev[shapeId] || [];
-          let newComments;
-          let shouldUpdate = true;
-          
-          if (type === 'added') {
-            // Avoid duplicates
-            if (existing.find(c => c.id === comment.id)) {
+    try {
+      const unsubscribe = subscribeToComments(
+        shapeId, 
+        boardId, 
+        ({ type, comment }) => {
+          // Process the change and update both comments and counts
+          setCommentsMap(prev => {
+            const existing = prev[shapeId] || [];
+            let newComments;
+            let shouldUpdate = true;
+            
+            if (type === 'added') {
+              // Avoid duplicates
+              if (existing.find(c => c.id === comment.id)) {
+                shouldUpdate = false;
+                newComments = existing;
+              } else {
+                newComments = [...existing, comment].sort((a, b) => a.createdAt - b.createdAt);
+              }
+            } else if (type === 'modified') {
+              newComments = existing.map(c => c.id === comment.id ? comment : c);
+            } else if (type === 'removed') {
+              newComments = existing.filter(c => c.id !== comment.id);
+            } else {
               shouldUpdate = false;
               newComments = existing;
-            } else {
-              newComments = [...existing, comment].sort((a, b) => a.createdAt - b.createdAt);
             }
-          } else if (type === 'modified') {
-            newComments = existing.map(c => c.id === comment.id ? comment : c);
-          } else if (type === 'removed') {
-            newComments = existing.filter(c => c.id !== comment.id);
-          } else {
-            shouldUpdate = false;
-            newComments = existing;
-          }
+            
+            // Always update count based on actual array length, even if comments didn't change
+            setCommentCounts(prevCounts => ({
+              ...prevCounts,
+              [shapeId]: newComments.length,
+            }));
+            
+            if (!shouldUpdate) {
+              return prev;
+            }
+            
+            return {
+              ...prev,
+              [shapeId]: newComments,
+            };
+          });
+        },
+        // onReady callback - clear loading state when subscription is established
+        () => {
+          setLoadingStates(prev => ({ ...prev, [shapeId]: false }));
           
-          // Always update count based on actual array length, even if comments didn't change
-          setCommentCounts(prevCounts => ({
-            ...prevCounts,
-            [shapeId]: newComments.length,
-          }));
-          
-          if (!shouldUpdate) {
-            return prev;
-          }
-          
-          return {
-            ...prev,
-            [shapeId]: newComments,
-          };
-        });
-      },
-      // onReady callback - clear loading state when subscription is established
-      () => {
-        setLoadingStates(prev => ({ ...prev, [shapeId]: false }));
-        
-        // Ensure count is initialized (even if 0 comments)
-        setCommentCounts(prevCounts => {
-          // Only update if not already set to avoid race conditions
-          if (prevCounts[shapeId] === undefined) {
-            return { ...prevCounts, [shapeId]: 0 };
-          }
-          return prevCounts;
-        });
-      }
-    );
+          // Ensure count is initialized (even if 0 comments)
+          setCommentCounts(prevCounts => {
+            // Only update if not already set to avoid race conditions
+            if (prevCounts[shapeId] === undefined) {
+              return { ...prevCounts, [shapeId]: 0 };
+            }
+            return prevCounts;
+          });
+        }
+      );
 
-    subscriptionsRef.current[shapeId] = unsubscribe;
+      subscriptionsRef.current[shapeId] = unsubscribe;
+    } catch (error) {
+      console.error('[CommentsContext] Error subscribing to comments:', error);
+      // Clear loading state on error
+      setLoadingStates(prev => ({ ...prev, [shapeId]: false }));
+      // Initialize count to 0 on error
+      setCommentCounts(prev => ({ ...prev, [shapeId]: 0 }));
+    }
   }, [boardId]);
 
   // Unsubscribe from a shape
@@ -199,7 +210,6 @@ export function CommentsProvider({ children, boardId = DEFAULT_BOARD_ID }) {
   // Cleanup all subscriptions on unmount
   useEffect(() => {
     return () => {
-      //console.log('[CommentsContext] Cleaning up all subscriptions');
       Object.keys(subscriptionsRef.current).forEach(shapeId => {
         subscriptionsRef.current[shapeId]?.();
       });

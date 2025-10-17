@@ -5,21 +5,20 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useCanvas, useCanvasActions } from '../../context/CanvasContext';
-import { useAI } from '../../context/AIContext';
 import { SHAPE_TYPES } from '../../utils/shapes';
 import { exportCanvasToPNG, exportCanvasToSVG } from '../../utils/exportCanvas';
 import './Toolbar.css';
 
-const Toolbar = ({ onToggleLayers, layersPanelOpen }) => {
+const Toolbar = ({ onToggleLayers, onToggleAI, layersPanelOpen, aiPanelOpen }) => {
   const { state, stageRef, setIsExportingRef } = useCanvas();
   const actions = useCanvasActions();
-  const { panelOpen: aiPanelOpen, togglePanel: toggleAIPanel } = useAI();
   const { currentTool } = state;
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportButtonRef = useRef(null);
 
   const tools = [
     { id: null, label: 'Select', iconPath: '/icons/cursor.svg', title: 'Select and move shapes (Esc)' },
+    { id: 'pan', label: 'Pan', iconPath: '/icons/pan.svg', title: 'Pan the canvas (H)' },
     { id: SHAPE_TYPES.RECT, label: 'Rectangle', iconPath: '/icons/rectangle.svg', title: 'Draw rectangle' },
     { id: SHAPE_TYPES.CIRCLE, label: 'Circle', iconPath: '/icons/circle.svg', title: 'Draw circle' },
     { id: SHAPE_TYPES.TRIANGLE, label: 'Triangle', iconPath: '/icons/triangle.svg', title: 'Draw triangle' },
@@ -185,22 +184,22 @@ const Toolbar = ({ onToggleLayers, layersPanelOpen }) => {
         {/* AI Agent button */}
         <button
           className={`toolbar-button ${aiPanelOpen ? 'active' : ''}`}
-          onClick={toggleAIPanel}
+          onClick={onToggleAI}
           title="AI Assistant (⌘K)"
           aria-label="Toggle AI Assistant"
           aria-pressed={aiPanelOpen}
         >
-          <svg className="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 17L12 22L22 17" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 12L12 17L22 12" strokeLinecap="round" strokeLinejoin="round"/>
+          <svg className="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2L15 8.5L22 9L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9L9 8.5L12 2Z" fill="currentColor" stroke="currentColor"/>
           </svg>
           <span className="toolbar-label">Agent</span>
         </button>
       </div>
       
       <div className="toolbar-hint" aria-live="polite">
-        {currentTool ? (
+        {currentTool === 'pan' ? (
+          <span>Drag to pan canvas</span>
+        ) : currentTool ? (
           <span>Click on canvas to add {currentTool}</span>
         ) : (
           <span>Select and drag shapes</span>

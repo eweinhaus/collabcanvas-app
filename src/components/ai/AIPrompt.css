@@ -31,8 +31,8 @@
 
 .ai-prompt__input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #4ECDC4;
+  box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.1);
 }
 
 .ai-prompt__input:disabled {
@@ -65,13 +65,14 @@
 }
 
 .ai-prompt__button--send {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #4ECDC4;
   color: white;
 }
 
 .ai-prompt__button--send:hover:not(:disabled) {
+  background: #45B7D1;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(78, 205, 196, 0.4);
 }
 
 .ai-prompt__button--send:active:not(:disabled) {
