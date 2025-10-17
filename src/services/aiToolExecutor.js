@@ -45,10 +45,10 @@ export function createAIToolExecutor({ addShape, addShapesBatch, getShapes }) {
   /**
    * Execute createShape tool
    * @param {Object} args - Tool arguments from AI
-   * @param {string} args.type - Shape type (rectangle, circle, text, triangle)
+   * @param {string} args.shapeType - Shape type (rectangle, circle, text, triangle)
    * @param {number} args.x - X coordinate
    * @param {number} args.y - Y coordinate
-   * @param {string} args.color - Color (hex, CSS keyword, rgb, hsl)
+   * @param {string} args.fill - Color (hex, CSS keyword, rgb, hsl)
    * @param {number} [args.width] - Width (for rectangle/triangle)
    * @param {number} [args.height] - Height (for rectangle/triangle)
    * @param {number} [args.radius] - Radius (for circle)
@@ -58,9 +58,13 @@ export function createAIToolExecutor({ addShape, addShapesBatch, getShapes }) {
    */
   async function executeCreateShape(args) {
     try {
+      // Support both 'shapeType' (from schema) and 'type' (legacy)
+      const type = args.shapeType || args.type;
+      const color = args.fill || args.color;
+
       // Validate required fields
-      if (!args.type) {
-        return { success: false, error: 'Missing required field: type' };
+      if (!type) {
+        return { success: false, error: 'Missing required field: shapeType' };
       }
       if (typeof args.x !== 'number') {
         return { success: false, error: 'Missing or invalid required field: x (must be a number)' };
@@ -68,13 +72,13 @@ export function createAIToolExecutor({ addShape, addShapesBatch, getShapes }) {
       if (typeof args.y !== 'number') {
         return { success: false, error: 'Missing or invalid required field: y (must be a number)' };
       }
-      if (!args.color) {
-        return { success: false, error: 'Missing required field: color' };
+      if (!color) {
+        return { success: false, error: 'Missing required field: fill (color)' };
       }
 
       // Normalize shape type to internal format
       let shapeType;
-      const typeNormalized = args.type.toLowerCase();
+      const typeNormalized = type.toLowerCase();
       if (typeNormalized === 'rectangle' || typeNormalized === 'rect') {
         shapeType = SHAPE_TYPES.RECT;
       } else if (typeNormalized === 'circle') {
@@ -84,13 +88,13 @@ export function createAIToolExecutor({ addShape, addShapesBatch, getShapes }) {
       } else if (typeNormalized === 'triangle') {
         shapeType = SHAPE_TYPES.TRIANGLE;
       } else {
-        return { success: false, error: `Invalid shape type: ${args.type}. Supported types: rectangle, circle, text, triangle` };
+        return { success: false, error: `Invalid shape type: ${type}. Supported types: rectangle, circle, text, triangle` };
       }
 
       // Normalize color
       let hexColor;
       try {
-        const colorResult = normalizeColor(args.color);
+        const colorResult = normalizeColor(color);
         hexColor = colorResult.hex;
       } catch (error) {
         return { success: false, error: `Invalid color: ${error.message}` };
@@ -118,23 +122,24 @@ export function createAIToolExecutor({ addShape, addShapesBatch, getShapes }) {
 
       switch (shapeType) {
         case SHAPE_TYPES.RECT:
-          if (typeof args.width !== 'number' || typeof args.height !== 'number') {
-            return { success: false, error: 'Rectangle requires width and height' };
-          }
+          // Use provided dimensions or defaults
+          const rectWidth = typeof args.width === 'number' ? args.width : 100;
+          const rectHeight = typeof args.height === 'number' ? args.height : 100;
+          
           shape = {
             ...baseShape,
-            width: Math.max(10, args.width), // Min size 10px
-            height: Math.max(10, args.height),
+            width: Math.max(10, rectWidth), // Min size 10px
+            height: Math.max(10, rectHeight),
           };
           break;
 
         case SHAPE_TYPES.CIRCLE:
-          if (typeof args.radius !== 'number') {
-            return { success: false, error: 'Circle requires radius' };
-          }
+          // Use provided radius or default
+          const circleRadius = typeof args.radius === 'number' ? args.radius : 50;
+          
           shape = {
             ...baseShape,
-            radius: Math.max(5, args.radius), // Min radius 5px
+            radius: Math.max(5, circleRadius), // Min radius 5px
           };
           break;
 
@@ -150,13 +155,14 @@ export function createAIToolExecutor({ addShape, addShapesBatch, getShapes }) {
           break;
 
         case SHAPE_TYPES.TRIANGLE:
-          if (typeof args.width !== 'number' || typeof args.height !== 'number') {
-            return { success: false, error: 'Triangle requires width and height' };
-          }
+          // Use provided dimensions or defaults
+          const triangleWidth = typeof args.width === 'number' ? args.width : 100;
+          const triangleHeight = typeof args.height === 'number' ? args.height : 100;
+          
           shape = {
             ...baseShape,
-            width: Math.max(10, args.width),
-            height: Math.max(10, args.height),
+            width: Math.max(10, triangleWidth),
+            height: Math.max(10, triangleHeight),
             rotation: 0,
           };
           break;
@@ -171,7 +177,7 @@ export function createAIToolExecutor({ addShape, addShapesBatch, getShapes }) {
       return {
         success: true,
         shapeId: shape.id,
-        message: `Created ${args.type} at (${coords.x}, ${coords.y})`,
+        message: `Created ${type} at (${coords.x}, ${coords.y})`,
       };
     } catch (error) {
       return {

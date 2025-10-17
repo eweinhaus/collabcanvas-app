@@ -32,10 +32,10 @@ describe('aiToolExecutor', () => {
     describe('rectangle creation', () => {
       test('creates rectangle with valid args', async () => {
         const args = {
-          type: 'rectangle',
+          shapeType: 'rectangle',
           x: 300,
           y: 400,
-          color: 'red',
+          fill: 'red',
           width: 100,
           height: 80,
         };
@@ -59,10 +59,10 @@ describe('aiToolExecutor', () => {
 
       test('accepts "rect" as alias for "rectangle"', async () => {
         const args = {
-          type: 'rect',
+          shapeType: 'rect',
           x: 100,
           y: 100,
-          color: '#00ff00',
+          fill: '#00ff00',
           width: 50,
           height: 50,
         };
@@ -77,18 +77,24 @@ describe('aiToolExecutor', () => {
         );
       });
 
-      test('requires width and height for rectangle', async () => {
+      test('uses default dimensions when not provided', async () => {
         const args = {
-          type: 'rectangle',
+          shapeType: 'rectangle',
           x: 300,
           y: 400,
-          color: 'red',
+          fill: 'red',
         };
 
         const result = await executor.executeCreateShape(args);
 
-        expect(result.success).toBe(false);
-        expect(result.error).toContain('width and height');
+        expect(result.success).toBe(true);
+        expect(mockAddShape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type: SHAPE_TYPES.RECT,
+            width: 100, // default
+            height: 100, // default
+          })
+        );
       });
 
       test('enforces minimum size', async () => {
@@ -139,18 +145,23 @@ describe('aiToolExecutor', () => {
         );
       });
 
-      test('requires radius for circle', async () => {
+      test('uses default radius when not provided', async () => {
         const args = {
-          type: 'circle',
+          shapeType: 'circle',
           x: 500,
           y: 300,
-          color: 'blue',
+          fill: 'blue',
         };
 
         const result = await executor.executeCreateShape(args);
 
-        expect(result.success).toBe(false);
-        expect(result.error).toContain('radius');
+        expect(result.success).toBe(true);
+        expect(mockAddShape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type: SHAPE_TYPES.CIRCLE,
+            radius: 50, // default
+          })
+        );
       });
 
       test('enforces minimum radius', async () => {
@@ -264,18 +275,24 @@ describe('aiToolExecutor', () => {
         );
       });
 
-      test('requires width and height for triangle', async () => {
+      test('uses default dimensions when not provided', async () => {
         const args = {
-          type: 'triangle',
+          shapeType: 'triangle',
           x: 400,
           y: 500,
-          color: 'green',
+          fill: 'green',
         };
 
         const result = await executor.executeCreateShape(args);
 
-        expect(result.success).toBe(false);
-        expect(result.error).toContain('width and height');
+        expect(result.success).toBe(true);
+        expect(mockAddShape).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type: SHAPE_TYPES.TRIANGLE,
+            width: 100, // default
+            height: 100, // default
+          })
+        );
       });
     });
 
@@ -452,13 +469,13 @@ describe('aiToolExecutor', () => {
         const args = {
           x: 100,
           y: 100,
-          color: 'red',
+          fill: 'red',
         };
 
         const result = await executor.executeCreateShape(args);
 
         expect(result.success).toBe(false);
-        expect(result.error).toContain('type');
+        expect(result.error).toContain('shapeType');
       });
 
       test('requires x coordinate', async () => {

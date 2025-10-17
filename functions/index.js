@@ -83,22 +83,25 @@ function validateRequest(body) {
       return {isValid: false, error: "each message must have a role string"};
     }
 
-    if (!msg.content || typeof msg.content !== "string") {
-      return {isValid: false, error: "each message must have content string"};
+    // Allow messages without content (for tool messages)
+    if (msg.content !== undefined && typeof msg.content !== "string") {
+      return {isValid: false, error: "message content must be a string"};
     }
 
-    if (msg.content.length > 1000) {
+    // System prompts and tool results can be longer
+    const maxLength = msg.role === "system" ? 5000 : 2000;
+    if (msg.content && msg.content.length > maxLength) {
       return {
         isValid: false,
-        error: "message content cannot exceed 1000 characters",
+        error: `message content cannot exceed ${maxLength} characters`,
       };
     }
   }
 
-  // Check body size
+  // Check body size (increased for tool definitions)
   const bodySize = JSON.stringify(body).length;
-  if (bodySize > 10000) {
-    return {isValid: false, error: "request body cannot exceed 10KB"};
+  if (bodySize > 50000) {
+    return {isValid: false, error: "request body cannot exceed 50KB"};
   }
 
   return {isValid: true};
@@ -212,16 +215,16 @@ exports.openaiChat = onRequest(
           max_tokens: 1000,
         });
 
-        // 8. Extract and return response
-        const message = completion.choices[0].message;
-
+        // 8. Extract and return response in format expected by frontend
         logger.info("OpenAI API call successful");
         res.json({
-          message: {
-            role: message.role,
-            content: message.content,
-            tool_calls: message.tool_calls || [],
-          },
+          choices: [{
+            message: {
+              role: completion.choices[0].message.role,
+              content: completion.choices[0].message.content,
+              tool_calls: completion.choices[0].message.tool_calls || undefined,
+            },
+          }],
         });
       } catch (error) {
         logger.error("OpenAI API error:", error);

@@ -32,17 +32,23 @@ export default function AIMessage({ message }) {
   const isUser = role === 'user';
   const isAssistant = role === 'assistant';
   const isSystem = role === 'system';
+  const isTool = role === 'tool';
 
-  // Don't render system messages
-  if (isSystem) {
+  // Don't render system messages or tool messages (internal AI communication)
+  if (isSystem || isTool) {
     return null;
   }
+
+  // Ensure content is a string (safeguard against objects)
+  const displayContent = typeof content === 'string' 
+    ? content 
+    : JSON.stringify(content);
 
   return (
     <div className={`ai-message ${isUser ? 'ai-message--user' : 'ai-message--assistant'}`}>
       <div className="ai-message__bubble">
         <div className="ai-message__content">
-          {content}
+          {displayContent}
         </div>
         {timestamp && (
           <div className="ai-message__timestamp">

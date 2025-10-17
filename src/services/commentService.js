@@ -301,7 +301,7 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
     throw new Error('callback must be a function');
   }
 
-  console.log(`[commentService] Subscribing to comments for shape ${shapeId}`);
+  //console.log(`[commentService] Subscribing to comments for shape ${shapeId}`);
 
   const q = query(
     commentsCollectionRef(shapeId, boardId),

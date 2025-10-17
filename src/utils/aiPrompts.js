@@ -42,7 +42,13 @@ Guidelines:
 - If the user's intent is ambiguous, make a reasonable assumption and explain what you did
 - For colors, convert common color names to hex codes (red=#FF0000, blue=#0000FF, green=#00FF00, yellow=#FFFF00, etc.)
 - Default positions: center of canvas is around (960, 540)
-- Default sizes: rectangles 100x100, circles radius 50, text auto-sized
+- All shapes have sensible defaults:
+  * Rectangles: 100x100 (width/height optional)
+  * Circles: radius 50 (radius optional)
+  * Triangles: 100x100 (width/height optional)
+  * Text: auto-sized (only text content is required)
+- Simple commands work: "create a red circle" (no dimensions needed)
+- Detailed commands also work: "create a 200x150 blue rectangle at 500, 300"
 - Be concise in responses - confirm actions briefly
 - If an operation fails, explain why and suggest alternatives
 
@@ -112,14 +118,19 @@ export function createAssistantMessage(content, toolCalls = null) {
 /**
  * Create a tool result message object
  * @param {string} toolCallId - ID of the tool call
- * @param {string} result - Result of the tool execution
+ * @param {Object|string} result - Result of the tool execution
  * @returns {Object} Message object
  */
 export function createToolMessage(toolCallId, result) {
+  // Convert result to string if it's an object
+  const content = typeof result === 'string' 
+    ? result 
+    : JSON.stringify(result, null, 2);
+    
   return {
     role: 'tool',
     tool_call_id: toolCallId,
-    content: result,
+    content: content,
     timestamp: Date.now(),
   };
 }

@@ -55,14 +55,18 @@ async function getIdToken() {
 /**
  * Post chat messages to OpenAI via Cloud Function
  * @param {Array} messages - Array of message objects {role, content}
- * @param {AbortSignal} [abortSignal] - Optional abort signal for cancellation
+ * @param {Object} [options] - Optional configuration
+ * @param {Array} [options.tools] - Tool definitions for function calling
+ * @param {string} [options.toolChoice] - Tool choice strategy ('auto', 'none', etc.)
+ * @param {AbortSignal} [options.abortSignal] - Optional abort signal for cancellation
  * @returns {Promise<Object>} Response from OpenAI
  */
-export async function postChat(messages, abortSignal = null) {
+export async function postChat(messages, options = {}) {
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     throw new OpenAIError('Messages array is required', 'INVALID_INPUT', 400);
   }
 
+  const { tools, toolChoice, abortSignal } = options;
   const functionUrl = getFunctionUrl();
   
   try {
@@ -78,6 +82,9 @@ export async function postChat(messages, abortSignal = null) {
         ...(msg.tool_calls && { tool_calls: msg.tool_calls }),
         ...(msg.tool_call_id && { tool_call_id: msg.tool_call_id }),
       })),
+      // Include tools if provided
+      ...(tools && { tools }),
+      ...(toolChoice && { tool_choice: toolChoice }),
     };
 
     // Make request to Cloud Function

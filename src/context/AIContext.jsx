@@ -8,6 +8,7 @@ import { useAuth } from './AuthContext';
 import { useCanvas } from './CanvasContext';
 import { postChat, getErrorMessage, isRateLimitError, isAuthError } from '../services/openaiService';
 import { getInitialMessages, createUserMessage, createAssistantMessage, createToolMessage } from '../utils/aiPrompts';
+import { getToolDefinitions } from '../services/aiTools';
 import { createAIToolExecutor } from '../services/aiToolExecutor';
 import toast from 'react-hot-toast';
 
@@ -62,8 +63,10 @@ export const AIProvider = ({ children }) => {
   // Persist messages to localStorage whenever they change
   useEffect(() => {
     try {
-      // Only save user and assistant messages (not system)
-      const toSave = messages.filter(m => m.role !== 'system').slice(-50);
+      // Only save user and assistant messages (not system or tool messages)
+      const toSave = messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .slice(-30); // Keep last 30 user/assistant messages
       localStorage.setItem('ai_messages', JSON.stringify(toSave));
     } catch (error) {
       console.error('Failed to save AI messages to localStorage:', error);
@@ -156,18 +159,14 @@ export const AIProvider = ({ children }) => {
           toast.error(result.error || 'Tool execution failed');
         }
 
-        // Add tool result to message history for AI context
-        const toolMessage = createToolMessage(toolCall.id, result);
-        setMessages(prev => [...prev, toolMessage]);
+        // Note: We don't persist tool messages to conversation history
+        // Tool results are shown via toast notifications and success messages
 
       } catch (error) {
         console.error('Tool execution error:', error);
         toast.error(`Failed to execute ${toolCall.function.name}: ${error.message}`);
         
-        // Add error result to message history
-        const errorResult = { success: false, error: error.message };
-        const toolMessage = createToolMessage(toolCall.id, errorResult);
-        setMessages(prev => [...prev, toolMessage]);
+        // Tool execution errors shown via toast, not added to conversation
       }
     }
   }, [canvas]);
@@ -209,23 +208,49 @@ export const AIProvider = ({ children }) => {
     try {
       // Prepare messages for API (include system prompt)
       const systemPrompt = getInitialMessages(user)[0];
+      
+      // Keep only recent conversation history to stay under 20 message limit
+      // Strategy: Keep only user and assistant messages (no tool messages)
+      // Strip out tool_calls from assistant messages (already executed)
+      const recentMessages = messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .slice(-12) // Keep last 12 user/assistant messages
+        .map(m => {
+          // Remove tool_calls from assistant messages (already processed)
+          if (m.role === 'assistant' && m.tool_calls) {
+            const { tool_calls, ...rest } = m;
+            return rest;
+          }
+          return m;
+        });
+      
       const conversationMessages = [
         systemPrompt,
-        ...messages.filter(m => m.role !== 'system'),
+        ...recentMessages,
         userMessage,
       ];
 
-      // Call OpenAI via Cloud Function
-      const response = await postChat(
-        conversationMessages,
-        abortControllerRef.current.signal
-      );
+      // Call OpenAI via Cloud Function with tools
+      const response = await postChat(conversationMessages, {
+        tools: getToolDefinitions(),
+        toolChoice: 'auto',
+        abortSignal: abortControllerRef.current.signal,
+      });
 
       // Extract assistant message from response
       if (response && response.choices && response.choices.length > 0) {
         const choice = response.choices[0];
-        const assistantContent = choice.message?.content || 'I apologize, but I could not generate a response.';
         const toolCalls = choice.message?.tool_calls || null;
+        
+        // Generate appropriate content
+        let assistantContent = choice.message?.content;
+        
+        // If no content but there are tool calls, generate a helpful message
+        if (!assistantContent && toolCalls && toolCalls.length > 0) {
+          assistantContent = 'Working on it...';
+        } else if (!assistantContent) {
+          assistantContent = 'I apologize, but I could not generate a response.';
+        }
 
         const assistantMessage = createAssistantMessage(assistantContent, toolCalls);
         setMessages(prev => [...prev, assistantMessage]);
@@ -233,6 +258,20 @@ export const AIProvider = ({ children }) => {
         // Execute tool calls if present
         if (toolCalls && toolCalls.length > 0) {
           await executeToolCalls(toolCalls, assistantMessage);
+          
+          // Add a follow-up message summarizing what was done
+          const toolNames = toolCalls.map(tc => tc.function.name);
+          let summary = '';
+          if (toolNames.includes('createShape')) {
+            summary = '✓ Shape created successfully!';
+          } else if (toolNames.includes('getCanvasState')) {
+            summary = '✓ Retrieved canvas state.';
+          }
+          
+          if (summary) {
+            const summaryMessage = createAssistantMessage(summary);
+            setMessages(prev => [...prev, summaryMessage]);
+          }
         }
       } else {
         throw new Error('Invalid response from AI service');
