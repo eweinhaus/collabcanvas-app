@@ -665,7 +665,7 @@ export const CanvasProvider = ({ children }) => {
               dispatch({ type: CANVAS_ACTIONS.APPLY_SERVER_CHANGE, payload: serverShape });
             } else {
               // Server version is older or same - skip to avoid flicker
-              console.log(`[CanvasContext] Reconciliation: Skipping update for ${serverShape.id} (server: ${serverTs}, local: ${localTs})`);
+              //console.log(`[CanvasContext] Reconciliation: Skipping update for ${serverShape.id} (server: ${serverTs}, local: ${localTs})`);
               return;
             }
           }
