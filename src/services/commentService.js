@@ -304,7 +304,12 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
   // Check if user is authenticated before subscribing
   const currentUser = auth.currentUser;
   if (!currentUser) {
-    logger.warn('commentService: Cannot subscribe - user not authenticated');
+    logger.warn('commentService: Cannot subscribe - user not authenticated', {
+      shapeId,
+      boardId,
+      hasAuth: !!auth.currentUser,
+      timestamp: new Date().toISOString()
+    });
     // Call onReady with empty result to prevent loading state
     if (onReady) {
       onReady();
@@ -313,7 +318,12 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
     return () => {};
   }
 
-  logger.debug(`commentService: Subscribing to comments for shape ${shapeId}`);
+  logger.debug(`commentService: Subscribing to comments for shape ${shapeId}`, {
+    shapeId,
+    boardId,
+    userId: currentUser.uid,
+    timestamp: new Date().toISOString()
+  });
 
   const q = query(
     commentsCollectionRef(shapeId, boardId),
@@ -322,44 +332,64 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
 
   let isFirstSnapshot = true;
   let hasShownError = false;
+  let retryCount = 0;
+  const maxRetries = 3;
 
   const unsubscribe = onSnapshot(
     q,
     (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        const comment = fromFirestoreDoc(change.doc);
-        if (!comment) return;
+      try {
+        logger.debug(`commentService: Received snapshot for shape ${shapeId}`, {
+          shapeId,
+          changesCount: snapshot.docChanges().length,
+          isFirstSnapshot,
+          timestamp: new Date().toISOString()
+        });
 
-        if (change.type === 'added') {
-          callback({ type: 'added', comment });
-        } else if (change.type === 'modified') {
-          callback({ type: 'modified', comment });
-        } else if (change.type === 'removed') {
-          callback({ type: 'removed', comment });
+        snapshot.docChanges().forEach((change) => {
+          const comment = fromFirestoreDoc(change.doc);
+          if (!comment) return;
+
+          if (change.type === 'added') {
+            callback({ type: 'added', comment });
+          } else if (change.type === 'modified') {
+            callback({ type: 'modified', comment });
+          } else if (change.type === 'removed') {
+            callback({ type: 'removed', comment });
+          }
+        });
+
+        // Call onReady after first snapshot (even if empty)
+        if (isFirstSnapshot && onReady) {
+          isFirstSnapshot = false;
+          onReady();
         }
-      });
 
-      // Call onReady after first snapshot (even if empty)
-      if (isFirstSnapshot && onReady) {
-        isFirstSnapshot = false;
-        onReady();
+        // Reset retry count on successful snapshot
+        retryCount = 0;
+      } catch (snapshotError) {
+        logger.error('commentService: Error processing snapshot:', snapshotError);
       }
     },
     (error) => {
-      logger.error('commentService: Error in comment subscription:', error);
-      logger.error('commentService: Error details:', {
-        code: error.code,
-        message: error.message,
+      retryCount++;
+
+      logger.error('commentService: Error in comment subscription:', error, {
         shapeId,
         boardId,
+        retryCount,
+        maxRetries,
         hasAuth: !!auth.currentUser,
         userId: auth.currentUser?.uid,
+        errorCode: error.code,
+        errorMessage: error.message,
+        timestamp: new Date().toISOString()
       });
 
-      // Only show error once per subscription to avoid spam
-      if (!hasShownError) {
+      // Only show error once per subscription to avoid spam, or after max retries
+      if (!hasShownError && (retryCount >= maxRetries || error.code === 'permission-denied')) {
         hasShownError = true;
-        
+
         // Provide more specific error messages
         if (error.code === 'permission-denied') {
           logger.error('commentService: Permission denied - check Firestore rules and authentication');
@@ -367,8 +397,12 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
         } else if (error.code === 'unavailable') {
           logger.warn('commentService: Firestore temporarily unavailable - will retry automatically');
           // Don't show error for transient network issues - Firestore will retry
+        } else if (retryCount >= maxRetries) {
+          logger.error('commentService: Max retries exceeded for comment subscription');
+          toast.error('Unable to load comments. Please refresh the page and try again.');
         } else {
-          toast.error('Unable to load comments. Please refresh the page.');
+          logger.warn('commentService: Temporary error in comment subscription, retrying...');
+          // Don't show toast for retryable errors until max retries reached
         }
       }
     }

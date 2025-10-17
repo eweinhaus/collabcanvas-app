@@ -8,6 +8,7 @@ import { Stage, Layer, Transformer } from 'react-konva';
 import { useCanvas, useCanvasActions } from '../../context/CanvasContext';
 import { useComments } from '../../context/CommentsContext';
 import { useAuth } from '../../context/AuthContext';
+import { isFirebaseReady, waitForFirebase } from '../../services/firebase';
 import { calculateNewScale, calculateZoomPosition } from '../../utils/canvas';
 import { createShape } from '../../utils/shapes';
 import { useRealtimeCursor } from '../../hooks/useRealtimeCursor';
@@ -104,19 +105,60 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
   useRealtimePresence({ boardId });
 
   // Subscribe to comments for all shapes to enable real-time badge updates
-  // Only subscribe when user is authenticated to prevent errors
+  // Only subscribe when user is authenticated and Firebase is ready to prevent errors
   useEffect(() => {
     if (!user) {
       console.log('[Canvas] Skipping comment subscriptions - user not authenticated');
       return;
     }
 
-    // Add a small delay to ensure Firebase is fully ready in production
-    const timer = setTimeout(() => {
-      shapes.forEach(shape => {
-        subscribeToShape(shape.id);
-      });
-    }, 100);
+    if (!shapes.length) {
+      console.log('[Canvas] No shapes to subscribe to comments');
+      return;
+    }
+
+    // Wait for Firebase to be fully ready before subscribing
+    const initializeCommentSubscriptions = async () => {
+      try {
+        // First check if Firebase is already ready
+        if (isFirebaseReady()) {
+          console.log('[Canvas] Firebase is ready, subscribing to comments immediately');
+        } else {
+          console.log('[Canvas] Waiting for Firebase to be ready...');
+          await waitForFirebase(3000); // Wait up to 3 seconds
+          console.log('[Canvas] Firebase is now ready');
+        }
+
+        // Additional delay for production reliability
+        setTimeout(() => {
+          console.log(`[Canvas] Subscribing to comments for ${shapes.length} shapes`);
+          shapes.forEach(shape => {
+            try {
+              subscribeToShape(shape.id);
+            } catch (error) {
+              console.error(`[Canvas] Error subscribing to comments for shape ${shape.id}:`, error);
+            }
+          });
+        }, 100);
+
+      } catch (error) {
+        console.error('[Canvas] Failed to initialize Firebase for comment subscriptions:', error);
+        // Still try to subscribe after a longer delay as fallback
+        setTimeout(() => {
+          console.log('[Canvas] Fallback: subscribing to comments after Firebase timeout');
+          shapes.forEach(shape => {
+            try {
+              subscribeToShape(shape.id);
+            } catch (subscribeError) {
+              console.error(`[Canvas] Error subscribing to comments for shape ${shape.id}:`, subscribeError);
+            }
+          });
+        }, 1000);
+      }
+    };
+
+    // Start initialization after a short delay to ensure everything is loaded
+    const timer = setTimeout(initializeCommentSubscriptions, 200);
 
     return () => clearTimeout(timer);
   }, [shapes, subscribeToShape, user]);
