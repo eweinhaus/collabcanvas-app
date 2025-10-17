@@ -22,8 +22,8 @@ describe('gridGenerator', () => {
         y: 200, // default originY
         fill: 'red',
         type: 'rectangle',
-        width: 100, // size * 2 (default size = 50)
-        height: 75 // size * 1.5
+        width: 50, // size (default size = 50, makes squares)
+        height: 50 // size (makes squares)
       });
 
       // Verify last shape (bottom-right)
@@ -183,8 +183,8 @@ describe('gridGenerator', () => {
         color: 'blue',
         size: 40
       });
-      expect(rectGrid[0].width).toBe(80); // size * 2
-      expect(rectGrid[0].height).toBe(60); // size * 1.5
+      expect(rectGrid[0].width).toBe(40); // size (makes squares)
+      expect(rectGrid[0].height).toBe(40); // size (makes squares)
     });
   });
 
@@ -554,8 +554,8 @@ describe('gridGenerator', () => {
         y: 200,
         fill: '#FF0000',
         type: 'rectangle',
-        width: 100,
-        height: 75
+        width: 50,  // size (makes squares)
+        height: 50  // size (makes squares)
       });
 
       // Last item (bottom-right)
@@ -564,8 +564,8 @@ describe('gridGenerator', () => {
         y: 440, // 200 + 2 * 120
         fill: '#FF0000',
         type: 'rectangle',
-        width: 100,
-        height: 75
+        width: 50,  // size (makes squares)
+        height: 50  // size (makes squares)
       });
     });
   });

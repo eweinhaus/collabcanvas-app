@@ -161,6 +161,10 @@ export const AIProvider = ({ children }) => {
           result = await executor.executeRotateShape(args);
         } else if (name === 'createGrid') {
           result = await executor.executeCreateGrid(args);
+        } else if (name === 'createShapesVertically') {
+          result = await executor.executeCreateShapesVertically(args);
+        } else if (name === 'createShapesHorizontally') {
+          result = await executor.executeCreateShapesHorizontally(args);
         } else {
           result = { success: false, error: `Unknown tool: ${name}` };
         }
@@ -301,6 +305,10 @@ export const AIProvider = ({ children }) => {
               summary = '✓ Shape rotated successfully!';
             } else if (toolNames.includes('createGrid')) {
               summary = '✓ Grid created successfully!';
+            } else if (toolNames.includes('createShapesVertically')) {
+              summary = '✓ Shapes created vertically!';
+            } else if (toolNames.includes('createShapesHorizontally')) {
+              summary = '✓ Shapes created horizontally!';
             } else if (toolNames.includes('getCanvasState')) {
               summary = '✓ Retrieved canvas state.';
             }

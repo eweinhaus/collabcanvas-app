@@ -124,8 +124,8 @@ export function generateGrid(options) {
           break;
 
         case 'rectangle':
-          shapeConfig.width = size * 2; // Use size as half-width for rectangles
-          shapeConfig.height = size * 1.5; // Aspect ratio 4:3
+          shapeConfig.width = size; // Use size directly for width
+          shapeConfig.height = size; // Use size directly for height (makes squares)
           break;
 
         case 'triangle':

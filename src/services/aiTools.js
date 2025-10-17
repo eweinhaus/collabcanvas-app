@@ -164,14 +164,14 @@ export const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'createGrid',
-      description: 'Create a grid of shapes with specified rows, columns, and spacing.',
+      description: 'Create a grid of shapes with specified rows, columns, and spacing. For "squares", use shapeType="rectangle" (will create equal-sided rectangles).',
       parameters: {
         type: 'object',
         properties: {
           shapeType: {
             type: 'string',
             enum: ['rectangle', 'circle', 'triangle'],
-            description: 'Type of shapes in the grid',
+            description: 'Type of shapes in the grid. Use "rectangle" for squares (will be equal-sided).',
           },
           rows: {
             type: 'number',
@@ -250,25 +250,153 @@ export const AI_TOOLS = [
     },
   },
 
-  // Complex Template Tool (PR 17)
+  // Complex Layout Tools (PR 17) - Flexible multi-tool approach
   {
     type: 'function',
     function: {
-      name: 'createLoginForm',
-      description: 'Create a complete login form template with username, password fields and submit button.',
+      name: 'createShapesVertically',
+      description: 'Create multiple shapes stacked vertically with consistent spacing. Use for forms, lists, vertical layouts. The LLM should decompose complex commands (login forms, signup forms, etc.) into individual shape specifications.',
       parameters: {
         type: 'object',
         properties: {
-          x: {
-            type: 'number',
-            description: 'Starting X coordinate for the form',
+          shapes: {
+            type: 'array',
+            description: 'Array of shape specifications to create vertically',
+            items: {
+              type: 'object',
+              properties: {
+                type: {
+                  type: 'string',
+                  enum: ['circle', 'rectangle', 'text', 'triangle'],
+                  description: 'Shape type',
+                },
+                color: {
+                  type: 'string',
+                  description: 'CSS color name or hex code (e.g., "#FFFFFF", "blue")',
+                },
+                text: {
+                  type: 'string',
+                  description: 'Text content (required for text shapes)',
+                },
+                width: {
+                  type: 'number',
+                  description: 'Width in pixels (rectangles/text). Default: rectangle=150, text=200',
+                },
+                height: {
+                  type: 'number',
+                  description: 'Height in pixels (rectangles/text). Default: rectangle=100, text=30',
+                },
+                radius: {
+                  type: 'number',
+                  description: 'Radius in pixels (circles). Default: 50',
+                },
+                fontSize: {
+                  type: 'number',
+                  description: 'Font size for text shapes. Default: 16',
+                },
+                stroke: {
+                  type: 'string',
+                  description: 'Border color (optional, hex or color name)',
+                },
+                strokeWidth: {
+                  type: 'number',
+                  description: 'Border width in pixels (optional). Default: 2',
+                },
+              },
+              required: ['type', 'color'],
+            },
+            minItems: 2,
           },
-          y: {
+          originX: {
             type: 'number',
-            description: 'Starting Y coordinate for the form',
+            description: 'Starting X position for the vertical stack',
+          },
+          originY: {
+            type: 'number',
+            description: 'Starting Y position for the vertical stack',
+          },
+          spacing: {
+            type: 'number',
+            description: 'Vertical spacing between shapes in pixels. Default: 25 (for forms), range: 5-200',
+            default: 25,
           },
         },
-        required: ['x', 'y'],
+        required: ['shapes', 'originX', 'originY'],
+      },
+    },
+  },
+
+  {
+    type: 'function',
+    function: {
+      name: 'createShapesHorizontally',
+      description: 'Create multiple shapes arranged horizontally in a row. Use for navigation bars, button groups, horizontal layouts. The LLM should decompose complex commands into individual shape specifications.',
+      parameters: {
+        type: 'object',
+        properties: {
+          shapes: {
+            type: 'array',
+            description: 'Array of shape specifications to create horizontally',
+            items: {
+              type: 'object',
+              properties: {
+                type: {
+                  type: 'string',
+                  enum: ['circle', 'rectangle', 'text', 'triangle'],
+                  description: 'Shape type',
+                },
+                color: {
+                  type: 'string',
+                  description: 'CSS color name or hex code (e.g., "#FFFFFF", "blue")',
+                },
+                text: {
+                  type: 'string',
+                  description: 'Text content (required for text shapes)',
+                },
+                width: {
+                  type: 'number',
+                  description: 'Width in pixels (rectangles/text). Default: rectangle=150, text=200',
+                },
+                height: {
+                  type: 'number',
+                  description: 'Height in pixels (rectangles/text). Default: rectangle=100, text=30',
+                },
+                radius: {
+                  type: 'number',
+                  description: 'Radius in pixels (circles). Default: 50',
+                },
+                fontSize: {
+                  type: 'number',
+                  description: 'Font size for text shapes. Default: 16',
+                },
+                stroke: {
+                  type: 'string',
+                  description: 'Border color (optional, hex or color name)',
+                },
+                strokeWidth: {
+                  type: 'number',
+                  description: 'Border width in pixels (optional). Default: 2',
+                },
+              },
+              required: ['type', 'color'],
+            },
+            minItems: 2,
+          },
+          originX: {
+            type: 'number',
+            description: 'Starting X position for the horizontal row',
+          },
+          originY: {
+            type: 'number',
+            description: 'Y position (same for all shapes in the row)',
+          },
+          spacing: {
+            type: 'number',
+            description: 'Horizontal spacing between shapes in pixels. Default: 20, range: 5-500',
+            default: 20,
+          },
+        },
+        required: ['shapes', 'originX', 'originY'],
       },
     },
   },

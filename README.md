@@ -101,12 +101,50 @@ Create organized grids of shapes with a single command:
 - All grid shapes created in a single batch operation
 - Changes sync instantly to all users
 
+### Complex Layout Commands (PR 17 - NEW!)
+
+The AI can create complex layouts (forms, navigation bars, dashboards) by automatically decomposing your request into individual shapes. No hardcoded templates - GPT-4 handles spatial reasoning and layout logic.
+
+**Login/Signup Forms:**
+- "Create a login form at 300, 200"
+- "Build a signup form with email and password"
+- "Make a contact form with name, email, and message fields"
+
+**Navigation Bars:**
+- "Create a nav bar with Home, About, Services, Contact"
+- "Build a horizontal menu with 5 items"
+- "Make a navigation bar at the top"
+
+**Dashboards & Cards:**
+- "Create a dashboard with title and 3 buttons"
+- "Build a pricing table with 3 tiers"
+- "Make a profile card"
+
+**How It Works:**
+1. **Decompose**: AI breaks complex requests into individual elements (labels, inputs, buttons)
+2. **Classify**: Determines layout direction (vertical for forms, horizontal for nav bars)
+3. **Specify**: Defines precise properties (colors, sizes, spacing) for each shape
+4. **Execute**: Creates all shapes in a single batch with perfect alignment
+
+**Automatic Layout:**
+- Forms: Vertical stacking with 25-30px spacing
+- Nav bars: Horizontal alignment with 40-60px spacing
+- Smart sizing: Input fields 300x40, buttons 120x40, labels 20-30px height
+- Professional styling: White inputs with gray borders, colored buttons
+
+**Flexibility:**
+- Works with ANY complex command (not just pre-defined templates)
+- GPT-4 handles spatial reasoning and multi-step planning
+- Can create novel layouts (profile cards, pricing tables, custom forms)
+- All shapes sync instantly to all collaborators
+
 ### How to Use
 
-1. Click the AI chat icon to open the panel
+1. Click the AI chat icon (robot/sparkle icon in toolbar) to open the panel
 2. Type natural language commands
 3. Shapes appear or update instantly on the canvas
 4. All changes sync in real-time to collaborators
+5. Use Cmd/Ctrl+K shortcut to toggle AI panel
 
 ## 🔄 Collaboration & Conflict Resolution
 

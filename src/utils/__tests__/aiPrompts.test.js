@@ -15,7 +15,7 @@ import {
 
 describe('aiPrompts', () => {
   describe('buildSystemPrompt', () => {
-    it('should build system prompt with user info', () => {
+    it('should build system prompt with CollabCanvas branding', () => {
       const user = {
         displayName: 'John Doe',
         email: 'john@example.com',
@@ -23,16 +23,15 @@ describe('aiPrompts', () => {
 
       const prompt = buildSystemPrompt(user);
 
-      expect(prompt).toContain('John Doe');
       expect(prompt).toContain('CollabCanvas');
-      expect(prompt).toContain('collaborative canvas');
+      expect(prompt).toContain('AI assistant');
     });
 
     it('should handle null user', () => {
       const prompt = buildSystemPrompt(null);
 
-      expect(prompt).toContain('User');
       expect(prompt).toContain('CollabCanvas');
+      expect(prompt).toContain('AI assistant');
     });
 
     it('should include canvas information', () => {
@@ -45,14 +44,20 @@ describe('aiPrompts', () => {
       expect(prompt).toContain('text');
     });
 
-    it('should include capabilities list', () => {
+    it('should include critical instruction to use defaults', () => {
       const prompt = buildSystemPrompt();
 
-      expect(prompt).toContain('CREATE');
-      expect(prompt).toContain('MOVE');
-      expect(prompt).toContain('CHANGE colors');
-      expect(prompt).toContain('DELETE');
-      expect(prompt).toContain('ROTATE');
+      expect(prompt).toContain('CRITICAL');
+      expect(prompt).toContain('NEVER ask for clarification');
+      expect(prompt).toContain('Use defaults automatically');
+    });
+
+    it('should include manipulation workflow', () => {
+      const prompt = buildSystemPrompt();
+
+      expect(prompt).toContain('Moving/Manipulating');
+      expect(prompt).toContain('getCanvasState');
+      expect(prompt).toContain('moveShape');
     });
   });
 
@@ -170,7 +175,8 @@ describe('aiPrompts', () => {
       expect(Array.isArray(messages)).toBe(true);
       expect(messages).toHaveLength(1);
       expect(messages[0].role).toBe('system');
-      expect(messages[0].content).toContain('John');
+      expect(messages[0].content).toContain('CollabCanvas');
+      expect(messages[0].timestamp).toBeDefined();
     });
   });
 

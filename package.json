@@ -49,9 +49,6 @@
     "setupFilesAfterEnv": [
       "<rootDir>/setupTests.js"
     ],
-    "moduleNameMapper": {
-      "\\.(css|less|sass|scss)$": "identity-obj-proxy"
-    },
     "transform": {
       "^.+\\.(js|jsx)$": "babel-jest"
     },
@@ -60,7 +57,10 @@
       "<rootDir>/src/**/*.{spec,test}.{js,jsx}"
     ],
     "transformIgnorePatterns": [
-      "node_modules/(?!(firebase|uuid)/)"
-    ]
+      "node_modules/(?!(uuid|firebase)/)"
+    ],
+    "moduleNameMapper": {
+      "\\.(css|less|sass|scss)$": "identity-obj-proxy"
+    }
   }
 }

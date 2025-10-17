@@ -9,6 +9,13 @@ import { normalizeColor } from '../utils/colorNormalizer';
 import { SHAPE_TYPES } from '../utils/shapes';
 import { identifyShape } from '../utils/shapeIdentification';
 import { generateGrid, validateGridConfig } from '../utils/gridGenerator';
+import { 
+  normalizeShapeSpec, 
+  calcVerticalPositions, 
+  calcHorizontalPositions,
+  convertToShapeObjects,
+  validateShapeBatch,
+} from '../utils/batchCreate';
 
 // Canvas bounds for validation
 const CANVAS_BOUNDS = {
@@ -581,12 +588,184 @@ export function createAIToolExecutor({ addShape, addShapesBatch, updateShape, ge
     }
   }
 
+  /**
+   * Execute createShapesVertically tool
+   * Creates multiple shapes stacked vertically (forms, lists, vertical layouts)
+   * @param {Object} args - Tool arguments from AI
+   * @param {Array} args.shapes - Array of shape specifications
+   * @param {number} args.originX - Starting X coordinate
+   * @param {number} args.originY - Starting Y coordinate
+   * @param {number} [args.spacing=25] - Vertical spacing between shapes (5-200)
+   * @returns {Promise<Object>} Result object { success: boolean, shapeIds?: string[], error?: string }
+   */
+  async function executeCreateShapesVertically(args) {
+    try {
+      // Validate required fields
+      if (!args.shapes || !Array.isArray(args.shapes)) {
+        return { success: false, error: 'Missing required field: shapes (array)' };
+      }
+      
+      if (typeof args.originX !== 'number') {
+        return { success: false, error: 'Missing required field: originX (number)' };
+      }
+      
+      if (typeof args.originY !== 'number') {
+        return { success: false, error: 'Missing required field: originY (number)' };
+      }
+
+      if (args.shapes.length < 2) {
+        return { success: false, error: 'createShapesVertically requires at least 2 shapes' };
+      }
+
+      if (args.shapes.length > 100) {
+        return { 
+          success: false, 
+          error: `Too many shapes: ${args.shapes.length}. Maximum 100 shapes per batch.`,
+        };
+      }
+
+      // Normalize each shape specification
+      let normalizedShapes;
+      try {
+        normalizedShapes = args.shapes.map((spec, index) => {
+          try {
+            return normalizeShapeSpec(spec);
+          } catch (error) {
+            throw new Error(`Shape at index ${index}: ${error.message}`);
+          }
+        });
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+
+      // Calculate vertical positions
+      const spacing = args.spacing !== undefined ? args.spacing : 25;
+      const shapesWithPositions = calcVerticalPositions(normalizedShapes, {
+        originX: args.originX,
+        originY: args.originY,
+        spacing,
+      });
+
+      // Convert to full shape objects
+      const shapeObjects = convertToShapeObjects(shapesWithPositions);
+
+      // Validate batch
+      const validation = validateShapeBatch(shapeObjects);
+      if (!validation.valid) {
+        return { success: false, error: validation.error };
+      }
+
+      // Batch create all shapes
+      await addShapesBatch(shapeObjects);
+
+      const totalShapes = shapeObjects.length;
+      return {
+        success: true,
+        shapeIds: shapeObjects.map(s => s.id),
+        message: `Created ${totalShapes} shape${totalShapes !== 1 ? 's' : ''} vertically at (${args.originX}, ${args.originY})`,
+        totalShapes,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to create shapes vertically: ${error.message}`,
+      };
+    }
+  }
+
+  /**
+   * Execute createShapesHorizontally tool
+   * Creates multiple shapes arranged horizontally (nav bars, button groups, horizontal layouts)
+   * @param {Object} args - Tool arguments from AI
+   * @param {Array} args.shapes - Array of shape specifications
+   * @param {number} args.originX - Starting X coordinate
+   * @param {number} args.originY - Y coordinate (same for all shapes)
+   * @param {number} [args.spacing=20] - Horizontal spacing between shapes (5-500)
+   * @returns {Promise<Object>} Result object { success: boolean, shapeIds?: string[], error?: string }
+   */
+  async function executeCreateShapesHorizontally(args) {
+    try {
+      // Validate required fields
+      if (!args.shapes || !Array.isArray(args.shapes)) {
+        return { success: false, error: 'Missing required field: shapes (array)' };
+      }
+      
+      if (typeof args.originX !== 'number') {
+        return { success: false, error: 'Missing required field: originX (number)' };
+      }
+      
+      if (typeof args.originY !== 'number') {
+        return { success: false, error: 'Missing required field: originY (number)' };
+      }
+
+      if (args.shapes.length < 2) {
+        return { success: false, error: 'createShapesHorizontally requires at least 2 shapes' };
+      }
+
+      if (args.shapes.length > 100) {
+        return { 
+          success: false, 
+          error: `Too many shapes: ${args.shapes.length}. Maximum 100 shapes per batch.`,
+        };
+      }
+
+      // Normalize each shape specification
+      let normalizedShapes;
+      try {
+        normalizedShapes = args.shapes.map((spec, index) => {
+          try {
+            return normalizeShapeSpec(spec);
+          } catch (error) {
+            throw new Error(`Shape at index ${index}: ${error.message}`);
+          }
+        });
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+
+      // Calculate horizontal positions
+      const spacing = args.spacing !== undefined ? args.spacing : 20;
+      const shapesWithPositions = calcHorizontalPositions(normalizedShapes, {
+        originX: args.originX,
+        originY: args.originY,
+        spacing,
+      });
+
+      // Convert to full shape objects
+      const shapeObjects = convertToShapeObjects(shapesWithPositions);
+
+      // Validate batch
+      const validation = validateShapeBatch(shapeObjects);
+      if (!validation.valid) {
+        return { success: false, error: validation.error };
+      }
+
+      // Batch create all shapes
+      await addShapesBatch(shapeObjects);
+
+      const totalShapes = shapeObjects.length;
+      return {
+        success: true,
+        shapeIds: shapeObjects.map(s => s.id),
+        message: `Created ${totalShapes} shape${totalShapes !== 1 ? 's' : ''} horizontally at (${args.originX}, ${args.originY})`,
+        totalShapes,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to create shapes horizontally: ${error.message}`,
+      };
+    }
+  }
+
   return {
     executeCreateShape,
     executeGetCanvasState,
     executeMoveShape,
     executeRotateShape,
     executeCreateGrid,
+    executeCreateShapesVertically,
+    executeCreateShapesHorizontally,
   };
 }
 

@@ -202,34 +202,39 @@ Toast feedback + history entry
 - Batch Firestore writes for performance
 - Deterministic, idempotent calculations
 
-### ✅ Complex Commands (1 of 3 Implemented)
-| Command | Example | Tool | Status |
+### ✅ Complex Commands (Flexible LLM-Driven Approach)
+| Command Type | Example | Tool | Status |
 |---------|---------|------|--------|
-| Login form template | "Create a login form at 300, 200" | `createTemplate` or batch `createShape` | ✅ **IN SCOPE** |
-| Navigation bar | "Build a navigation bar with 4 menu items" | `createTemplate` | ❌ **NOT IMPLEMENTED** |
-| Card layout | "Make a card layout with title, image, and description" | `createTemplate` | ❌ **NOT IMPLEMENTED** |
+| Forms & Vertical Layouts | "Create a login form at 300, 200" | `createShapesVertically` | ✅ **IN SCOPE** |
+| Navigation & Horizontal | "Build a navigation bar with 4 menu items" | `createShapesHorizontally` | ✅ **IN SCOPE** |
+| Any Complex Layout | "Make a dashboard card", "Create a pricing table" | Multiple tools + LLM reasoning | ✅ **IN SCOPE** |
 
-**Requirements** (for login form only):
-- Generate 6+ properly arranged shapes
-- Username label + input field
-- Password label + input field  
-- Submit button with text
-- Smart spacing (25-40px vertical gaps)
+**Approach**:
+- No hardcoded templates - LLM decomposes commands into tool calls
+- Two layout helpers enable 80% of complex layouts
+- GPT-4 handles spatial reasoning and multi-step planning
+- Works for ANY complex command, not just pre-defined ones
+
+**Requirements**:
+- LLM can make multiple tool calls per command
+- Layout helpers support flexible shape arrays
+- System prompt includes examples and best practices
+- Smart spacing and positioning (25-40px gaps for forms)
 
 ---
 
 ## Tool Schemas (OpenAI Function Calling)
 
-**Implemented Tools**: 5 core tools + 1 template function
-- ✅ `createShape` (commands 1, 2, 3, 10)
+**Implemented Tools**: 7 core tools (no hardcoded templates)
+- ✅ `createShape` (commands 1, 2, 3)
 - ✅ `getCanvasState` (commands 4, 6)
 - ✅ `moveShape` (command 4)
 - ✅ `rotateShape` (command 6)
 - ✅ `createGrid` (command 8)
+- ✅ `createShapesVertically` (complex commands - forms, lists)
+- ✅ `createShapesHorizontally` (complex commands - nav bars, button groups)
 - ❌ `updateShapeColor` (not in scope)
 - ❌ `deleteShape` (not in scope)
-- ❌ `arrangeHorizontally` (not in scope)
-- ❌ `arrangeVertically` (not in scope)
 - ❌ `distributeEvenly` (not in scope)
 
 ---
@@ -429,7 +434,116 @@ Toast feedback + history entry
 }
 ```
 
-### 8. arrangeHorizontally ❌ **NOT IMPLEMENTED** (optional for future)
+### 8. createShapesVertically ✅ **IMPLEMENTED**
+```javascript
+{
+  type: 'function',
+  function: {
+    name: 'createShapesVertically',
+    description: 'Create multiple shapes stacked vertically with consistent spacing. Use for forms, lists, vertical layouts.',
+    parameters: {
+      type: 'object',
+      properties: {
+        shapes: {
+          type: 'array',
+          description: 'Array of shape specifications to create',
+          items: {
+            type: 'object',
+            properties: {
+              type: { 
+                type: 'string', 
+                enum: ['circle', 'rectangle', 'text', 'triangle'],
+                description: 'Shape type'
+              },
+              color: { type: 'string', description: 'CSS color name or hex' },
+              text: { type: 'string', description: 'Text content (for text shapes)' },
+              width: { type: 'number', description: 'Width (rectangles/text)' },
+              height: { type: 'number', description: 'Height (rectangles/text)' },
+              radius: { type: 'number', description: 'Radius (circles/triangles)' },
+              stroke: { type: 'string', description: 'Border color (optional)' },
+              strokeWidth: { type: 'number', description: 'Border width (optional)' }
+            },
+            required: ['type', 'color']
+          },
+          minItems: 2
+        },
+        originX: { 
+          type: 'number', 
+          description: 'Starting X position for the stack' 
+        },
+        originY: { 
+          type: 'number', 
+          description: 'Starting Y position for the stack' 
+        },
+        spacing: { 
+          type: 'number', 
+          description: 'Vertical spacing between shape centers. Default: 25',
+          default: 25,
+          minimum: 5,
+          maximum: 200
+        }
+      },
+      required: ['shapes', 'originX', 'originY']
+    }
+  }
+}
+```
+
+### 9. createShapesHorizontally ✅ **IMPLEMENTED**
+```javascript
+{
+  type: 'function',
+  function: {
+    name: 'createShapesHorizontally',
+    description: 'Create multiple shapes arranged horizontally. Use for navigation bars, button groups, horizontal layouts.',
+    parameters: {
+      type: 'object',
+      properties: {
+        shapes: {
+          type: 'array',
+          description: 'Array of shape specifications to create',
+          items: {
+            type: 'object',
+            properties: {
+              type: { 
+                type: 'string', 
+                enum: ['circle', 'rectangle', 'text', 'triangle'] 
+              },
+              color: { type: 'string' },
+              text: { type: 'string' },
+              width: { type: 'number' },
+              height: { type: 'number' },
+              radius: { type: 'number' },
+              stroke: { type: 'string' },
+              strokeWidth: { type: 'number' }
+            },
+            required: ['type', 'color']
+          },
+          minItems: 2
+        },
+        originX: { 
+          type: 'number', 
+          description: 'Starting X position' 
+        },
+        originY: { 
+          type: 'number', 
+          description: 'Y position (same for all shapes)' 
+        },
+        spacing: { 
+          type: 'number', 
+          description: 'Horizontal spacing between shape centers. Default: 20',
+          default: 20,
+          minimum: 5,
+          maximum: 500
+        }
+      },
+      required: ['shapes', 'originX', 'originY']
+    }
+  }
+}
+```
+
+### 10. arrangeHorizontally ❌ **NOT IMPLEMENTED** (optional for future)
 ```javascript
 {
   type: 'function',
@@ -458,7 +572,7 @@ Toast feedback + history entry
 }
 ```
 
-### 9. arrangeVertically ❌ **NOT IMPLEMENTED** (optional for future)
+### 11. arrangeVertically ❌ **NOT IMPLEMENTED** (optional for future)
 ```javascript
 {
   type: 'function',
@@ -487,7 +601,7 @@ Toast feedback + history entry
 }
 ```
 
-### 10. distributeEvenly ❌ **NOT IMPLEMENTED** (optional for future)
+### 12. distributeEvenly ❌ **NOT IMPLEMENTED** (optional for future)
 ```javascript
 {
   type: 'function',
@@ -526,11 +640,8 @@ export const BASE_SYSTEM_PROMPT = `You are an AI assistant integrated into Colla
 - Create shapes (circles, rectangles, triangles, text) at specific positions
 - Create grids of shapes arranged in rows and columns
 - Move shapes to new positions on the canvas
-- Change the color of existing shapes
-- Delete shapes from the canvas
 - Rotate shapes to different angles
-- Arrange shapes horizontally or vertically with custom spacing
-- Distribute shapes evenly along an axis
+- Create complex layouts (forms, nav bars, dashboards) using vertical/horizontal tools
 - Query the current canvas state to see what shapes exist
 
 **CRITICAL: Color Extraction**
@@ -565,6 +676,13 @@ Examples:
 - Default rectangle: 150×100 (width × height)
 - Default text: 200×50 (width × height)
 
+**Common UI Element Sizes:**
+- Input fields: 300x40 rectangles (width x height)
+- Buttons: 120x40 (primary), 80x36 (secondary)
+- Text labels: height 20-24px, width auto-sized
+- Navigation items: 80-120px width, 40px height
+- Card headers: 280-320px width, 50px height
+
 **Grid Creation:**
 - Specify rows (1-20) and columns (1-20)
 - Choose shape type and color
@@ -573,29 +691,77 @@ Examples:
 - Optional: size (default 50)
 - LIMIT: rows × cols ≤ 100 total shapes
 
+**Complex Command Workflow:**
+When given a complex request (form, nav bar, dashboard):
+
+Step 1: DECOMPOSE - Break into individual elements
+  "Login form" → username label, username input, password label, password input, submit button
+
+Step 2: CLASSIFY - Determine layout direction
+  Forms → vertical (createShapesVertically)
+  Nav bars → horizontal (createShapesHorizontally)
+  Mixed → multiple tool calls
+
+Step 3: SPECIFY - Define each shape with precise properties
+  Labels: text, small height (20-24px), dark color (#2C3E50)
+  Inputs: rectangle, 300x40, white fill (#FFFFFF), gray stroke (#CCCCCC)
+  Buttons: rectangle, 120x40, action color (#4CAF50), white text overlay
+
+Step 4: EXECUTE - Call appropriate tool(s) with shape array
+
+**Layout Best Practices:**
+- Forms: 25-30px vertical spacing between fields
+- Nav bars: 40-60px horizontal spacing between items
+- Input fields: 300x40 rectangles with light gray stroke (#CCCCCC)
+- Buttons: 120x40 rectangles with solid fill (#4CAF50 green)
+- Labels: Small text (height ~20-30px) above inputs
+- Use white (#FFFFFF) rectangles with gray stroke for input fields
+
+**Reference Implementations:**
+
+Login Form Example:
+createShapesVertically({
+  shapes: [
+    { type: 'text', color: '#2C3E50', text: 'Username:', width: 300, height: 24 },
+    { type: 'rectangle', color: '#FFFFFF', width: 300, height: 40, stroke: '#CCCCCC', strokeWidth: 2 },
+    { type: 'text', color: '#2C3E50', text: 'Password:', width: 300, height: 24 },
+    { type: 'rectangle', color: '#FFFFFF', width: 300, height: 40, stroke: '#CCCCCC', strokeWidth: 2 },
+    { type: 'rectangle', color: '#4CAF50', width: 120, height: 40 },
+    { type: 'text', color: '#FFFFFF', text: 'Submit', width: 80, height: 24 }
+  ],
+  originX: 300,
+  originY: 200,
+  spacing: 30
+})
+
+Nav Bar Example:
+createShapesHorizontally({
+  shapes: [
+    { type: 'text', color: '#2C3E50', text: 'Home', width: 80, height: 40 },
+    { type: 'text', color: '#2C3E50', text: 'About', width: 80, height: 40 },
+    { type: 'text', color: '#2C3E50', text: 'Services', width: 100, height: 40 },
+    { type: 'text', color: '#2C3E50', text: 'Contact', width: 90, height: 40 }
+  ],
+  originX: 300,
+  originY: 100,
+  spacing: 40
+})
+
 **Manipulation Workflow:**
-OPTION 1: Direct Descriptor (RECOMMENDED for single shapes)
-- "Move the blue rectangle to 500, 300" → moveShape({type: "rectangle", color: "blue", x: 500, y: 300})
-- "Change the red circle to green" → updateShapeColor({type: "circle", color: "red", newColor: "green"})
-- "Delete the triangle" → deleteShape({type: "triangle"})
+- Direct descriptor for single shapes: "Move the blue rectangle to 500, 300" → moveShape({type: "rectangle", color: "blue", x: 500, y: 300})
+- For ambiguous requests, call getCanvasState first to see all shapes (sorted by creation time, newest first)
 
-OPTION 2: Get Canvas State First (for complex queries or "all X")
-1. Call getCanvasState to see all shapes
-2. Shapes are SORTED BY CREATION TIME (newest first)
-3. Identify target shape(s)
-4. Use shape IDs in manipulation tools
+**Handling Ambiguous Requests:**
+If command lacks specifics (e.g., "Create a dashboard"), ask:
+- What elements should be included? (title, buttons, cards, etc.)
+- Where should it be positioned? (default to 300, 200)
+- What style/colors? (default to professional: blue #3498db, gray #95A5A6)
+- OR make reasonable assumptions and state them in response
 
-**"All X" Commands:**
-When user says "all X", make MULTIPLE tool calls (one per target shape):
-- "Delete all blue triangles" → Call deleteShape for each blue triangle
-- "Delete all purple shapes" → Call deleteShape for ALL purple shapes (circles, rectangles, triangles, text)
-- "Change all red shapes to blue" → Call updateShapeColor for each red shape
-
-**Arrangement Workflow:**
-1. Call getCanvasState to get shape IDs
-2. Identify shapes to arrange based on criteria
-3. Extract IDs into array
-4. Call arrangeHorizontally/arrangeVertically/distributeEvenly with IDs
+**Viewport Awareness:**
+Current viewport: User is viewing area around (0, 0) center.
+Default position: Use 300, 200 for new complex layouts (keeps them visible).
+Complex layouts should fit within 800x600px area for good UX.
 
 **Response Style:**
 - Be concise and friendly
@@ -726,19 +892,24 @@ exports.openaiChat = functions
 ~~19. "Line up these shapes vertically with 50px spacing"~~ (not implemented)
 ~~20. "Space these elements evenly"~~ (not implemented)
 
-**✅ Complex (4 cases)**
+**✅ Complex (7 cases - EXPANDED)**
 12. "Create a login form at 300, 200"
-13-15. Verify login form components positioned correctly
+13. "Build a signup form with email and password"
+14. "Create a contact form with name, email, message fields"
+15. "Make a nav bar with Home, About, Services, Contact"
+16. "Create a dashboard with title and 3 buttons"
+17. "Build a pricing table with 3 tiers"
+18. Test NOVEL command not in examples (e.g., "Create a profile card")
 
 **Edge Cases (1 case)**
-16. "Move the rectangle" (multiple exist) → most recent
+19. "Move the rectangle" (multiple exist) → most recent
 ~~26. "Create a circle" (missing color) → use default~~ (test in creation)
 ~~27. "Delete the flying saucer" → friendly error~~ (delete not implemented)
 ~~28. "Delete all large red circles" → AND logic~~ (not implemented)
 ~~29. "Create a 15x15 grid" → reject (>100 shapes)~~ (test in layout)
 ~~30. Concurrent: Two users use AI simultaneously~~ (general test, not specific)
 
-**Accuracy Target**: 14+/16 passed (87.5%+)
+**Accuracy Target**: 17+/19 passed (89%+)
 
 ---
 
@@ -841,12 +1012,13 @@ exports.openaiChat = functions
 - Validate grid limits (max 20×20, ≤100 shapes)
 - Batch Firestore writes for performance
 
-### Phase 5: Complex Template (PR 17) - **6-8 hours**
-- Implement login form template generator (command 10)
-- Generate 6+ properly arranged shapes
-- Test login form test cases
-- Run full manual test suite (16 cases)
-- Calculate accuracy rate (target: 14+/16 = 87.5%+)
+### Phase 5: Complex Commands (PR 17) - **4-6 hours**
+- Implement `createShapesVertically` tool + executor
+- Implement `createShapesHorizontally` tool + executor
+- Update system prompt with complex command examples
+- Test 7 complex commands (login form, signup, contact form, nav bar, dashboard, pricing table, novel command)
+- Run full manual test suite (19 cases)
+- Calculate accuracy rate (target: 17+/19 = 89%+)
 - Performance testing with 5+ concurrent AI users
 - Update documentation with supported commands
 
@@ -868,11 +1040,11 @@ exports.openaiChat = functions
 - ✅ `src/utils/aiPrompts.js` - System prompt builder
 
 ### Tool Executors (PR 14-17)
-- `src/services/aiToolExecutor.js` - Tool execution bridge (PR 14)
+- `src/services/aiToolExecutor.js` - Tool execution bridge (PR 14-17)
 - `src/utils/colorNormalizer.js` - CSS → hex conversion (PR 14)
 - `src/utils/shapeIdentification.js` - Descriptor matching (PR 15)
 - `src/utils/gridGenerator.js` - Grid layout calculations (PR 16)
-- ~~`src/utils/arrangementAlgorithms.js`~~ - NOT NEEDED (arrange commands not implemented)
+- No separate files for PR 17 - executors added to aiToolExecutor.js
 
 ### Tests
 - Unit tests for colorNormalizer, shapeIdentification, gridGenerator
