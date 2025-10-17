@@ -159,6 +159,8 @@ export const AIProvider = ({ children }) => {
           result = await executor.executeMoveShape(args);
         } else if (name === 'rotateShape') {
           result = await executor.executeRotateShape(args);
+        } else if (name === 'createGrid') {
+          result = await executor.executeCreateGrid(args);
         } else {
           result = { success: false, error: `Unknown tool: ${name}` };
         }
@@ -176,20 +178,20 @@ export const AIProvider = ({ children }) => {
     // Show user feedback for each result
     for (const { name, result, error, success } of results) {
       if (success && result.success) {
-        if (name === 'createShape') {
-          toast.success(result.message || 'Shape created successfully');
-        } else if (name === 'moveShape') {
-          toast.success(result.message || 'Shape moved successfully');
-        } else if (name === 'rotateShape') {
-          toast.success(result.message || 'Shape rotated successfully');
-        } else if (name === 'getCanvasState') {
+        if (name === 'getCanvasState') {
           // Silent success for read operations
           console.log('Canvas state retrieved:', result);
+        } else {
+          // Success messages remain as toasts for now
+          const msg = result.message || (name === 'createGrid' ? 'Grid created successfully' : 'Success');
+          toast.success(msg);
         }
       } else {
         allSuccessful = false;
         const errorMsg = error ? error.message : (result.error || 'Tool execution failed');
-        toast.error(errorMsg);
+        // Replace error toast with assistant chat message
+        const assistantError = createAssistantMessage(`Sorry, I couldn't complete that: ${errorMsg}`);
+        setMessages(prev => [...prev, assistantError]);
       }
     }
 
@@ -297,6 +299,8 @@ export const AIProvider = ({ children }) => {
               summary = '✓ Shape moved successfully!';
             } else if (toolNames.includes('rotateShape')) {
               summary = '✓ Shape rotated successfully!';
+            } else if (toolNames.includes('createGrid')) {
+              summary = '✓ Grid created successfully!';
             } else if (toolNames.includes('getCanvasState')) {
               summary = '✓ Retrieved canvas state.';
             }

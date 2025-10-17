@@ -75,6 +75,32 @@ The AI can identify shapes by:
 - Variants: All CSS color names (e.g., dodgerblue, crimson, skyblue)
 - Hex codes: #FF0000, #0000FF, etc.
 
+### Grid Layout Commands
+
+Create organized grids of shapes with a single command:
+
+**Basic Grids:**
+- "Create a 3x3 grid of red squares"
+- "Create a 5x5 grid of blue circles"
+- "Create a 2x4 grid of green rectangles"
+
+**Custom Positioning:**
+- "Create a 3x3 grid of red squares at 400, 300"
+- "Create a 4x2 grid of purple circles at 100, 200"
+
+**Custom Spacing:**
+- "Create a 3x3 grid with 150 pixel spacing"
+- "Create a 5x2 grid of circles with 200 spacing"
+
+**Combined Parameters:**
+- "Create a 4x4 grid of blue triangles at 500, 400 with 120 spacing"
+
+**Grid Specifications:**
+- Maximum grid size: 20×20 (up to 100 shapes total)
+- Spacing range: 10-500 pixels (default: 120px)
+- All grid shapes created in a single batch operation
+- Changes sync instantly to all users
+
 ### How to Use
 
 1. Click the AI chat icon to open the panel
