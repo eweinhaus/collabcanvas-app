@@ -301,6 +301,18 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
     throw new Error('callback must be a function');
   }
 
+  // Check if user is authenticated before subscribing
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    console.warn('[commentService] Cannot subscribe - user not authenticated');
+    // Call onReady with empty result to prevent loading state
+    if (onReady) {
+      onReady();
+    }
+    // Return no-op unsubscribe
+    return () => {};
+  }
+
   //console.log(`[commentService] Subscribing to comments for shape ${shapeId}`);
 
   const q = query(
@@ -309,6 +321,7 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
   );
 
   let isFirstSnapshot = true;
+  let hasShownError = false;
 
   const unsubscribe = onSnapshot(
     q,
@@ -334,7 +347,30 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
     },
     (error) => {
       console.error('[commentService] Error in comment subscription:', error);
-      toast.error('Lost connection to comments. Please refresh the page.');
+      console.error('[commentService] Error details:', {
+        code: error.code,
+        message: error.message,
+        shapeId,
+        boardId,
+        hasAuth: !!auth.currentUser,
+        userId: auth.currentUser?.uid,
+      });
+
+      // Only show error once per subscription to avoid spam
+      if (!hasShownError) {
+        hasShownError = true;
+        
+        // Provide more specific error messages
+        if (error.code === 'permission-denied') {
+          console.error('[commentService] Permission denied - check Firestore rules and authentication');
+          toast.error('Unable to load comments. Please refresh the page and sign in again.');
+        } else if (error.code === 'unavailable') {
+          console.warn('[commentService] Firestore temporarily unavailable - will retry automatically');
+          // Don't show error for transient network issues - Firestore will retry
+        } else {
+          toast.error('Unable to load comments. Please refresh the page.');
+        }
+      }
     }
   );
 

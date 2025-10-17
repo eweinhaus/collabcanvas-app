@@ -96,11 +96,22 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick }) => {
   useRealtimePresence({ boardId });
 
   // Subscribe to comments for all shapes to enable real-time badge updates
+  // Only subscribe when user is authenticated to prevent errors
   useEffect(() => {
-    shapes.forEach(shape => {
-      subscribeToShape(shape.id);
-    });
-  }, [shapes, subscribeToShape]);
+    if (!user) {
+      console.log('[Canvas] Skipping comment subscriptions - user not authenticated');
+      return;
+    }
+
+    // Add a small delay to ensure Firebase is fully ready in production
+    const timer = setTimeout(() => {
+      shapes.forEach(shape => {
+        subscribeToShape(shape.id);
+      });
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [shapes, subscribeToShape, user]);
 
   // Update transformer when selection changes
   useEffect(() => {
