@@ -20,6 +20,131 @@ A real-time collaborative canvas application where multiple users can create and
 - **Undo/Redo:** Full command history for all shape operations
 - **Pan & Zoom:** Navigate large canvases easily
 - **Google Authentication:** Secure login with Google OAuth
+- **AI Assistant:** Natural language commands to create and manipulate shapes
+
+## 🤖 AI Assistant
+
+Create and manipulate shapes using natural language commands powered by OpenAI:
+
+### Creation Commands
+
+**Simple Creation:**
+- "Create a red circle"
+- "Add a blue square at 100, 100"
+- "Make a purple rectangle"
+- "Add text that says Hello World"
+
+**With Dimensions:**
+- "Create a 150x100 green rectangle"
+- "Make a circle with radius 80"
+- "Add a 200x200 yellow square"
+
+**Shape Types:**
+- Rectangles / Squares
+- Circles
+- Triangles
+- Text
+
+**Automatic Defaults:**
+- Position: Center of current viewport
+- Color: Blue
+- Size: 100x100 (rectangles/triangles), radius 50 (circles)
+
+### Manipulation Commands
+
+**Move Shapes:**
+- "Move the blue rectangle to 600, 200"
+- "Move the red circle to 300, 400"
+- "Move the text to 500, 100"
+
+**Rotate Shapes:**
+- "Rotate the blue rectangle 45 degrees"
+- "Rotate the red circle 90 degrees"
+- "Rotate the triangle 180 degrees"
+
+**Shape Identification:**
+
+The AI can identify shapes by:
+- **Color**: "the blue rectangle", "the red circle"
+- **Type**: "the rectangle", "the circle", "the text"
+- **Combination**: "the blue rectangle", "the green triangle"
+- **Recency**: When multiple shapes match, the most recently created shape is selected
+
+**Supported Colors:**
+- Primary: red, blue, green, yellow, orange, purple, pink
+- Variants: All CSS color names (e.g., dodgerblue, crimson, skyblue)
+- Hex codes: #FF0000, #0000FF, etc.
+
+### Grid Layout Commands
+
+Create organized grids of shapes with a single command:
+
+**Basic Grids:**
+- "Create a 3x3 grid of red squares"
+- "Create a 5x5 grid of blue circles"
+- "Create a 2x4 grid of green rectangles"
+
+**Custom Positioning:**
+- "Create a 3x3 grid of red squares at 400, 300"
+- "Create a 4x2 grid of purple circles at 100, 200"
+
+**Custom Spacing:**
+- "Create a 3x3 grid with 150 pixel spacing"
+- "Create a 5x2 grid of circles with 200 spacing"
+
+**Combined Parameters:**
+- "Create a 4x4 grid of blue triangles at 500, 400 with 120 spacing"
+
+**Grid Specifications:**
+- Maximum grid size: 20×20 (up to 100 shapes total)
+- Spacing range: 10-500 pixels (default: 120px)
+- All grid shapes created in a single batch operation
+- Changes sync instantly to all users
+
+### Complex Layout Commands (PR 17 - NEW!)
+
+The AI can create complex layouts (forms, navigation bars, dashboards) by automatically decomposing your request into individual shapes. No hardcoded templates - GPT-4 handles spatial reasoning and layout logic.
+
+**Login/Signup Forms:**
+- "Create a login form at 300, 200"
+- "Build a signup form with email and password"
+- "Make a contact form with name, email, and message fields"
+
+**Navigation Bars:**
+- "Create a nav bar with Home, About, Services, Contact"
+- "Build a horizontal menu with 5 items"
+- "Make a navigation bar at the top"
+
+**Dashboards & Cards:**
+- "Create a dashboard with title and 3 buttons"
+- "Build a pricing table with 3 tiers"
+- "Make a profile card"
+
+**How It Works:**
+1. **Decompose**: AI breaks complex requests into individual elements (labels, inputs, buttons)
+2. **Classify**: Determines layout direction (vertical for forms, horizontal for nav bars)
+3. **Specify**: Defines precise properties (colors, sizes, spacing) for each shape
+4. **Execute**: Creates all shapes in a single batch with perfect alignment
+
+**Automatic Layout:**
+- Forms: Vertical stacking with 25-30px spacing
+- Nav bars: Horizontal alignment with 40-60px spacing
+- Smart sizing: Input fields 300x40, buttons 120x40, labels 20-30px height
+- Professional styling: White inputs with gray borders, colored buttons
+
+**Flexibility:**
+- Works with ANY complex command (not just pre-defined templates)
+- GPT-4 handles spatial reasoning and multi-step planning
+- Can create novel layouts (profile cards, pricing tables, custom forms)
+- All shapes sync instantly to all collaborators
+
+### How to Use
+
+1. Click the AI chat icon (robot/sparkle icon in toolbar) to open the panel
+2. Type natural language commands
+3. Shapes appear or update instantly on the canvas
+4. All changes sync in real-time to collaborators
+5. Use Cmd/Ctrl+K shortcut to toggle AI panel
 
 ## 🔄 Collaboration & Conflict Resolution
 
@@ -164,7 +289,8 @@ Add context and discussion to any shape with real-time collaborative comments:
 
 - **Frontend:** React + Vite
 - **Canvas Rendering:** Konva + React Konva
-- **Backend:** Firebase (Authentication, Firestore, Realtime Database)
+- **Backend:** Firebase (Authentication, Firestore, Realtime Database, Cloud Functions)
+- **AI:** OpenAI GPT-4o-mini via Firebase Cloud Functions
 - **Deployment:** Render
 - **Testing:** Jest + React Testing Library
 

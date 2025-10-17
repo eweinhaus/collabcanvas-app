@@ -554,7 +554,7 @@ export const CanvasProvider = ({ children }) => {
 
     const handleOnline = async () => {
       // eslint-disable-next-line no-console
-      console.log('[CanvasContext] Network online, flushing operation queue...');
+      //console.log('[CanvasContext] Network online, flushing operation queue...');
       const results = await flushOperationQueue(DEFAULT_BOARD_ID);
       if (results.success > 0) {
         toast.success(`Synced ${results.success} operation${results.success === 1 ? '' : 's'}`);
@@ -571,7 +571,7 @@ export const CanvasProvider = ({ children }) => {
           const isConnected = snapshot.val();
           if (isConnected) {
             // eslint-disable-next-line no-console
-            console.log('[CanvasContext] Firebase connected, flushing operation queue...');
+            //console.log('[CanvasContext] Firebase connected, flushing operation queue...');
             const results = await flushOperationQueue(DEFAULT_BOARD_ID);
             if (results.success > 0) {
               toast.success(`Synced ${results.success} operation${results.success === 1 ? '' : 's'}`);
@@ -632,7 +632,7 @@ export const CanvasProvider = ({ children }) => {
 
       try {
         if (hasRecentLocalCreations()) {
-          console.log('[CanvasContext] Reconciliation skipped due to recent local creations');
+          //console.log('[CanvasContext] Reconciliation skipped due to recent local creations');
           return;
         }
 
@@ -665,7 +665,7 @@ export const CanvasProvider = ({ children }) => {
               dispatch({ type: CANVAS_ACTIONS.APPLY_SERVER_CHANGE, payload: serverShape });
             } else {
               // Server version is older or same - skip to avoid flicker
-              console.log(`[CanvasContext] Reconciliation: Skipping update for ${serverShape.id} (server: ${serverTs}, local: ${localTs})`);
+              //console.log(`[CanvasContext] Reconciliation: Skipping update for ${serverShape.id} (server: ${serverTs}, local: ${localTs})`);
               return;
             }
           }
@@ -685,7 +685,7 @@ export const CanvasProvider = ({ children }) => {
 
         if (hasChanges) {
           // eslint-disable-next-line no-console
-          console.log('[CanvasContext] Reconciliation: applied granular updates');
+          //console.log('[CanvasContext] Reconciliation: applied granular updates');
         }
       } catch (error) {
         // eslint-disable-next-line no-console
@@ -723,7 +723,7 @@ export const CanvasProvider = ({ children }) => {
           // Only reconcile on transition from disconnected -> connected
           if (isConnected && !wasConnected && now - lastReconcileTime > MIN_RECONCILE_INTERVAL) {
             lastReconcileTime = now;
-            console.log('[CanvasContext] Firebase reconnected, triggering instant reconciliation');
+            //console.log('[CanvasContext] Firebase reconnected, triggering instant reconciliation');
             reconcile();
           }
 

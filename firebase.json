@@ -7,6 +7,9 @@
     "rules": "firebase-rtdb-rules.json"
   },
   "emulators": {
+    "functions": {
+      "port": 5001
+    },
     "firestore": {
       "port": 8080
     },
@@ -17,5 +20,19 @@
       "enabled": true
     },
     "singleProjectMode": true
-  }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": []
+    }
+  ]
 }

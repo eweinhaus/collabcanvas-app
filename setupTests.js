@@ -23,4 +23,15 @@ if (!global.import) {
   global.import.meta.env = {};
 }
 
+// Mock uuid module for Jest (uuid v13+ is ESM-only)
+jest.mock('uuid', () => ({
+  v4: () => 'test-uuid-123',
+  v1: () => 'test-uuid-v1',
+  v5: () => 'test-uuid-v5',
+  v6: () => 'test-uuid-v6',
+  v7: () => 'test-uuid-v7',
+  validate: () => true,
+  parse: () => [],
+  stringify: () => '',
+}));
 
