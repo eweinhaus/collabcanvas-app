@@ -17,15 +17,19 @@ describe('aiToolExecutor', () => {
   let mockGetViewportCenter;
   let executor;
 
+  let mockUpdateShape;
+
   beforeEach(() => {
     mockAddShape = jest.fn().mockResolvedValue(undefined);
     mockAddShapesBatch = jest.fn().mockResolvedValue(undefined);
+    mockUpdateShape = jest.fn().mockResolvedValue(undefined);
     mockGetShapes = jest.fn().mockReturnValue([]);
     mockGetViewportCenter = jest.fn().mockReturnValue({ x: 500, y: 400 });
 
     executor = createAIToolExecutor({
       addShape: mockAddShape,
       addShapesBatch: mockAddShapesBatch,
+      updateShape: mockUpdateShape,
       getShapes: mockGetShapes,
       getViewportCenter: mockGetViewportCenter,
     });
@@ -884,6 +888,506 @@ describe('aiToolExecutor', () => {
       expect(result.success).toBe(false);
       expect(result.error).toContain('Database error');
       expect(result.shapes).toEqual([]);
+    });
+  });
+
+  describe('executeMoveShape', () => {
+    test('moves shape using natural language descriptor', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'rect',
+          x: 100,
+          y: 100,
+          width: 50,
+          height: 50,
+          fill: '#0000ff',
+          zIndex: 1000,
+        },
+      ]);
+
+      const args = {
+        descriptor: 'blue rectangle',
+        x: 300,
+        y: 400,
+      };
+
+      const result = await executor.executeMoveShape(args);
+
+      expect(result.success).toBe(true);
+      expect(result.shapeId).toBe('shape1');
+      expect(result.message).toContain('Moved rect to (300, 400)');
+      expect(mockUpdateShape).toHaveBeenCalledWith('shape1', { x: 300, y: 400 });
+    });
+
+    test('moves shape by color only', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'circle',
+          x: 0,
+          y: 0,
+          radius: 50,
+          fill: '#ff0000',
+          zIndex: 1000,
+        },
+        {
+          id: 'shape2',
+          type: 'rect',
+          x: 0,
+          y: 0,
+          width: 50,
+          height: 50,
+          fill: '#0000ff',
+          zIndex: 2000,
+        },
+      ]);
+
+      const args = {
+        descriptor: 'red',
+        x: 500,
+        y: 600,
+      };
+
+      const result = await executor.executeMoveShape(args);
+
+      expect(result.success).toBe(true);
+      expect(result.shapeId).toBe('shape1');
+      expect(mockUpdateShape).toHaveBeenCalledWith('shape1', { x: 500, y: 600 });
+    });
+
+    test('moves shape by type only', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'circle',
+          x: 100,
+          y: 100,
+          radius: 50,
+          fill: '#ff0000',
+          zIndex: 1000,
+        },
+      ]);
+
+      const args = {
+        descriptor: 'circle',
+        x: 200,
+        y: 300,
+      };
+
+      const result = await executor.executeMoveShape(args);
+
+      expect(result.success).toBe(true);
+      expect(result.shapeId).toBe('shape1');
+      expect(mockUpdateShape).toHaveBeenCalledWith('shape1', { x: 200, y: 300 });
+    });
+
+    test('clamps coordinates to canvas bounds', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'rect',
+          x: 100,
+          y: 100,
+          fill: '#ff0000',
+          zIndex: 1000,
+        },
+      ]);
+
+      const args = {
+        descriptor: 'red',
+        x: 5000, // Beyond max
+        y: -100, // Below min
+      };
+
+      const result = await executor.executeMoveShape(args);
+
+      expect(result.success).toBe(true);
+      expect(mockUpdateShape).toHaveBeenCalledWith('shape1', { x: 1920, y: 0 });
+    });
+
+    test('returns error when descriptor is missing', async () => {
+      const args = {
+        x: 100,
+        y: 200,
+      };
+
+      const result = await executor.executeMoveShape(args);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Missing required field: descriptor');
+    });
+
+    test('returns error when coordinates are missing', async () => {
+      const args = {
+        descriptor: 'blue rectangle',
+      };
+
+      const result = await executor.executeMoveShape(args);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Missing required fields: x and y coordinates');
+    });
+
+    test('returns error when canvas is empty', async () => {
+      mockGetShapes.mockReturnValue([]);
+
+      const args = {
+        descriptor: 'red circle',
+        x: 100,
+        y: 200,
+      };
+
+      const result = await executor.executeMoveShape(args);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Canvas is empty');
+    });
+
+    test('returns error when shape not found', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'rect',
+          fill: '#ff0000',
+          zIndex: 1000,
+        },
+      ]);
+
+      const args = {
+        descriptor: 'blue triangle',
+        x: 100,
+        y: 200,
+      };
+
+      const result = await executor.executeMoveShape(args);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Could not find shape');
+    });
+
+    test('prefers most recent shape when multiple matches', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'rect',
+          fill: '#0000ff',
+          zIndex: 1000,
+        },
+        {
+          id: 'shape2',
+          type: 'rect',
+          fill: '#0000ff',
+          zIndex: 3000, // Most recent
+        },
+        {
+          id: 'shape3',
+          type: 'rect',
+          fill: '#0000ff',
+          zIndex: 2000,
+        },
+      ]);
+
+      const args = {
+        descriptor: 'blue rectangle',
+        x: 400,
+        y: 500,
+      };
+
+      const result = await executor.executeMoveShape(args);
+
+      expect(result.success).toBe(true);
+      expect(result.shapeId).toBe('shape2'); // Most recent
+    });
+
+    test('handles updateShape rejection', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'rect',
+          fill: '#ff0000',
+          zIndex: 1000,
+        },
+      ]);
+
+      mockUpdateShape.mockRejectedValue(new Error('Database error'));
+
+      const args = {
+        descriptor: 'red',
+        x: 100,
+        y: 200,
+      };
+
+      const result = await executor.executeMoveShape(args);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Failed to move shape');
+    });
+  });
+
+  describe('executeRotateShape', () => {
+    test('rotates shape using natural language descriptor', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'rect',
+          x: 100,
+          y: 100,
+          width: 50,
+          height: 50,
+          fill: '#0000ff',
+          rotation: 0,
+          zIndex: 1000,
+        },
+      ]);
+
+      const args = {
+        descriptor: 'blue rectangle',
+        rotation: 45,
+      };
+
+      const result = await executor.executeRotateShape(args);
+
+      expect(result.success).toBe(true);
+      expect(result.shapeId).toBe('shape1');
+      expect(result.message).toContain('Rotated rect to 45 degrees');
+      expect(mockUpdateShape).toHaveBeenCalledWith('shape1', { rotation: 45 });
+    });
+
+    test('rotates shape by color only', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'triangle',
+          x: 0,
+          y: 0,
+          fill: '#ff0000',
+          rotation: 0,
+          zIndex: 1000,
+        },
+      ]);
+
+      const args = {
+        descriptor: 'red',
+        rotation: 90,
+      };
+
+      const result = await executor.executeRotateShape(args);
+
+      expect(result.success).toBe(true);
+      expect(result.shapeId).toBe('shape1');
+      expect(mockUpdateShape).toHaveBeenCalledWith('shape1', { rotation: 90 });
+    });
+
+    test('rotates shape by type only', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'text',
+          x: 100,
+          y: 100,
+          text: 'Hello',
+          fill: '#000000',
+          rotation: 0,
+          zIndex: 1000,
+        },
+      ]);
+
+      const args = {
+        descriptor: 'text',
+        rotation: 180,
+      };
+
+      const result = await executor.executeRotateShape(args);
+
+      expect(result.success).toBe(true);
+      expect(result.shapeId).toBe('shape1');
+      expect(mockUpdateShape).toHaveBeenCalledWith('shape1', { rotation: 180 });
+    });
+
+    test('allows rotation of circles (even though not visible)', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'circle',
+          x: 100,
+          y: 100,
+          radius: 50,
+          fill: '#00ff00',
+          rotation: 0,
+          zIndex: 1000,
+        },
+      ]);
+
+      const args = {
+        descriptor: 'green circle',
+        rotation: 270,
+      };
+
+      const result = await executor.executeRotateShape(args);
+
+      expect(result.success).toBe(true);
+      expect(result.shapeId).toBe('shape1');
+      expect(mockUpdateShape).toHaveBeenCalledWith('shape1', { rotation: 270 });
+    });
+
+    test('returns error when descriptor is missing', async () => {
+      const args = {
+        rotation: 45,
+      };
+
+      const result = await executor.executeRotateShape(args);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Missing required field: descriptor');
+    });
+
+    test('returns error when rotation is missing', async () => {
+      const args = {
+        descriptor: 'blue rectangle',
+      };
+
+      const result = await executor.executeRotateShape(args);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Missing required field: rotation');
+    });
+
+    test('validates rotation range - negative', async () => {
+      const args = {
+        descriptor: 'red',
+        rotation: -10,
+      };
+
+      const result = await executor.executeRotateShape(args);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Rotation must be between 0 and 359 degrees');
+    });
+
+    test('validates rotation range - too high', async () => {
+      const args = {
+        descriptor: 'red',
+        rotation: 360,
+      };
+
+      const result = await executor.executeRotateShape(args);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Rotation must be between 0 and 359 degrees');
+    });
+
+    test('accepts rotation at boundary (0 and 359)', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'rect',
+          fill: '#ff0000',
+          rotation: 0,
+          zIndex: 1000,
+        },
+      ]);
+
+      const result1 = await executor.executeRotateShape({
+        descriptor: 'red',
+        rotation: 0,
+      });
+
+      const result2 = await executor.executeRotateShape({
+        descriptor: 'red',
+        rotation: 359,
+      });
+
+      expect(result1.success).toBe(true);
+      expect(result2.success).toBe(true);
+    });
+
+    test('returns error when canvas is empty', async () => {
+      mockGetShapes.mockReturnValue([]);
+
+      const args = {
+        descriptor: 'red circle',
+        rotation: 90,
+      };
+
+      const result = await executor.executeRotateShape(args);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Canvas is empty');
+    });
+
+    test('returns error when shape not found', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'rect',
+          fill: '#ff0000',
+          zIndex: 1000,
+        },
+      ]);
+
+      const args = {
+        descriptor: 'blue triangle',
+        rotation: 45,
+      };
+
+      const result = await executor.executeRotateShape(args);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Could not find shape');
+    });
+
+    test('prefers most recent shape when multiple matches', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'rect',
+          fill: '#0000ff',
+          rotation: 0,
+          zIndex: 1000,
+        },
+        {
+          id: 'shape2',
+          type: 'rect',
+          fill: '#0000ff',
+          rotation: 0,
+          zIndex: 3000, // Most recent
+        },
+      ]);
+
+      const args = {
+        descriptor: 'blue rectangle',
+        rotation: 45,
+      };
+
+      const result = await executor.executeRotateShape(args);
+
+      expect(result.success).toBe(true);
+      expect(result.shapeId).toBe('shape2'); // Most recent
+    });
+
+    test('handles updateShape rejection', async () => {
+      mockGetShapes.mockReturnValue([
+        {
+          id: 'shape1',
+          type: 'rect',
+          fill: '#ff0000',
+          rotation: 0,
+          zIndex: 1000,
+        },
+      ]);
+
+      mockUpdateShape.mockRejectedValue(new Error('Database error'));
+
+      const args = {
+        descriptor: 'red',
+        rotation: 90,
+      };
+
+      const result = await executor.executeRotateShape(args);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Failed to rotate shape');
     });
   });
 });

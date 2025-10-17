@@ -24,9 +24,9 @@ A real-time collaborative canvas application where multiple users can create and
 
 ## 🤖 AI Assistant
 
-Create shapes using natural language commands powered by OpenAI:
+Create and manipulate shapes using natural language commands powered by OpenAI:
 
-### Supported Commands
+### Creation Commands
 
 **Simple Creation:**
 - "Create a red circle"
@@ -50,11 +50,37 @@ Create shapes using natural language commands powered by OpenAI:
 - Color: Blue
 - Size: 100x100 (rectangles/triangles), radius 50 (circles)
 
+### Manipulation Commands
+
+**Move Shapes:**
+- "Move the blue rectangle to 600, 200"
+- "Move the red circle to 300, 400"
+- "Move the text to 500, 100"
+
+**Rotate Shapes:**
+- "Rotate the blue rectangle 45 degrees"
+- "Rotate the red circle 90 degrees"
+- "Rotate the triangle 180 degrees"
+
+**Shape Identification:**
+
+The AI can identify shapes by:
+- **Color**: "the blue rectangle", "the red circle"
+- **Type**: "the rectangle", "the circle", "the text"
+- **Combination**: "the blue rectangle", "the green triangle"
+- **Recency**: When multiple shapes match, the most recently created shape is selected
+
+**Supported Colors:**
+- Primary: red, blue, green, yellow, orange, purple, pink
+- Variants: All CSS color names (e.g., dodgerblue, crimson, skyblue)
+- Hex codes: #FF0000, #0000FF, etc.
+
 ### How to Use
 
 1. Click the AI chat icon to open the panel
 2. Type natural language commands
-3. Shapes appear instantly on the canvas
+3. Shapes appear or update instantly on the canvas
+4. All changes sync in real-time to collaborators
 
 ## 🔄 Collaboration & Conflict Resolution
 

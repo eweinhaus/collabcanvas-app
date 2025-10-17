@@ -7,6 +7,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { normalizeColor } from '../utils/colorNormalizer';
 import { SHAPE_TYPES } from '../utils/shapes';
+import { identifyShape } from '../utils/shapeIdentification';
 
 // Canvas bounds for validation
 const CANVAS_BOUNDS = {
@@ -38,11 +39,12 @@ function validateCoordinates(x, y) {
  * @param {Object} deps - Dependencies
  * @param {Function} deps.addShape - Function to add a shape to the canvas
  * @param {Function} deps.addShapesBatch - Function to add multiple shapes at once
+ * @param {Function} deps.updateShape - Function to update a shape on the canvas
  * @param {Function} deps.getShapes - Function to get current canvas shapes
  * @param {Function} deps.getViewportCenter - Function to get the center of the user's viewport in canvas coordinates
  * @returns {Object} Tool executor functions
  */
-export function createAIToolExecutor({ addShape, addShapesBatch, getShapes, getViewportCenter }) {
+export function createAIToolExecutor({ addShape, addShapesBatch, updateShape, getShapes, getViewportCenter }) {
   /**
    * Execute createShape tool
    * @param {Object} args - Tool arguments from AI
@@ -258,9 +260,153 @@ export function createAIToolExecutor({ addShape, addShapesBatch, getShapes, getV
     }
   }
 
+  /**
+   * Execute moveShape tool
+   * Moves a shape to a new position using descriptor-based identification
+   * @param {Object} args - Tool arguments from AI
+   * @param {string} args.descriptor - Natural language descriptor (e.g., "blue rectangle", "red circle")
+   * @param {number} args.x - New X coordinate
+   * @param {number} args.y - New Y coordinate
+   * @returns {Promise<Object>} Result object { success: boolean, shapeId?: string, error?: string }
+   */
+  async function executeMoveShape(args) {
+    try {
+      // Validate required fields
+      if (!args.descriptor || typeof args.descriptor !== 'string') {
+        return { success: false, error: 'Missing required field: descriptor (string)' };
+      }
+
+      if (typeof args.x !== 'number' || typeof args.y !== 'number') {
+        return { success: false, error: 'Missing required fields: x and y coordinates (numbers)' };
+      }
+
+      // Get current shapes
+      const shapes = getShapes();
+
+      if (!shapes || shapes.length === 0) {
+        return { success: false, error: 'Canvas is empty - no shapes to move' };
+      }
+
+      // Identify the shape using natural language descriptor
+      let targetShape;
+      try {
+        targetShape = identifyShape(shapes, args.descriptor, { allowPartial: false });
+      } catch (error) {
+        return { 
+          success: false, 
+          error: `Could not find shape: ${error.message}`,
+        };
+      }
+
+      if (!targetShape) {
+        return { 
+          success: false, 
+          error: `No shape found matching "${args.descriptor}"`,
+        };
+      }
+
+      // Validate and clamp new coordinates
+      const coords = validateCoordinates(args.x, args.y);
+
+      // Update shape position
+      await updateShape(targetShape.id, { x: coords.x, y: coords.y });
+
+      return {
+        success: true,
+        shapeId: targetShape.id,
+        message: `Moved ${targetShape.type} to (${coords.x}, ${coords.y})`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to move shape: ${error.message}`,
+      };
+    }
+  }
+
+  /**
+   * Execute rotateShape tool
+   * Rotates a shape by a specified angle using descriptor-based identification
+   * @param {Object} args - Tool arguments from AI
+   * @param {string} args.descriptor - Natural language descriptor (e.g., "blue rectangle", "red circle")
+   * @param {number} args.rotation - Rotation angle in degrees (0-359)
+   * @returns {Promise<Object>} Result object { success: boolean, shapeId?: string, error?: string }
+   */
+  async function executeRotateShape(args) {
+    try {
+      // Validate required fields
+      if (!args.descriptor || typeof args.descriptor !== 'string') {
+        return { success: false, error: 'Missing required field: descriptor (string)' };
+      }
+
+      if (typeof args.rotation !== 'number') {
+        return { success: false, error: 'Missing required field: rotation (number in degrees)' };
+      }
+
+      // Validate rotation range (0-359 degrees)
+      if (args.rotation < 0 || args.rotation >= 360) {
+        return { 
+          success: false, 
+          error: 'Rotation must be between 0 and 359 degrees',
+        };
+      }
+
+      // Get current shapes
+      const shapes = getShapes();
+
+      if (!shapes || shapes.length === 0) {
+        return { success: false, error: 'Canvas is empty - no shapes to rotate' };
+      }
+
+      // Identify the shape using natural language descriptor
+      let targetShape;
+      try {
+        targetShape = identifyShape(shapes, args.descriptor, { allowPartial: false });
+      } catch (error) {
+        return { 
+          success: false, 
+          error: `Could not find shape: ${error.message}`,
+        };
+      }
+
+      if (!targetShape) {
+        return { 
+          success: false, 
+          error: `No shape found matching "${args.descriptor}"`,
+        };
+      }
+
+      // Check if shape type supports rotation
+      // Note: Circles don't visually rotate, but we'll allow it for consistency
+      const supportsRotation = [SHAPE_TYPES.RECT, SHAPE_TYPES.TRIANGLE, SHAPE_TYPES.TEXT, SHAPE_TYPES.CIRCLE];
+      if (!supportsRotation.includes(targetShape.type)) {
+        return {
+          success: false,
+          error: `Shape type ${targetShape.type} does not support rotation`,
+        };
+      }
+
+      // Update shape rotation
+      await updateShape(targetShape.id, { rotation: args.rotation });
+
+      return {
+        success: true,
+        shapeId: targetShape.id,
+        message: `Rotated ${targetShape.type} to ${args.rotation} degrees`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to rotate shape: ${error.message}`,
+      };
+    }
+  }
+
   return {
     executeCreateShape,
     executeGetCanvasState,
+    executeMoveShape,
+    executeRotateShape,
   };
 }
 

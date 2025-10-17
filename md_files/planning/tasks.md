@@ -551,7 +551,7 @@ boards/{boardId}/shapes/{shapeId}/comments/{commentId}
 - [x] **14.26** Test color extraction: verify specified colors always used - *Manual testing required*
 - [x] **14.27** Manual test: Multiple users using AI simultaneously - *Manual testing required*
 - [ ] **14.28** Measure response latency (target: <2s P95) - *Manual testing required*
-- [ ] **14.29** Document supported creation commands - *To be documented in readme.md*
+- [x] **14.29** Document supported creation commands - *To be documented in readme.md*
 
 **Files Created**: ✅
 - `src/utils/colorNormalizer.js` (NEW) - *348 lines, 140 CSS color keywords, hex/rgb/hsl conversion*
@@ -573,35 +573,35 @@ boards/{boardId}/shapes/{shapeId}/comments/{commentId}
 
 ### Tasks
 
-#### Shape Identification Utility (2-3 hours)
-- [ ] **15.1** Create `src/utils/shapeIdentification.js`
-- [ ] **15.2** Implement `identifyShape(shapes, descriptor)` function
-- [ ] **15.3** Support identification by color (match color families, not exact hex)
-- [ ] **15.4** Support identification by type (circle, rectangle, triangle, text)
-- [ ] **15.5** Support identification by color + type combination
-- [ ] **15.6** Implement recency bias (prefer most recent when ambiguous)
-- [ ] **15.7** Support "all X" matching (return array of all matches)
-- [ ] **15.8** Write unit tests for color family matching (blue → various blue shades)
-- [ ] **15.9** Write unit tests for descriptor combinations
+#### Shape Identification Utility (2-3 hours) ✅ COMPLETE
+- [x] **15.1** Create `src/utils/shapeIdentification.js`
+- [x] **15.2** Implement `identifyShape(shapes, descriptor)` function
+- [x] **15.3** Support identification by color (match color families, not exact hex)
+- [x] **15.4** Support identification by type (circle, rectangle, triangle, text)
+- [x] **15.5** Support identification by color + type combination
+- [x] **15.6** Implement recency bias (prefer most recent when ambiguous)
+- [x] **15.7** Support "all X" matching (return array of all matches)
+- [x] **15.8** Write unit tests for color family matching (blue → various blue shades)
+- [x] **15.9** Write unit tests for descriptor combinations
 
-#### Tool Executors (1-2 hours - REDUCED SCOPE)
-- [ ] **15.10** Implement `executeMoveShape(args, canvasActions, canvasState)` (Command 4)
-- [ ] **15.13** Implement `executeRotateShape(args, canvasActions, canvasState)` (Command 6)
-- [ ] **15.14** Support descriptor-based identification (no ID required)
-- [ ] **15.16** Validate rotation range (0-359 degrees)
+#### Tool Executors (1-2 hours - REDUCED SCOPE) ✅ COMPLETE
+- [x] **15.10** Implement `executeMoveShape(args, canvasActions, canvasState)` (Command 4)
+- [x] **15.13** Implement `executeRotateShape(args, canvasActions, canvasState)` (Command 6)
+- [x] **15.14** Support descriptor-based identification (no ID required)
+- [x] **15.16** Validate rotation range (0-359 degrees)
 - ~~[ ] **15.11** Implement `executeUpdateShapeColor`~~ (NOT IMPLEMENTED - color change not in scope)
 - ~~[ ] **15.12** Implement `executeDeleteShape`~~ (NOT IMPLEMENTED - delete not in scope)
 - ~~[ ] **15.15** Handle "all X" commands~~ (NOT IMPLEMENTED - "all X" not in scope)
 
 #### Testing (1-2 hours - REDUCED SCOPE)
-- [ ] **15.17** Write unit tests for moveShape and rotateShape executors
-- [ ] **15.18** Write integration test: descriptor → shape identification → execution
-- [ ] **15.19** Test: "Move the blue rectangle to 600, 200" (Command 4)
-- [ ] **15.20** Test: "Rotate the blue rectangle 45 degrees" (Command 6)
-- [ ] **15.26** Test ambiguous: "Move the rectangle" (multiple exist) → most recent
-- [ ] **15.28** Manual test: Multiple users using manipulation commands
-- [ ] **15.29** Measure response latency (target: <2s P95)
-- [ ] **15.30** Document 2 supported manipulation commands
+- [x] **15.17** Write unit tests for moveShape and rotateShape executors
+- [x] **15.18** Write integration test: descriptor → shape identification → execution
+- [x] **15.19** Test: "Move the blue rectangle to 600, 200" (Command 4)
+- [x] **15.20** Test: "Rotate the blue rectangle 45 degrees" (Command 6)
+- [x] **15.26** Test ambiguous: "Move the rectangle" (multiple exist) → most recent
+- [x] **15.28** Manual test: Multiple users using manipulation commands
+- [ ] **15.29** Measure response latency (target: <2s P95) - MANUAL TEST PENDING
+- [x] **15.30** Document the supported manipulation commands
 - ~~[ ] **15.21** Test: "Change the red square to green"~~ (NOT IN SCOPE)
 - ~~[ ] **15.22** Test: "Delete the blue triangle"~~ (NOT IN SCOPE)
 - ~~[ ] **15.23** Test: "Delete all circles"~~ (NOT IN SCOPE)

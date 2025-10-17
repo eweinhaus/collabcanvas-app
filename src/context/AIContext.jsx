@@ -131,6 +131,7 @@ export const AIProvider = ({ children }) => {
     const executor = createAIToolExecutor({
       addShape: canvas.firestoreActions.addShape,
       addShapesBatch: canvas.firestoreActions.addShapesBatch,
+      updateShape: canvas.firestoreActions.updateShape,
       getShapes: () => canvas.state.shapes,
       getViewportCenter: () => {
         const { scale, position, stageSize } = canvas.state;
@@ -154,6 +155,10 @@ export const AIProvider = ({ children }) => {
           result = await executor.executeCreateShape(args);
         } else if (name === 'getCanvasState') {
           result = executor.executeGetCanvasState();
+        } else if (name === 'moveShape') {
+          result = await executor.executeMoveShape(args);
+        } else if (name === 'rotateShape') {
+          result = await executor.executeRotateShape(args);
         } else {
           result = { success: false, error: `Unknown tool: ${name}` };
         }
@@ -173,6 +178,10 @@ export const AIProvider = ({ children }) => {
       if (success && result.success) {
         if (name === 'createShape') {
           toast.success(result.message || 'Shape created successfully');
+        } else if (name === 'moveShape') {
+          toast.success(result.message || 'Shape moved successfully');
+        } else if (name === 'rotateShape') {
+          toast.success(result.message || 'Shape rotated successfully');
         } else if (name === 'getCanvasState') {
           // Silent success for read operations
           console.log('Canvas state retrieved:', result);
@@ -284,6 +293,10 @@ export const AIProvider = ({ children }) => {
             let summary = '';
             if (toolNames.includes('createShape')) {
               summary = '✓ Shape created successfully!';
+            } else if (toolNames.includes('moveShape')) {
+              summary = '✓ Shape moved successfully!';
+            } else if (toolNames.includes('rotateShape')) {
+              summary = '✓ Shape rotated successfully!';
             } else if (toolNames.includes('getCanvasState')) {
               summary = '✓ Retrieved canvas state.';
             }

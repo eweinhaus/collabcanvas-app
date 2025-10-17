@@ -77,9 +77,9 @@ export function setupPerformanceTesting() {
       return { avg, p50, p95, p99, latencies };
     };
     
-    console.log('🧪 Performance testing loaded!');
-    console.log('  Run: window.testAILatency("Create a red circle")');
-    console.log('  Or:  window.benchmarkAI(10) for multiple trials');
+    //console.log('🧪 Performance testing loaded!');
+    //console.log('  Run: window.testAILatency("Create a red circle")');
+    //console.log('  Or:  window.benchmarkAI(10) for multiple trials');
   }
 }
 
