@@ -10,7 +10,6 @@ import {
   deleteComment,
   subscribeToComments,
 } from '../services/commentService';
-import toast from 'react-hot-toast';
 
 const CommentsContext = createContext(null);
 
@@ -159,7 +158,6 @@ export function CommentsProvider({ children, boardId = DEFAULT_BOARD_ID }) {
   const addComment = useCallback(async (shapeId, text) => {
     try {
       await createComment(shapeId, text, boardId);
-      toast.success('Comment added');
       return true;
     } catch (error) {
       console.error('[CommentsContext] Error adding comment:', error);
@@ -172,7 +170,6 @@ export function CommentsProvider({ children, boardId = DEFAULT_BOARD_ID }) {
   const editComment = useCallback(async (shapeId, commentId, text) => {
     try {
       await updateComment(shapeId, commentId, text, boardId);
-      toast.success('Comment updated');
       return true;
     } catch (error) {
       console.error('[CommentsContext] Error updating comment:', error);
@@ -184,7 +181,6 @@ export function CommentsProvider({ children, boardId = DEFAULT_BOARD_ID }) {
   const removeComment = useCallback(async (shapeId, commentId) => {
     try {
       await deleteComment(shapeId, commentId, boardId);
-      toast.success('Comment deleted');
       return true;
     } catch (error) {
       console.error('[CommentsContext] Error deleting comment:', error);

@@ -67,8 +67,13 @@ function CommentInput({
   };
 
   const handleKeyDown = (e) => {
-    // Submit on Cmd/Ctrl+Enter
+    // Allow new line on Cmd/Ctrl+Enter
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      // Allow default behavior (new line)
+      return;
+    }
+    // Submit on Enter (without modifier keys)
+    if (e.key === 'Enter') {
       e.preventDefault();
       handleSubmit(e);
     }

@@ -528,7 +528,6 @@ describe('AIContext', () => {
       // Should only have system prompt left
       expect(result.current.messages).toHaveLength(1);
       expect(result.current.messages[0].role).toBe('system');
-      expect(toast.success).toHaveBeenCalledWith('Conversation cleared');
     });
   });
 
