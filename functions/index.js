@@ -202,20 +202,28 @@ exports.openaiChat = onRequest(
         });
 
         // 6. Extract request parameters
-        const {messages, tools, tool_choice} = req.body;
+        const {messages, tools, tool_choice, model} = req.body;
 
-        // 7. Call OpenAI API
+        // 7. Validate and select model (whitelist for security)
+        const allowedModels = ["gpt-3.5-turbo", "gpt-4o-mini", "gpt-4o"];
+        const selectedModel = allowedModels.includes(model)
+          ? model
+          : "gpt-4o-mini"; // Default to gpt-4o-mini for safety
+
+        logger.info(`Using model: ${selectedModel}`);
+
+        // 8. Call OpenAI API
         logger.info("Calling OpenAI API...");
         const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini", // Fast model for tool calls (was: gpt-4 in prod)
+          model: selectedModel, // Use client-selected model
           messages: messages,
           tools: tools || undefined,
           tool_choice: tool_choice || undefined,
           temperature: 0.1, // Lower for deterministic tool calls (was: 0.3)
-          max_tokens: 500, // Sufficient for tool calls (was: 1000)
+          max_tokens: 310, // Sufficient for tool calls (was: 1000)
         });
 
-        // 8. Extract and return response in format expected by frontend
+        // 9. Extract and return response in format expected by frontend
         logger.info("OpenAI API call successful");
         res.json({
           choices: [{

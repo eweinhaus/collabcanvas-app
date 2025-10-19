@@ -14,7 +14,7 @@ export const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'createShape',
-      description: 'Create a new shape on the canvas. Shapes will be visible to all users immediately.',
+      description: 'Create a new shape on the canvas. Shapes will be visible to all users immediately. IMPORTANT: If user does not specify position, OMIT x and y parameters - the shape will be created at the center of the user\'s current viewport (what they see on screen).',
       parameters: {
         type: 'object',
         properties: {
@@ -25,11 +25,11 @@ export const AI_TOOLS = [
           },
           x: {
             type: 'number',
-            description: 'X coordinate (0-1920, canvas width)',
+            description: 'X coordinate (0-1920, canvas width). OPTIONAL: Omit if user does not specify position - shape will be created at viewport center.',
           },
           y: {
             type: 'number',
-            description: 'Y coordinate (0-1080, canvas height)',
+            description: 'Y coordinate (0-1080, canvas height). OPTIONAL: Omit if user does not specify position - shape will be created at viewport center.',
           },
           fill: {
             type: 'string',
@@ -52,7 +52,7 @@ export const AI_TOOLS = [
             description: 'Text content (for text shapes)',
           },
         },
-        required: ['shapeType', 'x', 'y', 'fill'],
+        required: ['shapeType', 'fill'],
       },
     },
   },
