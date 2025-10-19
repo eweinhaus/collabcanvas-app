@@ -6,7 +6,6 @@
 import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { Stage, Layer, Transformer } from 'react-konva';
 import { useCanvas, useCanvasActions } from '../../context/CanvasContext';
-import { useComments } from '../../context/CommentsContext';
 import { useAuth } from '../../context/AuthContext';
 import { isFirebaseReady, waitForFirebase } from '../../services/firebase';
 import { calculateNewScale, calculateZoomPosition } from '../../utils/canvas';
@@ -26,8 +25,6 @@ import SelectionBox from './SelectionBox';
 import ShapeContextMenu from './ShapeContextMenu';
 import ShapeTooltip from './ShapeTooltip';
 import AlignmentToolbar from './AlignmentToolbar';
-import CommentIndicator from '../collaboration/CommentIndicator';
-import CommentThread from '../collaboration/CommentThread';
 import {
   alignLeft,
   alignCenter,
@@ -40,10 +37,23 @@ import {
 } from '../../utils/alignment';
 import './Canvas.css';
 
+/**
+ * Helper function to get the center point of any shape
+ * @param {Object} shape - Shape object with type and dimensions
+ * @returns {Object} - { centerX, centerY }
+ */
+const getShapeCenter = (shape) => {
+  // All shapes store their center coordinates in x,y properties
+  // This is already the center point for positioning indicators
+  return {
+    centerX: shape.x,
+    centerY: shape.y
+  };
+};
+
 const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenShortcuts }) => {
   const { state, firestoreActions, commandActions, stageRef, setIsExportingRef, drag, transform } = useCanvas();
   const { user } = useAuth();
-  const { openThread, getCommentCount, subscribeToShape } = useComments();
   const transformerRef = useRef(null);
   const shapeRefsRef = useRef({});
   const actions = useCanvasActions();
@@ -103,65 +113,6 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
 
   // Presence subscription lifecycle tied to Canvas mount
   useRealtimePresence({ boardId });
-
-  // Subscribe to comments for all shapes to enable real-time badge updates
-  // Only subscribe when user is authenticated and Firebase is ready to prevent errors
-  useEffect(() => {
-    if (!user) {
-      console.log('[Canvas] Skipping comment subscriptions - user not authenticated');
-      return;
-    }
-
-    if (!shapes.length) {
-      console.log('[Canvas] No shapes to subscribe to comments');
-      return;
-    }
-
-    // Wait for Firebase to be fully ready before subscribing
-    const initializeCommentSubscriptions = async () => {
-      try {
-        // First check if Firebase is already ready
-        if (isFirebaseReady()) {
-          console.log('[Canvas] Firebase is ready, subscribing to comments immediately');
-        } else {
-          console.log('[Canvas] Waiting for Firebase to be ready...');
-          await waitForFirebase(3000); // Wait up to 3 seconds
-          console.log('[Canvas] Firebase is now ready');
-        }
-
-        // Additional delay for production reliability
-        setTimeout(() => {
-          console.log(`[Canvas] Subscribing to comments for ${shapes.length} shapes`);
-          shapes.forEach(shape => {
-            try {
-              subscribeToShape(shape.id);
-            } catch (error) {
-              console.error(`[Canvas] Error subscribing to comments for shape ${shape.id}:`, error);
-            }
-          });
-        }, 100);
-
-      } catch (error) {
-        console.error('[Canvas] Failed to initialize Firebase for comment subscriptions:', error);
-        // Still try to subscribe after a longer delay as fallback
-        setTimeout(() => {
-          console.log('[Canvas] Fallback: subscribing to comments after Firebase timeout');
-          shapes.forEach(shape => {
-            try {
-              subscribeToShape(shape.id);
-            } catch (subscribeError) {
-              console.error(`[Canvas] Error subscribing to comments for shape ${shape.id}:`, subscribeError);
-            }
-          });
-        }, 1000);
-      }
-    };
-
-    // Start initialization after a short delay to ensure everything is loaded
-    const timer = setTimeout(initializeCommentSubscriptions, 200);
-
-    return () => clearTimeout(timer);
-  }, [shapes, subscribeToShape, user]);
 
   // Update transformer when selection changes
   useEffect(() => {
@@ -624,11 +575,10 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
 
       // Transform to screen coordinates
       const stage = stageRef.current;
-      const scale = stage.scaleX();
+      const stageScale = stage.scaleX();
       const stagePos = stage.position();
-      
-      const screenX = minX * scale + stagePos.x;
-      const screenY = minY * scale + stagePos.y - 50; // Position above selection
+      const screenX = minX * stageScale + stagePos.x;
+      const screenY = minY * stageScale + stagePos.y - 50; // Position above selection
 
       setAlignmentToolbarPos({ x: screenX, y: Math.max(70, screenY) });
     } else {
@@ -867,15 +817,6 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
         }
       }
       
-      // Open comments with Cmd/Ctrl + Shift + C
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
-        e.preventDefault();
-        if (selectedIds.length > 0) {
-          openThread(selectedIds[0]);
-        }
-        return;
-      }
-      
       // H key to activate pan mode
       if ((e.key === 'H' || e.key === 'h') && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
         e.preventDefault();
@@ -894,7 +835,7 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIds, shapes, clipboard, actions, editingTextId, firestoreActions, commandActions, stageRef, sortedShapes, openThread, handleAlign]);
+  }, [selectedIds, shapes, clipboard, actions, editingTextId, firestoreActions, commandActions, stageRef, sortedShapes, handleAlign]);
 
   return (
     <div className={`canvas-container ${currentTool === 'pan' ? 'panning' : ''} ${currentTool && currentTool !== 'pan' ? 'tool-active' : ''}`}>
@@ -1109,29 +1050,22 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
         
         {/* Tooltips layer - renders on top of everything */}
         <Layer listening={false}>
+          {/* Tooltips - only visible on hover */}
           {sortedShapes.map((shape) => {
             if (!hoveredShapes[shape.id]) return null;
 
-            const stage = stageRef.current;
-            if (!stage) return null;
+            // Calculate CENTER position of shape (already in canvas coordinates)
+            const { centerX, centerY } = getShapeCenter(shape);
 
-            // Convert canvas coordinates to screen coordinates manually
-            const stageBox = stage.container().getBoundingClientRect();
-            const stageScale = stage.scaleX();
-            const stagePos = stage.position();
-            
-            const canvasX = shape.x + (shape.width || shape.radius || 50) / 2;
-            const canvasY = shape.y;
-            
-            const screenX = canvasX * stageScale + stagePos.x;
-            const screenY = canvasY * stageScale + stagePos.y;
+            // For text shapes, position tooltip slightly higher
+            const tooltipY = shape.type === 'text' ? centerY - 20 : centerY;
 
             return (
               <ShapeTooltip
                 key={`tooltip-${shape.id}`}
                 shape={shape}
-                x={stageBox.left + screenX}
-                y={stageBox.top + screenY}
+                x={centerX}
+                y={tooltipY}
                 onlineUsers={onlineUsers}
               />
             );
@@ -1170,7 +1104,6 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={() => setContextMenu({ visible: false, x: 0, y: 0, shapeId: null })}
-          onComment={() => openThread(contextMenu.shapeId)}
           onBringToFront={() => {
             const command = new BringToFrontCommand(contextMenu.shapeId, sortedShapes, firestoreActions);
             commandActions.executeCommand(command);
@@ -1198,55 +1131,6 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
           position={alignmentToolbarPos}
         />
       )}
-      
-      {/* Comment indicators */}
-      {!isExporting && sortedShapes.map(shape => {
-        const stage = stageRef.current;
-        if (!stage) return null;
-
-        const count = getCommentCount(shape.id);
-        if (!count) return null;
-        
-        // Calculate top-right corner position based on shape type
-        let shapeRight;
-        let shapeTop;
-
-        if (shape.type === 'circle') {
-          shapeRight = shape.x + (shape.radius || 50);
-          shapeTop = shape.y - (shape.radius || 50);
-        } else {
-          shapeRight = shape.x + (shape.width || 100);
-          shapeTop = shape.y;
-        }
-
-        // Convert canvas coordinates to screen coordinates
-        // Use explicit scale and position to avoid any transform drift
-        const stageBox = stage.container().getBoundingClientRect();
-        const stageScale = stage.scaleX(); // Assuming uniform scale
-        const stagePos = stage.position();
-        
-        // Apply scale and position transform manually
-        const screenX = shapeRight * stageScale + stagePos.x;
-        const screenY = shapeTop * stageScale + stagePos.y;
-        
-        // Add constant screen-space offsets
-        const offsetX = -8;
-        const offsetY = -8;
-        const x = stageBox.left + screenX + offsetX;
-        const y = stageBox.top + screenY + offsetY;
-        
-        return (
-          <CommentIndicator
-            key={`comment-${shape.id}`}
-            count={count}
-            position={{ x, y }}
-            onClick={() => openThread(shape.id)}
-          />
-        );
-      })}
-      
-      {/* Comment thread panel */}
-      <CommentThread />
     </div>
   );
 };

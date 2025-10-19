@@ -1,14 +1,12 @@
 /**
- * Firestore service for collaborative comments on shapes
- * Path: boards/{boardId}/shapes/{shapeId}/comments/{commentId}
+ * Firestore service for board-level collaborative comments
+ * Path: boards/{boardId}/comments/{commentId}
  */
 
 import {
   collection,
   doc,
   addDoc,
-  getDoc,
-  getDocs,
   updateDoc,
   deleteDoc,
   onSnapshot,
@@ -25,11 +23,11 @@ const DEFAULT_BOARD_ID = 'default';
 const MAX_COMMENT_LENGTH = 500;
 
 // Collection/doc refs
-const commentsCollectionRef = (shapeId, boardId = DEFAULT_BOARD_ID) =>
-  collection(firestore, 'boards', boardId, 'shapes', shapeId, 'comments');
+const commentsCollectionRef = (boardId = DEFAULT_BOARD_ID) =>
+  collection(firestore, 'boards', boardId, 'comments');
 
-const commentDocRef = (shapeId, commentId, boardId = DEFAULT_BOARD_ID) =>
-  doc(firestore, 'boards', boardId, 'shapes', shapeId, 'comments', commentId);
+const commentDocRef = (commentId, boardId = DEFAULT_BOARD_ID) =>
+  doc(firestore, 'boards', boardId, 'comments', commentId);
 
 // Mapping helpers: local comment <-> firestore doc
 const toFirestoreDoc = (text) => {
@@ -67,7 +65,6 @@ const toFirestoreDoc = (text) => {
     authorEmail: currentUser.email || '',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    edited: false,
   };
   
   logger.debug('commentService: Creating comment with auth:', {
@@ -92,7 +89,6 @@ const fromFirestoreDoc = (docSnap) => {
     authorEmail,
     createdAt, 
     updatedAt,
-    edited = false,
   } = data;
 
   return {
@@ -103,49 +99,20 @@ const fromFirestoreDoc = (docSnap) => {
     authorEmail: authorEmail ?? '',
     createdAt: createdAt?.toMillis?.() ?? null,
     updatedAt: updatedAt?.toMillis?.() ?? null,
-    edited,
   };
-};
-
-// Verify current user is the author of a comment
-const verifyAuthor = async (shapeId, commentId, boardId = DEFAULT_BOARD_ID) => {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error('User must be authenticated');
-  }
-
-  const ref = commentDocRef(shapeId, commentId, boardId);
-  const snap = await getDoc(ref);
-  
-  if (!snap.exists()) {
-    throw new Error('Comment not found');
-  }
-
-  const comment = snap.data();
-  if (comment.authorId !== currentUser.uid) {
-    toast.error('You can only edit or delete your own comments');
-    throw new Error('Unauthorized: You can only modify your own comments');
-  }
-
-  return true;
 };
 
 // CRUD operations
 
 /**
- * Create a new comment on a shape
- * @param {string} shapeId - The shape ID to comment on
+ * Create a new comment on the board
  * @param {string} text - The comment text (max 500 chars)
  * @param {string} boardId - The board ID
  * @returns {Promise<{id: string}>} The created comment ID
  */
-export async function createComment(shapeId, text, boardId = DEFAULT_BOARD_ID) {
+export async function createComment(text, boardId = DEFAULT_BOARD_ID) {
   try {
-    if (!shapeId) {
-      throw new Error('shapeId is required');
-    }
-
-    const collectionRef = commentsCollectionRef(shapeId, boardId);
+    const collectionRef = commentsCollectionRef(boardId);
     const payload = toFirestoreDoc(text);
     const docRef = await addDoc(collectionRef, payload);
     
@@ -171,17 +138,16 @@ export async function createComment(shapeId, text, boardId = DEFAULT_BOARD_ID) {
 }
 
 /**
- * Update an existing comment (author only)
- * @param {string} shapeId - The shape ID
+ * Update an existing comment
  * @param {string} commentId - The comment ID to update
  * @param {string} text - The new comment text
  * @param {string} boardId - The board ID
  * @returns {Promise<{id: string}>}
  */
-export async function updateComment(shapeId, commentId, text, boardId = DEFAULT_BOARD_ID) {
+export async function updateComment(commentId, text, boardId = DEFAULT_BOARD_ID) {
   try {
-    if (!shapeId || !commentId) {
-      throw new Error('shapeId and commentId are required');
+    if (!commentId) {
+      throw new Error('commentId is required');
     }
 
     // Validate text
@@ -195,11 +161,10 @@ export async function updateComment(shapeId, commentId, text, boardId = DEFAULT_
       throw new Error(`Comment text exceeds maximum length of ${MAX_COMMENT_LENGTH}`);
     }
 
-    const ref = commentDocRef(shapeId, commentId, boardId);
+    const ref = commentDocRef(commentId, boardId);
     const updatePayload = {
       text: text.trim(),
       updatedAt: serverTimestamp(),
-      edited: true,
     };
 
     await updateDoc(ref, updatePayload);
@@ -219,19 +184,18 @@ export async function updateComment(shapeId, commentId, text, boardId = DEFAULT_
 }
 
 /**
- * Delete a comment (author only)
- * @param {string} shapeId - The shape ID
+ * Delete a comment
  * @param {string} commentId - The comment ID to delete
  * @param {string} boardId - The board ID
  * @returns {Promise<{id: string}>}
  */
-export async function deleteComment(shapeId, commentId, boardId = DEFAULT_BOARD_ID) {
+export async function deleteComment(commentId, boardId = DEFAULT_BOARD_ID) {
   try {
-    if (!shapeId || !commentId) {
-      throw new Error('shapeId and commentId are required');
+    if (!commentId) {
+      throw new Error('commentId is required');
     }
 
-    const ref = commentDocRef(shapeId, commentId, boardId);
+    const ref = commentDocRef(commentId, boardId);
     await deleteDoc(ref);
     
     logger.debug('commentService: Comment deleted successfully:', commentId);
@@ -249,54 +213,13 @@ export async function deleteComment(shapeId, commentId, boardId = DEFAULT_BOARD_
 }
 
 /**
- * Get all comments for a shape (one-time fetch)
- * @param {string} shapeId - The shape ID
- * @param {string} boardId - The board ID
- * @returns {Promise<Array>} Array of comments sorted by creation time (oldest first)
- */
-export async function getComments(shapeId, boardId = DEFAULT_BOARD_ID) {
-  try {
-    if (!shapeId) {
-      throw new Error('shapeId is required');
-    }
-
-    const q = query(
-      commentsCollectionRef(shapeId, boardId),
-      orderBy('createdAt', 'asc')
-    );
-    
-    const snapshot = await getDocs(q);
-    const comments = [];
-    
-    snapshot.forEach((docSnap) => {
-      const comment = fromFirestoreDoc(docSnap);
-      if (comment) {
-        comments.push(comment);
-      }
-    });
-    
-    logger.debug(`commentService: Fetched ${comments.length} comments for shape ${shapeId}`);
-    return comments;
-  } catch (error) {
-    logger.error('commentService: Error fetching comments:', error);
-    toast.error('Failed to load comments. Please try again.');
-    throw error;
-  }
-}
-
-/**
- * Subscribe to real-time updates for comments on a shape
- * @param {string} shapeId - The shape ID
+ * Subscribe to real-time updates for board comments
  * @param {string} boardId - The board ID
  * @param {Function} callback - Callback function called with {type: 'added'|'modified'|'removed', comment}
  * @param {Function} onReady - Optional callback called when subscription is ready (even if 0 comments)
  * @returns {Function} Unsubscribe function
  */
-export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callback, onReady) {
-  if (!shapeId) {
-    throw new Error('shapeId is required');
-  }
-
+export function subscribeToComments(boardId = DEFAULT_BOARD_ID, callback, onReady) {
   if (typeof callback !== 'function') {
     throw new Error('callback must be a function');
   }
@@ -305,7 +228,6 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
   const currentUser = auth.currentUser;
   if (!currentUser) {
     logger.warn('commentService: Cannot subscribe - user not authenticated', {
-      shapeId,
       boardId,
       hasAuth: !!auth.currentUser,
       timestamp: new Date().toISOString()
@@ -318,15 +240,14 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
     return () => {};
   }
 
-  logger.debug(`commentService: Subscribing to comments for shape ${shapeId}`, {
-    shapeId,
+  logger.debug(`commentService: Subscribing to comments for board ${boardId}`, {
     boardId,
     userId: currentUser.uid,
     timestamp: new Date().toISOString()
   });
 
   const q = query(
-    commentsCollectionRef(shapeId, boardId),
+    commentsCollectionRef(boardId),
     orderBy('createdAt', 'asc')
   );
 
@@ -339,18 +260,26 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
     q,
     (snapshot) => {
       try {
-        logger.debug(`commentService: Received snapshot for shape ${shapeId}`, {
-          shapeId,
+        console.log(`[commentService] Received snapshot for board ${boardId}`, {
+          changesCount: snapshot.docChanges().length,
+          isFirstSnapshot,
+        });
+        
+        logger.debug(`commentService: Received snapshot for board ${boardId}`, {
+          boardId,
           changesCount: snapshot.docChanges().length,
           isFirstSnapshot,
           timestamp: new Date().toISOString()
         });
 
         snapshot.docChanges().forEach((change) => {
+          console.log('[commentService] Processing change:', change.type, change.doc.id);
           const comment = fromFirestoreDoc(change.doc);
+          console.log('[commentService] Parsed comment:', comment);
           if (!comment) return;
 
           if (change.type === 'added') {
+            console.log('[commentService] Calling callback with added comment');
             callback({ type: 'added', comment });
           } else if (change.type === 'modified') {
             callback({ type: 'modified', comment });
@@ -361,6 +290,7 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
 
         // Call onReady after first snapshot (even if empty)
         if (isFirstSnapshot && onReady) {
+          console.log('[commentService] Calling onReady');
           isFirstSnapshot = false;
           onReady();
         }
@@ -368,6 +298,7 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
         // Reset retry count on successful snapshot
         retryCount = 0;
       } catch (snapshotError) {
+        console.error('[commentService] Error processing snapshot:', snapshotError);
         logger.error('commentService: Error processing snapshot:', snapshotError);
       }
     },
@@ -375,7 +306,6 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
       retryCount++;
 
       logger.error('commentService: Error in comment subscription:', error, {
-        shapeId,
         boardId,
         retryCount,
         maxRetries,
@@ -415,9 +345,7 @@ export function subscribeToComments(shapeId, boardId = DEFAULT_BOARD_ID, callbac
 export const __testables = {
   toFirestoreDoc,
   fromFirestoreDoc,
-  verifyAuthor,
   commentDocRef,
   commentsCollectionRef,
   MAX_COMMENT_LENGTH,
 };
-

@@ -36,12 +36,18 @@ const ShapeTooltip = ({ shape, x, y, onlineUsers = [] }) => {
   }
 
   return (
-    <Label x={x} y={y - 10} opacity={0.9} listening={false}>
+    <Label
+      x={x}
+      y={y - 20}  // Position slightly above the center point
+      offsetX={0}
+      offsetY={0}
+      opacity={0.9}
+      listening={false}
+    >
       <Tag
         fill="#333"
-        pointerDirection="down"
-        pointerWidth={8}
-        pointerHeight={6}
+        pointerDirection="none"
+        cornerRadius={4}
         lineJoin="round"
         shadowColor="black"
         shadowBlur={5}
@@ -55,6 +61,7 @@ const ShapeTooltip = ({ shape, x, y, onlineUsers = [] }) => {
         padding={8}
         fill="white"
         fontFamily="Arial"
+        align="center"
       />
     </Label>
   );

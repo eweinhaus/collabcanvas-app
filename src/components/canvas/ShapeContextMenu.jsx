@@ -6,7 +6,7 @@
 import { useEffect } from 'react';
 import './ShapeContextMenu.css';
 
-const ShapeContextMenu = ({ x, y, onClose, onBringToFront, onSendToBack, onBringForward, onSendBackward, onComment }) => {
+const ShapeContextMenu = ({ x, y, onClose, onBringToFront, onSendToBack, onBringForward, onSendBackward }) => {
   // Close menu when clicking outside or pressing Escape
   useEffect(() => {
     const handleClick = () => onClose();
@@ -35,18 +35,6 @@ const ShapeContextMenu = ({ x, y, onClose, onBringToFront, onSendToBack, onBring
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >
-      {onComment && (
-        <div className="menu-section">
-          <button 
-            className="menu-item"
-            onClick={(e) => handleMenuClick(e, onComment)}
-          >
-            <span className="menu-icon">💬</span>
-            Add Comment
-            <span className="menu-shortcut">Ctrl+Shift+C</span>
-          </button>
-        </div>
-      )}
       <div className="menu-section">
         <div className="menu-section-label">Layer Order</div>
         <button 
