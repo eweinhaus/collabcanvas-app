@@ -58,6 +58,7 @@ async function getIdToken() {
  * @param {Object} [options] - Optional configuration
  * @param {Array} [options.tools] - Tool definitions for function calling
  * @param {string} [options.toolChoice] - Tool choice strategy ('auto', 'none', etc.)
+ * @param {string} [options.model] - Model to use ('gpt-3.5-turbo', 'gpt-4o-mini', etc.)
  * @param {AbortSignal} [options.abortSignal] - Optional abort signal for cancellation
  * @returns {Promise<Object>} Response from OpenAI
  */
@@ -66,12 +67,15 @@ export async function postChat(messages, options = {}) {
     throw new OpenAIError('Messages array is required', 'INVALID_INPUT', 400);
   }
 
-  const { tools, toolChoice, abortSignal } = options;
+  const { tools, toolChoice, model, abortSignal } = options;
   const functionUrl = getFunctionUrl();
   
   try {
     // Get fresh ID token
+    const tokenStartTime = performance.now();
     const idToken = await getIdToken();
+    const tokenEndTime = performance.now();
+    console.log(`🔐 [OpenAI Service] Got auth token (${Math.round(tokenEndTime - tokenStartTime)}ms)`);
 
     // Prepare request
     const requestBody = {
@@ -85,9 +89,14 @@ export async function postChat(messages, options = {}) {
       // Include tools if provided
       ...(tools && { tools }),
       ...(toolChoice && { tool_choice: toolChoice }),
+      // Include model selection
+      ...(model && { model }),
     };
 
     // Make request to Cloud Function
+    const fetchStartTime = performance.now();
+    console.log(`🌐 [OpenAI Service] Sending ${JSON.stringify(requestBody).length} bytes to Cloud Function`);
+    
     const response = await fetch(functionUrl, {
       method: 'POST',
       headers: {
@@ -97,6 +106,9 @@ export async function postChat(messages, options = {}) {
       body: JSON.stringify(requestBody),
       signal: abortSignal,
     });
+    
+    const fetchEndTime = performance.now();
+    console.log(`🌐 [OpenAI Service] Received response (${Math.round(fetchEndTime - fetchStartTime)}ms network time)`);
 
     // Handle various HTTP status codes
     if (!response.ok) {
@@ -134,7 +146,11 @@ export async function postChat(messages, options = {}) {
     }
 
     // Parse successful response
+    const parseStartTime = performance.now();
     const data = await response.json();
+    const parseEndTime = performance.now();
+    console.log(`📄 [OpenAI Service] Parsed response (${Math.round(parseEndTime - parseStartTime)}ms)`);
+    
     return data;
 
   } catch (error) {

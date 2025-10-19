@@ -11,6 +11,7 @@ import { getInitialMessages, createUserMessage, createAssistantMessage, createTo
 import { getToolDefinitions } from '../services/aiTools';
 import { createAIToolExecutor } from '../services/aiToolExecutor';
 import { setupPerformanceTesting } from '../utils/performanceTest';
+import { classifyAndPreprocess } from '../utils/commandClassifier';
 import toast from 'react-hot-toast';
 
 const AIContext = createContext(null);
@@ -227,13 +228,40 @@ export const AIProvider = ({ children }) => {
     // Create new abort controller
     abortControllerRef.current = new AbortController();
 
-    // Add user message to chat
-    const userMessage = createUserMessage(content.trim());
-    setMessages(prev => [...prev, userMessage]);
-
     setLoading(true);
 
+    // Start latency tracking
+    const startTime = performance.now();
+    console.log('🚀 [AI] Starting request at', new Date().toISOString());
+
     try {
+      // Preprocess and classify command for model routing
+      const canvasContext = {
+        shapes: canvas.state.shapes,
+        scale: canvas.state.scale,
+        position: canvas.state.position,
+        stageSize: canvas.state.stageSize,
+      };
+      
+      const classification = classifyAndPreprocess(content.trim(), canvasContext);
+      
+      // Show warning if preprocessing detected issues
+      if (classification.warning) {
+        console.warn(`⚠️ [AI] ${classification.warning}`);
+      }
+      
+      // Use preprocessed command (with calculated values injected)
+      const commandToSend = classification.preprocessed;
+      
+      // Add user message to chat (show original input to user, but send preprocessed to AI)
+      const userMessage = createUserMessage(content.trim());
+      setMessages(prev => [...prev, userMessage]);
+      
+      // Create message with preprocessed command for API
+      const apiUserMessage = classification.needsPreprocessing 
+        ? createUserMessage(commandToSend)
+        : userMessage;
+      
       // Prepare messages for API (include system prompt)
       const systemPrompt = getInitialMessages(user)[0];
       
@@ -242,7 +270,7 @@ export const AIProvider = ({ children }) => {
       // Strip out tool_calls from assistant messages (already executed)
       const recentMessages = messages
         .filter(m => m.role === 'user' || m.role === 'assistant')
-        .slice(-8) // Keep last 8 user/assistant messages (optimized for speed)
+        .slice(-4) // Keep last 4 user/assistant messages (optimized for speed)
         .map(m => {
           // Remove tool_calls from assistant messages (already processed)
           if (m.role === 'assistant' && m.tool_calls) {
@@ -255,15 +283,24 @@ export const AIProvider = ({ children }) => {
       const conversationMessages = [
         systemPrompt,
         ...recentMessages,
-        userMessage,
+        apiUserMessage,
       ];
 
       // Call OpenAI via Cloud Function with tools
+      const apiStartTime = performance.now();
+      console.log(`⏱️ [AI] Sending to OpenAI (${Math.round(apiStartTime - startTime)}ms since start)`);
+      console.log(`📦 [AI] Message count: ${conversationMessages.length} messages`);
+      console.log(`🤖 [AI] Model: ${classification.model} (${classification.complexity})`);
+      
       const response = await postChat(conversationMessages, {
         tools: getToolDefinitions(),
         toolChoice: 'auto',
+        model: classification.model, // Route to appropriate model
         abortSignal: abortControllerRef.current.signal,
       });
+      
+      const apiEndTime = performance.now();
+      console.log(`✅ [AI] OpenAI responded (${Math.round(apiEndTime - apiStartTime)}ms API time)`);
 
       // Extract assistant message from response
       if (response && response.choices && response.choices.length > 0) {
@@ -285,7 +322,13 @@ export const AIProvider = ({ children }) => {
 
         // Execute tool calls if present
         if (toolCalls && toolCalls.length > 0) {
+          const toolStartTime = performance.now();
+          console.log(`🔧 [AI] Executing ${toolCalls.length} tool(s): ${toolCalls.map(tc => tc.function.name).join(', ')}`);
+          
           const success = await executeToolCalls(toolCalls, assistantMessage);
+          
+          const toolEndTime = performance.now();
+          console.log(`✅ [AI] Tools executed (${Math.round(toolEndTime - toolStartTime)}ms execution time)`);
           
           // Check if getCanvasState was called without other manipulation tools
           const toolNames = toolCalls.map(tc => tc.function.name);
@@ -439,6 +482,11 @@ export const AIProvider = ({ children }) => {
     } finally {
       setLoading(false);
       abortControllerRef.current = null;
+      
+      const endTime = performance.now();
+      const totalTime = Math.round(endTime - startTime);
+      console.log(`🏁 [AI] Request completed in ${totalTime}ms total`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     }
   }, [user, messages, loading, executeToolCalls]);
 

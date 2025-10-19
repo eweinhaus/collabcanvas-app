@@ -10,7 +10,7 @@ import AIPrompt from './AIPrompt';
 import './AIPanel.css';
 
 export default function AIPanel() {
-  const { panelOpen, closePanel, messages, loading, clearMessages, messagesEndRef } = useAI();
+  const { panelOpen, closePanel, messages, loading, clearMessages, messagesEndRef, sendMessage } = useAI();
   const panelRef = useRef(null);
 
   // Handle ESC key to close panel
@@ -111,13 +111,13 @@ export default function AIPanel() {
             <h3>AI Canvas Assistant</h3>
             <p>Ask me to create shapes, arrange objects, or help with your canvas.</p>
             <div className="ai-panel__examples">
-              <button onClick={() => document.querySelector('.ai-prompt__input')?.focus()}>
+              <button onClick={() => sendMessage('Create a blue circle')}>
                 "Create a blue circle"
               </button>
-              <button onClick={() => document.querySelector('.ai-prompt__input')?.focus()}>
+              <button onClick={() => sendMessage('Make a 3x3 grid')}>
                 "Make a 3x3 grid"
               </button>
-              <button onClick={() => document.querySelector('.ai-prompt__input')?.focus()}>
+              <button onClick={() => sendMessage('Create a login form')}>
                 "Create a login form"
               </button>
             </div>
