@@ -61,7 +61,7 @@ export const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'getCanvasState',
-      description: 'Get current state of all shapes on the canvas. Use this to understand what exists before making changes.',
+      description: 'Get current state of all shapes on the canvas. ONLY use this for informational queries like "what shapes are on the canvas?" or "list all shapes". For manipulation commands (move/rotate/delete), use the descriptor directly WITHOUT calling getCanvasState first.',
       parameters: {
         type: 'object',
         properties: {},
