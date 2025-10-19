@@ -3,7 +3,7 @@
  * Handles selection, dragging, and transformation
  */
 
-import { useRef, useEffect, useCallback, useState, forwardRef } from 'react';
+import React, { useRef, useEffect, useCallback, useState, forwardRef } from 'react';
 import { Rect, Circle, Text, Line, Group } from 'react-konva';
 import { SHAPE_TYPES } from '../../utils/shapes';
 import { throttle } from '../../utils/throttle';
@@ -336,6 +336,8 @@ const Shape = forwardRef(({ shape, isSelected, isBeingEdited, editorUserId, show
             y={shape.y}
             text={shape.text}
             fontSize={shape.fontSize}
+            fontStyle={shape.fontStyle || 'normal'}
+            textDecoration={shape.textDecoration || ''}
             fill={shape.fill}
             fontFamily="Arial"
             stroke={conflictStyle.stroke}
@@ -427,5 +429,17 @@ const Shape = forwardRef(({ shape, isSelected, isBeingEdited, editorUserId, show
 
 Shape.displayName = 'Shape';
 
-export default Shape;
+// Memoize Shape component to prevent unnecessary re-renders when props haven't changed
+const MemoizedShape = React.memo(Shape, (prevProps, nextProps) => {
+  // Only re-render if these critical props change
+  return (
+    prevProps.shape === nextProps.shape &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isBeingEdited === nextProps.isBeingEdited &&
+    prevProps.showEditFlash === nextProps.showEditFlash &&
+    prevProps.editorUserId === nextProps.editorUserId
+  );
+});
+
+export default MemoizedShape;
 

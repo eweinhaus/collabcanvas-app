@@ -115,6 +115,8 @@ export const createText = (x, y, text = 'Double-click to edit', overrides = {}) 
     y: y - fontSize / 2,         // Center vertically at cursor
     text,
     fontSize,
+    fontStyle: 'normal',         // 'normal', 'bold', 'italic', or 'bold italic'
+    textDecoration: '',          // '', 'underline', 'line-through', or 'underline line-through'
     fill: '#000000',
     draggable: true,
     zIndex: Date.now(), // Default to timestamp for creation order
