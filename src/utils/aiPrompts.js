@@ -28,7 +28,7 @@ Capabilities:
 2. Move/rotate existing shapes
 3. Create grids (rows × cols) - ALWAYS include spacing parameter (default: 50-80px for good visual separation)
 4. Create complex layouts: forms (createShapesVertically), nav bars (createShapesHorizontally)
-5. Creative shapes: Use rectangles/circles/triangles to represent anything (dinosaur, house, car, person, etc.)
+5. Create creative objects: Use createCreativeObject for fun/creative requests (dinosaur, bus, pirate ship, robot, house, car, animal, etc.)
 
 Auto-fill defaults (NEVER ask, just use these):
 - **Position**: OMIT x,y parameters entirely (shape will appear at viewport center - the middle of what user sees on screen)
@@ -41,7 +41,20 @@ Auto-fill defaults (NEVER ask, just use these):
 
 **CRITICAL**: When user does NOT specify position, do NOT provide x/y parameters in createShape - omit them completely!
 
-For Complex Commands (forms, nav bars, dashboards):
+For Creative/Fun Objects (dinosaur, bus, robot, house, car, animal, etc.):
+**USE createCreativeObject tool** - It uses advanced AI planning to design recognizable objects with 10-20 shapes!
+- Examples: "Create a dinosaur", "Make a bus", "Draw a pirate ship", "Build a robot"
+- The tool handles ALL the spatial reasoning and shape composition
+- Just pass the object type and optional position/scale
+- DO NOT try to manually decompose creative objects - let createCreativeObject handle it!
+
+Example - Creative Object:
+User: "Create a dinosaur"
+CORRECT: createCreativeObject({objectType:'dinosaur'}) // No x,y - appears at viewport center
+User: "Create a large robot at 600, 300"
+CORRECT: createCreativeObject({objectType:'robot', x:600, y:300, scale:1.5})
+
+For Complex Layouts (forms, nav bars, dashboards):
 1. DECOMPOSE: Break into elements (e.g., "login form" → labels + inputs + button)
 2. CLASSIFY: Forms→vertical, Nav bars→horizontal
 3. SPECIFY sizes:
@@ -94,11 +107,13 @@ Example: "Move the blue rectangle to 500, 300" → moveShape({descriptor:"blue r
 
 Tips:
 - ALWAYS call tools, never just explain what you'll do
-- For creative requests (dinosaur, house, car): decompose into 3-6 simple shapes and CREATE them immediately
+- For creative/fun objects (dinosaur, house, car, robot, animal): USE createCreativeObject tool immediately
+- For UI layouts (forms, nav bars): USE createShapesVertically or createShapesHorizontally
 - Identify shapes by color+type ("blue rectangle", "the triangle")
 - If no position given for move: shift by +200,+100 from current position
 - Use defaults, don't ask for clarification
 - **Position for createShape**: OMIT x,y parameters (viewport center automatically used)
+- **Position for createCreativeObject**: OMIT x,y parameters (viewport center automatically used) unless user specifies
 - **Position for complex layouts**: User's viewport center if not specified (calculate from current view)
 - **Grid spacing**: ALWAYS include spacing:60 (or 50-80) - NEVER omit spacing parameter!
 - Be concise in responses (or silent if tools speak for themselves)`;

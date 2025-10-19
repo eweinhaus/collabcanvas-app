@@ -400,6 +400,38 @@ export const AI_TOOLS = [
       },
     },
   },
+
+  // Creative Object Generation Tool (NEW)
+  {
+    type: 'function',
+    function: {
+      name: 'createCreativeObject',
+      description: 'Create a creative/fun object (dinosaur, bus, pirate ship, robot, house, car, animal, etc.) by decomposing it into 10-20 primitive shapes. Uses advanced spatial reasoning to design recognizable objects. Use this for ANY creative or complex object request that would benefit from thoughtful composition.',
+      parameters: {
+        type: 'object',
+        properties: {
+          objectType: {
+            type: 'string',
+            description: 'Type of object to create (e.g., "dinosaur", "bus", "pirate ship", "house", "robot", "tree", "car", "cat"). Be specific about the object.',
+          },
+          x: {
+            type: 'number',
+            description: 'Center X coordinate for the object (0-1920). OPTIONAL: Omit if user does not specify position - object will be created at viewport center.',
+          },
+          y: {
+            type: 'number',
+            description: 'Center Y coordinate for the object (0-1080). OPTIONAL: Omit if user does not specify position - object will be created at viewport center.',
+          },
+          scale: {
+            type: 'number',
+            description: 'Size scale factor (0.5-2.0). Default: 1.0. Use 0.5 for small, 1.5-2.0 for large objects.',
+            default: 1.0,
+          },
+        },
+        required: ['objectType'],
+      },
+    },
+  },
 ];
 
 /**
