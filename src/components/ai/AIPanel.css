@@ -5,10 +5,10 @@
 
 .ai-panel {
   position: fixed;
-  top: 0;
+  top: 60px; /* Start below the header, like LayersPanel */
   right: 0;
   width: 400px;
-  height: 100vh;
+  bottom: 0; /* Extend to bottom instead of using height: 100vh */
   background: white;
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.1);
   display: flex;
@@ -259,8 +259,9 @@
 @media (max-width: 767px) {
   .ai-panel {
     width: 100%;
-    height: 100vh;
-    height: 100dvh; /* Dynamic viewport height for mobile browsers */
+    top: 60px;
+    bottom: 0;
+    height: auto; /* Use auto height since we're positioning with top/bottom */
   }
   
   .ai-panel__header {

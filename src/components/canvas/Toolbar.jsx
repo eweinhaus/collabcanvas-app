@@ -128,6 +128,34 @@ const Toolbar = ({ onToggleLayers, onToggleAI, onToggleComments, layersPanelOpen
       <div className="toolbar-divider" />
       <div className="toolbar-title">Actions</div>
       <div className="toolbar-buttons">
+        {/* AI Agent button */}
+        <button
+          className={`toolbar-button ${aiPanelOpen ? 'active' : ''}`}
+          onClick={onToggleAI}
+          title="AI Assistant (⌘K)"
+          aria-label="Toggle AI Assistant"
+          aria-pressed={aiPanelOpen}
+        >
+          <svg className="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2L15 8.5L22 9L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9L9 8.5L12 2Z" fill="currentColor" stroke="currentColor"/>
+          </svg>
+          <span className="toolbar-label">Agent</span>
+        </button>
+
+        {/* Comments button */}
+        <button
+          className={`toolbar-button ${commentsPanelOpen ? 'active' : ''}`}
+          onClick={onToggleComments}
+          title="Toggle Comments"
+          aria-label="Toggle Comments"
+          aria-pressed={commentsPanelOpen}
+        >
+          <svg className="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span className="toolbar-label">Comments</span>
+        </button>
+
         {/* Layers button */}
         <button
           className={`toolbar-button ${layersPanelOpen ? 'active' : ''}`}
@@ -160,7 +188,7 @@ const Toolbar = ({ onToggleLayers, onToggleAI, onToggleComments, layersPanelOpen
             </svg>
             <span className="toolbar-label">Export</span>
           </button>
-          
+
           {showExportMenu && (
             <div className="export-dropdown" role="menu">
               <button
@@ -180,34 +208,6 @@ const Toolbar = ({ onToggleLayers, onToggleAI, onToggleComments, layersPanelOpen
             </div>
           )}
         </div>
-
-        {/* Comments button */}
-        <button
-          className={`toolbar-button ${commentsPanelOpen ? 'active' : ''}`}
-          onClick={onToggleComments}
-          title="Toggle Comments"
-          aria-label="Toggle Comments"
-          aria-pressed={commentsPanelOpen}
-        >
-          <svg className="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
-          <span className="toolbar-label">Comments</span>
-        </button>
-
-        {/* AI Agent button */}
-        <button
-          className={`toolbar-button ${aiPanelOpen ? 'active' : ''}`}
-          onClick={onToggleAI}
-          title="AI Assistant (⌘K)"
-          aria-label="Toggle AI Assistant"
-          aria-pressed={aiPanelOpen}
-        >
-          <svg className="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2L15 8.5L22 9L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9L9 8.5L12 2Z" fill="currentColor" stroke="currentColor"/>
-          </svg>
-          <span className="toolbar-label">Agent</span>
-        </button>
       </div>
       
       <div className="toolbar-hint" aria-live="polite">
