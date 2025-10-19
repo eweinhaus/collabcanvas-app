@@ -12,6 +12,8 @@ import { calculateNewScale, calculateZoomPosition } from '../../utils/canvas';
 import { createShape } from '../../utils/shapes';
 import { useRealtimeCursor } from '../../hooks/useRealtimeCursor';
 import { useRealtimePresence } from '../../hooks/useRealtimePresence';
+import { useShapeTransform } from '../../hooks/useShapeTransform';
+import { useCanvasKeyboardShortcuts } from '../../hooks/useCanvasKeyboardShortcuts';
 import { CreateShapeCommand, DeleteShapeCommand, MoveShapeCommand, UpdateShapeCommand, BringToFrontCommand, SendToBackCommand, BringForwardCommand, SendBackwardCommand, BatchCommand } from '../../utils/commands';
 import { debounce } from '../../utils/debounce';
 import { subscribeToDragUpdates } from '../../services/dragBroadcastService';
@@ -25,16 +27,6 @@ import SelectionBox from './SelectionBox';
 import ShapeContextMenu from './ShapeContextMenu';
 import ShapeTooltip from './ShapeTooltip';
 import AlignmentToolbar from './AlignmentToolbar';
-import {
-  alignLeft,
-  alignCenter,
-  alignRight,
-  alignTop,
-  alignMiddle,
-  alignBottom,
-  distributeHorizontally,
-  distributeVertically,
-} from '../../utils/alignment';
 import './Canvas.css';
 
 /**
