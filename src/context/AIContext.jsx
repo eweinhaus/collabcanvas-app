@@ -287,29 +287,119 @@ export const AIProvider = ({ children }) => {
         if (toolCalls && toolCalls.length > 0) {
           const success = await executeToolCalls(toolCalls, assistantMessage);
           
-          // Add a follow-up message only if successful
-          if (success) {
-            const toolNames = toolCalls.map(tc => tc.function.name);
-            let summary = '';
-            if (toolNames.includes('createShape')) {
-              summary = '✓ Shape created successfully!';
-            } else if (toolNames.includes('moveShape')) {
-              summary = '✓ Shape moved successfully!';
-            } else if (toolNames.includes('rotateShape')) {
-              summary = '✓ Shape rotated successfully!';
-            } else if (toolNames.includes('createGrid')) {
-              summary = '✓ Grid created successfully!';
-            } else if (toolNames.includes('createShapesVertically')) {
-              summary = '✓ Shapes created vertically!';
-            } else if (toolNames.includes('createShapesHorizontally')) {
-              summary = '✓ Shapes created horizontally!';
-            } else if (toolNames.includes('getCanvasState')) {
-              summary = '✓ Retrieved canvas state.';
-            }
+          // Check if getCanvasState was called without other manipulation tools
+          const toolNames = toolCalls.map(tc => tc.function.name);
+          const hasGetCanvasState = toolNames.includes('getCanvasState');
+          const hasManipulation = toolNames.some(name => 
+            ['moveShape', 'rotateShape', 'resizeShape', 'deleteShape'].includes(name)
+          );
+          
+          // If only getCanvasState was called, the AI needs to continue with the actual manipulation
+          if (success && hasGetCanvasState && !hasManipulation && toolCalls.length === 1) {
+            // Don't show completion message yet - the AI needs to continue
+            // Instead, make a follow-up call to let the AI use the canvas state
+            const getCanvasStateCall = toolCalls.find(tc => tc.function.name === 'getCanvasState');
             
-            if (summary) {
-              const summaryMessage = createAssistantMessage(summary);
-              setMessages(prev => [...prev, summaryMessage]);
+            // Get the result of getCanvasState
+            const executor = createAIToolExecutor({
+              addShape: canvas.firestoreActions.addShape,
+              addShapesBatch: canvas.firestoreActions.addShapesBatch,
+              updateShape: canvas.firestoreActions.updateShape,
+              getShapes: () => canvas.state.shapes,
+              getViewportCenter: () => {
+                const { scale, position, stageSize } = canvas.state;
+                const canvasX = (stageSize.width / 2 - position.x) / scale;
+                const canvasY = (stageSize.height / 2 - position.y) / scale;
+                return { x: Math.round(canvasX), y: Math.round(canvasY) };
+              },
+            });
+            
+            const canvasState = executor.executeGetCanvasState();
+            
+            // Create a tool result message
+            const toolResultMessage = createToolMessage(
+              getCanvasStateCall.id,
+              canvasState
+            );
+            
+            // Add working message
+            const workingMessage = createAssistantMessage('Analyzing shapes...');
+            setMessages(prev => [...prev, workingMessage]);
+            
+            // Make a follow-up API call with the canvas state result
+            const followUpMessages = [
+              systemPrompt,
+              ...recentMessages,
+              userMessage,
+              assistantMessage,
+              toolResultMessage,
+            ];
+            
+            try {
+              const followUpResponse = await postChat(followUpMessages, {
+                tools: getToolDefinitions(),
+                toolChoice: 'auto',
+                abortSignal: abortControllerRef.current?.signal,
+              });
+              
+              if (followUpResponse?.choices?.[0]) {
+                const followUpChoice = followUpResponse.choices[0];
+                const followUpToolCalls = followUpChoice.message?.tool_calls || null;
+                const followUpContent = followUpChoice.message?.content || 'Continuing...';
+                
+                const followUpAssistantMessage = createAssistantMessage(followUpContent, followUpToolCalls);
+                setMessages(prev => [...prev, followUpAssistantMessage]);
+                
+                // Execute the follow-up tool calls
+                if (followUpToolCalls && followUpToolCalls.length > 0) {
+                  const followUpSuccess = await executeToolCalls(followUpToolCalls, followUpAssistantMessage);
+                  
+                  if (followUpSuccess) {
+                    const followUpNames = followUpToolCalls.map(tc => tc.function.name);
+                    let summary = '';
+                    if (followUpNames.includes('moveShape')) {
+                      summary = '✓ Shape moved successfully!';
+                    } else if (followUpNames.includes('rotateShape')) {
+                      summary = '✓ Shape rotated successfully!';
+                    }
+                    
+                    if (summary) {
+                      const summaryMessage = createAssistantMessage(summary);
+                      setMessages(prev => [...prev, summaryMessage]);
+                    }
+                  }
+                }
+              }
+            } catch (followUpError) {
+              console.error('Follow-up call failed:', followUpError);
+              // If follow-up fails, just show the canvas state was retrieved
+              const fallbackMessage = createAssistantMessage('✓ Retrieved canvas state.');
+              setMessages(prev => [...prev, fallbackMessage]);
+            }
+          } else {
+            // Normal case - show success message
+            if (success) {
+              let summary = '';
+              if (toolNames.includes('createShape')) {
+                summary = '✓ Shape created successfully!';
+              } else if (toolNames.includes('moveShape')) {
+                summary = '✓ Shape moved successfully!';
+              } else if (toolNames.includes('rotateShape')) {
+                summary = '✓ Shape rotated successfully!';
+              } else if (toolNames.includes('createGrid')) {
+                summary = '✓ Grid created successfully!';
+              } else if (toolNames.includes('createShapesVertically')) {
+                summary = '✓ Shapes created vertically!';
+              } else if (toolNames.includes('createShapesHorizontally')) {
+                summary = '✓ Shapes created horizontally!';
+              } else if (toolNames.includes('getCanvasState')) {
+                summary = '✓ Retrieved canvas state.';
+              }
+              
+              if (summary) {
+                const summaryMessage = createAssistantMessage(summary);
+                setMessages(prev => [...prev, summaryMessage]);
+              }
             }
           }
         }

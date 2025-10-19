@@ -139,7 +139,7 @@ const Toolbar = ({ onToggleLayers, onToggleAI, onToggleComments, layersPanelOpen
           <svg className="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2L15 8.5L22 9L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9L9 8.5L12 2Z" fill="currentColor" stroke="currentColor"/>
           </svg>
-          <span className="toolbar-label">Agent</span>
+          <span className="toolbar-label">AI Assistant</span>
         </button>
 
         {/* Comments button */}

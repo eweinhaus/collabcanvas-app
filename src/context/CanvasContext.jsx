@@ -938,6 +938,8 @@ export const CanvasProvider = ({ children }) => {
           });
           // eslint-disable-next-line no-console
           console.error('Failed to create shapes batch in Firestore', err);
+          // Re-throw so AI tool executor knows it failed
+          throw err;
         }
       },
       updateShape: (id, updates) => {

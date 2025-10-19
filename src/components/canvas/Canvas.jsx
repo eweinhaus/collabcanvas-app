@@ -644,6 +644,16 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
       // Don't trigger shortcuts when editing text
       if (editingTextId) return;
       
+      // Don't trigger shortcuts when user is typing in an input field
+      const activeElement = document.activeElement;
+      if (activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' || 
+        activeElement.isContentEditable
+      )) {
+        return;
+      }
+      
       // Undo (Cmd/Ctrl + Z) - must be before other shortcuts to prevent conflicts
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
