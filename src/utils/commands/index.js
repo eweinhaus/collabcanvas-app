@@ -10,4 +10,5 @@ export { default as BringToFrontCommand } from './BringToFrontCommand';
 export { default as SendToBackCommand } from './SendToBackCommand';
 export { default as BringForwardCommand } from './BringForwardCommand';
 export { default as SendBackwardCommand } from './SendBackwardCommand';
+export { default as BatchCommand } from './BatchCommand';
 

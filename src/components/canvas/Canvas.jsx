@@ -12,7 +12,7 @@ import { calculateNewScale, calculateZoomPosition } from '../../utils/canvas';
 import { createShape } from '../../utils/shapes';
 import { useRealtimeCursor } from '../../hooks/useRealtimeCursor';
 import { useRealtimePresence } from '../../hooks/useRealtimePresence';
-import { CreateShapeCommand, DeleteShapeCommand, MoveShapeCommand, UpdateShapeCommand, BringToFrontCommand, SendToBackCommand, BringForwardCommand, SendBackwardCommand } from '../../utils/commands';
+import { CreateShapeCommand, DeleteShapeCommand, MoveShapeCommand, UpdateShapeCommand, BringToFrontCommand, SendToBackCommand, BringForwardCommand, SendBackwardCommand, BatchCommand } from '../../utils/commands';
 import { debounce } from '../../utils/debounce';
 import { subscribeToDragUpdates } from '../../services/dragBroadcastService';
 import Shape from './Shape';
@@ -494,7 +494,59 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
 
     const nodes = transformer.nodes();
 
-    nodes.forEach(node => {
+    // If multiple shapes are being transformed, batch the commands
+    if (nodes.length > 1) {
+      const batchCommand = new BatchCommand([], 'Multi-select transform');
+      
+      nodes.forEach(node => {
+        const shapeId = node.id();
+        const shape = shapes.find(s => s.id === shapeId);
+        if (!shape) return;
+
+        const oldState = transformStartStateRef.current[shapeId];
+        if (!oldState) return;
+
+        // Get the new state from the node
+        const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
+
+        // Reset scale
+        node.scaleX(1);
+        node.scaleY(1);
+
+        const newState = {
+          x: node.x(),
+          y: node.y(),
+          rotation: node.rotation(),
+        };
+
+        // Update dimensions based on shape type (only add properties that should exist)
+        if (shape.type === 'rect' || shape.type === 'triangle') {
+          newState.width = Math.max(5, node.width() * scaleX);
+          newState.height = Math.max(5, node.height() * scaleY);
+        } else if (shape.type === 'circle') {
+          newState.radius = Math.max(5, node.radius() * Math.max(scaleX, scaleY));
+        } else if (shape.type === 'text') {
+          newState.fontSize = Math.max(5, node.fontSize() * scaleX);
+        }
+
+        // Add command to batch
+        const command = new UpdateShapeCommand(
+          shapeId,
+          oldState,
+          newState,
+          firestoreActions
+        );
+        batchCommand.addCommand(command);
+      });
+
+      // Execute the entire batch as one undo/redo operation
+      if (!batchCommand.isEmpty()) {
+        commandActions.executeCommand(batchCommand);
+      }
+    } else if (nodes.length === 1) {
+      // Single shape - no need for batch
+      const node = nodes[0];
       const shapeId = node.id();
       const shape = shapes.find(s => s.id === shapeId);
       if (!shape) return;
@@ -534,7 +586,7 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
         firestoreActions
       );
       commandActions.executeCommand(command);
-    });
+    }
 
     transformStartStateRef.current = {};
   }, [shapes, firestoreActions, commandActions]);
@@ -632,18 +684,39 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
         const clipboardArray = Array.isArray(clipboard) ? clipboard : [clipboard];
         const newIds = [];
         
-        clipboardArray.forEach((shapeToPaste) => {
+        // If multiple shapes are being pasted, batch the commands
+        if (clipboardArray.length > 1) {
+          const batchCommand = new BatchCommand([], 'Paste multiple shapes');
+          
+          clipboardArray.forEach((shapeToPaste) => {
+            const newShape = {
+              ...shapeToPaste,
+              id: crypto.randomUUID(),
+              x: shapeToPaste.x + 20,
+              y: shapeToPaste.y + 20,
+            };
+            const command = new CreateShapeCommand(newShape, firestoreActions, actions);
+            batchCommand.addCommand(command);
+            newIds.push(newShape.id);
+          });
+          
+          // Execute the entire batch as one undo/redo operation
+          if (!batchCommand.isEmpty()) {
+            commandActions.executeCommand(batchCommand);
+          }
+        } else {
+          // Single shape - no need for batch
+          const shapeToPaste = clipboardArray[0];
           const newShape = {
             ...shapeToPaste,
             id: crypto.randomUUID(),
             x: shapeToPaste.x + 20,
             y: shapeToPaste.y + 20,
           };
-          // Use CommandHistory for undo/redo support
           const command = new CreateShapeCommand(newShape, firestoreActions, actions);
           commandActions.executeCommand(command);
           newIds.push(newShape.id);
-        });
+        }
         
         // Select all newly pasted shapes
         actions.setSelectedIds(newIds);
@@ -655,18 +728,39 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
         const shapesToDuplicate = shapes.filter(s => selectedIds.includes(s.id));
         const newIds = [];
         
-        shapesToDuplicate.forEach((shapeToDuplicate) => {
+        // If multiple shapes are being duplicated, batch the commands
+        if (shapesToDuplicate.length > 1) {
+          const batchCommand = new BatchCommand([], 'Duplicate multiple shapes');
+          
+          shapesToDuplicate.forEach((shapeToDuplicate) => {
+            const newShape = {
+              ...shapeToDuplicate,
+              id: crypto.randomUUID(),
+              x: shapeToDuplicate.x + 20,
+              y: shapeToDuplicate.y + 20,
+            };
+            const command = new CreateShapeCommand(newShape, firestoreActions, actions);
+            batchCommand.addCommand(command);
+            newIds.push(newShape.id);
+          });
+          
+          // Execute the entire batch as one undo/redo operation
+          if (!batchCommand.isEmpty()) {
+            commandActions.executeCommand(batchCommand);
+          }
+        } else {
+          // Single shape - no need for batch
+          const shapeToDuplicate = shapesToDuplicate[0];
           const newShape = {
             ...shapeToDuplicate,
             id: crypto.randomUUID(),
             x: shapeToDuplicate.x + 20,
             y: shapeToDuplicate.y + 20,
           };
-          // Use CommandHistory for undo/redo support
           const command = new CreateShapeCommand(newShape, firestoreActions, actions);
           commandActions.executeCommand(command);
           newIds.push(newShape.id);
-        });
+        }
         
         // Select all newly duplicated shapes
         actions.setSelectedIds(newIds);
@@ -675,14 +769,32 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
       // Delete selected shapes
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
         e.preventDefault();
-        selectedIds.forEach(id => {
+        
+        // If multiple shapes are selected, batch the commands
+        if (selectedIds.length > 1) {
+          const batchCommand = new BatchCommand([], 'Multi-select delete');
+          
+          selectedIds.forEach(id => {
+            const shape = shapes.find(s => s.id === id);
+            if (shape) {
+              const command = new DeleteShapeCommand(id, shape, firestoreActions);
+              batchCommand.addCommand(command);
+            }
+          });
+          
+          // Execute the entire batch as one undo/redo operation
+          if (!batchCommand.isEmpty()) {
+            commandActions.executeCommand(batchCommand);
+          }
+        } else {
+          // Single shape - no need for batch
+          const id = selectedIds[0];
           const shape = shapes.find(s => s.id === id);
           if (shape) {
-            // Use CommandHistory for undo/redo support
             const command = new DeleteShapeCommand(id, shape, firestoreActions);
             commandActions.executeCommand(command);
           }
-        });
+        }
       }
       
       // Arrow key movement (5px normal, 20px with Shift)
@@ -690,37 +802,79 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
         e.preventDefault();
         const step = e.shiftKey ? 20 : 5;
         
-        selectedIds.forEach(shapeId => {
-          const shape = shapes.find(s => s.id === shapeId);
-          if (!shape) return;
+        // If multiple shapes are selected, batch the commands
+        if (selectedIds.length > 1) {
+          const batchCommand = new BatchCommand([], 'Multi-select arrow key movement');
           
-          const oldPosition = { x: shape.x, y: shape.y };
-          const newPosition = { x: shape.x, y: shape.y };
+          selectedIds.forEach(shapeId => {
+            const shape = shapes.find(s => s.id === shapeId);
+            if (!shape) return;
+            
+            const oldPosition = { x: shape.x, y: shape.y };
+            const newPosition = { x: shape.x, y: shape.y };
+            
+            switch (e.key) {
+              case 'ArrowUp':
+                newPosition.y -= step;
+                break;
+              case 'ArrowDown':
+                newPosition.y += step;
+                break;
+              case 'ArrowLeft':
+                newPosition.x -= step;
+                break;
+              case 'ArrowRight':
+                newPosition.x += step;
+                break;
+            }
+            
+            // Add command to batch
+            const command = new MoveShapeCommand(
+              shapeId,
+              oldPosition,
+              newPosition,
+              firestoreActions
+            );
+            batchCommand.addCommand(command);
+          });
           
-          switch (e.key) {
-            case 'ArrowUp':
-              newPosition.y -= step;
-              break;
-            case 'ArrowDown':
-              newPosition.y += step;
-              break;
-            case 'ArrowLeft':
-              newPosition.x -= step;
-              break;
-            case 'ArrowRight':
-              newPosition.x += step;
-              break;
+          // Execute the entire batch as one undo/redo operation
+          if (!batchCommand.isEmpty()) {
+            commandActions.executeCommand(batchCommand);
           }
-          
-          // Use MoveShapeCommand for undo/redo support
-          const command = new MoveShapeCommand(
-            shapeId,
-            oldPosition,
-            newPosition,
-            firestoreActions
-          );
-          commandActions.executeCommand(command);
-        });
+        } else {
+          // Single shape - no need for batch
+          const shapeId = selectedIds[0];
+          const shape = shapes.find(s => s.id === shapeId);
+          if (shape) {
+            const oldPosition = { x: shape.x, y: shape.y };
+            const newPosition = { x: shape.x, y: shape.y };
+            
+            switch (e.key) {
+              case 'ArrowUp':
+                newPosition.y -= step;
+                break;
+              case 'ArrowDown':
+                newPosition.y += step;
+                break;
+              case 'ArrowLeft':
+                newPosition.x -= step;
+                break;
+              case 'ArrowRight':
+                newPosition.x += step;
+                break;
+            }
+            
+            // Use MoveShapeCommand for undo/redo support
+            const command = new MoveShapeCommand(
+              shapeId,
+              oldPosition,
+              newPosition,
+              firestoreActions
+            );
+            commandActions.executeCommand(command);
+          }
+        }
       }
       
       // Z-index shortcuts
