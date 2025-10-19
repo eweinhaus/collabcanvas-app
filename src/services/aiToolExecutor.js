@@ -910,8 +910,10 @@ export function createAIToolExecutor({ addShape, addShapesBatch, updateShape, ge
             const colorResult = normalizeColor(spec.fill);
             hexColor = colorResult.hex;
           } catch (colorError) {
-            console.warn(`Shape ${i}: Invalid color "${spec.fill}", using blue`);\n            hexColor = '#0000FF'; // Fallback to blue
-            errors.push(`Shape ${i}: Color "${spec.fill}" normalized to blue`);\n          }
+            console.warn(`Shape ${i}: Invalid color "${spec.fill}", using blue`);
+            hexColor = '#0000FF'; // Fallback to blue
+            errors.push(`Shape ${i}: Color "${spec.fill}" normalized to blue`);
+          }
 
           // Clamp coordinates to canvas bounds (with margin for edge cases)
           const coords = validateCoordinates(spec.x, spec.y);
@@ -949,7 +951,8 @@ export function createAIToolExecutor({ addShape, addShapesBatch, updateShape, ge
 
         } catch (shapeError) {
           console.error(`Failed to process shape ${i}:`, shapeError);
-          errors.push(`Shape ${i} skipped: ${shapeError.message}`);\n        }
+          errors.push(`Shape ${i} skipped: ${shapeError.message}`);
+        }
       }
 
       // Ensure we have at least some shapes
