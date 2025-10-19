@@ -166,6 +166,8 @@ export const AIProvider = ({ children }) => {
           result = await executor.executeCreateShapesVertically(args);
         } else if (name === 'createShapesHorizontally') {
           result = await executor.executeCreateShapesHorizontally(args);
+        } else if (name === 'createCreativeObject') {
+          result = await executor.executeCreateCreativeObject(args);
         } else {
           result = { success: false, error: `Unknown tool: ${name}` };
         }
@@ -435,6 +437,14 @@ export const AIProvider = ({ children }) => {
                 summary = '✓ Shapes created vertically!';
               } else if (toolNames.includes('createShapesHorizontally')) {
                 summary = '✓ Shapes created horizontally!';
+              } else if (toolNames.includes('createCreativeObject')) {
+                // Get the object type from the result for a more specific message
+                const creativeObjectResult = results.find(r => r.name === 'createCreativeObject')?.result;
+                if (creativeObjectResult?.message) {
+                  summary = `✓ ${creativeObjectResult.message}`;
+                } else {
+                  summary = '✓ Creative object created!';
+                }
               } else if (toolNames.includes('getCanvasState')) {
                 summary = '✓ Retrieved canvas state.';
               }

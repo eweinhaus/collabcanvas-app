@@ -16,6 +16,14 @@ import {
   convertToShapeObjects,
   validateShapeBatch,
 } from '../utils/batchCreate';
+import {
+  buildCreativeObjectPlanningPrompt,
+  parseCreativeObjectPlan,
+  validateCreativeObjectPlan,
+  createFallbackPlan,
+  CREATIVE_OBJECT_CONSTRAINTS,
+} from '../utils/creativeObjectPlanner';
+import { postChat } from './openaiService';
 
 // Canvas bounds for validation
 const CANVAS_BOUNDS = {
@@ -758,6 +766,226 @@ export function createAIToolExecutor({ addShape, addShapesBatch, updateShape, ge
     }
   }
 
+  /**
+   * Execute createCreativeObject tool
+   * Creates a creative object (dinosaur, bus, etc.) using 10-20 shapes
+   * Uses a two-step process: LLM planning → shape generation
+   * @param {Object} args - Tool arguments from AI
+   * @param {string} args.objectType - Type of object to create
+   * @param {number} [args.x] - Center X coordinate (optional, defaults to viewport center)
+   * @param {number} [args.y] - Center Y coordinate (optional, defaults to viewport center)
+   * @param {number} [args.scale=1.0] - Size scale factor (0.5-2.0)
+   * @returns {Promise<Object>} Result object { success: boolean, shapeIds?: string[], error?: string }
+   */
+  async function executeCreateCreativeObject(args) {
+    try {
+      const { objectType, x, y, scale = 1.0 } = args;
+
+      if (!objectType || typeof objectType !== 'string') {
+        return { success: false, error: 'Missing required field: objectType (string)' };
+      }
+
+      // Validate scale (use Number.isFinite to catch NaN)
+      if (!Number.isFinite(scale) || 
+          scale < CREATIVE_OBJECT_CONSTRAINTS.MIN_SCALE || 
+          scale > CREATIVE_OBJECT_CONSTRAINTS.MAX_SCALE) {
+        return { success: false, error: `Invalid scale: ${scale}. Scale must be between ${CREATIVE_OBJECT_CONSTRAINTS.MIN_SCALE} and ${CREATIVE_OBJECT_CONSTRAINTS.MAX_SCALE}` };
+      }
+
+      // Determine center position (use provided or viewport center)
+      const viewportCenter = getViewportCenter ? getViewportCenter() : { x: 500, y: 400 };
+      const centerX = typeof x === 'number' ? x : viewportCenter.x;
+      const centerY = typeof y === 'number' ? y : viewportCenter.y;
+
+      console.log(`🎨 [Creative Object] Planning "${objectType}" at (${centerX}, ${centerY}) with scale ${scale}`);
+
+      // STEP 1: Call GPT-4o to plan the object
+      const planningStartTime = performance.now();
+      const planningPrompt = buildCreativeObjectPlanningPrompt(objectType, centerX, centerY, scale);
+
+      let planResponse;
+      try {
+        planResponse = await postChat(
+          [{ role: 'user', content: planningPrompt }],
+          { 
+            model: 'gpt-4o',
+            temperature: 0.7, // Higher temperature for more creative designs
+          }
+        );
+      } catch (error) {
+        console.error('Planning API call failed:', error);
+        // Use fallback instead of failing completely
+        console.log('Planning API failed, using fallback plan...');
+        const fallbackPlan = createFallbackPlan(objectType, centerX, centerY, scale);
+        return await executePlan(fallbackPlan, objectType);
+      }
+
+      const planningEndTime = performance.now();
+      console.log(`🎨 [Creative Object] Planning completed in ${Math.round(planningEndTime - planningStartTime)}ms`);
+
+      // STEP 2: Parse and validate the plan
+      if (!planResponse || !planResponse.choices || !planResponse.choices[0]) {
+        console.error('Invalid plan response structure');
+        console.log('Using fallback plan...');
+        const fallbackPlan = createFallbackPlan(objectType, centerX, centerY, scale);
+        return await executePlan(fallbackPlan, objectType);
+      }
+
+      const responseText = planResponse.choices[0].message?.content || '';
+      
+      let plan;
+      try {
+        plan = parseCreativeObjectPlan(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse plan:', parseError.message);
+        // Log truncated response (first 200 chars) to avoid console spam
+        console.log('Response preview:', responseText.substring(0, 200) + (responseText.length > 200 ? '...' : ''));
+        console.log('Using fallback plan...');
+        const fallbackPlan = createFallbackPlan(objectType, centerX, centerY, scale);
+        return await executePlan(fallbackPlan, objectType);
+      }
+
+      // Validate the plan
+      const validation = validateCreativeObjectPlan(plan);
+      if (!validation.valid) {
+        console.error('Plan validation failed:', validation.error);
+        console.log('Using fallback plan...');
+        const fallbackPlan = createFallbackPlan(objectType, centerX, centerY, scale);
+        return await executePlan(fallbackPlan, objectType);
+      }
+
+      console.log(`🎨 [Creative Object] Plan validated: ${plan.shapes.length} shapes`);
+
+      // STEP 3: Execute the plan
+      return await executePlan(plan, objectType);
+
+    } catch (error) {
+      console.error('Creative object generation error:', error);
+      return {
+        success: false,
+        error: `Failed to create ${args.objectType}: ${error.message}`,
+      };
+    }
+  }
+
+  /**
+   * Execute a validated creative object plan
+   * Normalizes colors and clamps coordinates before creating shapes
+   * @param {Object} plan - Validated plan with shapes array
+   * @param {string} objectType - Type of object (for logging)
+   * @returns {Promise<Object>} Result object
+   */
+  async function executePlan(plan, objectType) {
+    try {
+      const baseZIndex = Date.now();
+      const errors = [];
+
+      // Convert plan shapes to canvas shape objects
+      const shapes = [];
+      
+      for (let i = 0; i < plan.shapes.length; i++) {
+        try {
+          const spec = plan.shapes[i];
+          const shapeId = uuidv4();
+
+          // Map plan type to internal SHAPE_TYPES
+          let internalType;
+          switch (spec.type) {
+            case 'rectangle':
+              internalType = SHAPE_TYPES.RECT;
+              break;
+            case 'circle':
+              internalType = SHAPE_TYPES.CIRCLE;
+              break;
+            case 'triangle':
+              internalType = SHAPE_TYPES.TRIANGLE;
+              break;
+            default:
+              throw new Error(`Unknown shape type: ${spec.type}`);
+          }
+
+          // Normalize color (handle CSS color names and hex codes)
+          let hexColor;
+          try {
+            const colorResult = normalizeColor(spec.fill);
+            hexColor = colorResult.hex;
+          } catch (colorError) {
+            console.warn(`Shape ${i}: Invalid color "${spec.fill}", using blue`);\n            hexColor = '#0000FF'; // Fallback to blue
+            errors.push(`Shape ${i}: Color "${spec.fill}" normalized to blue`);\n          }
+
+          // Clamp coordinates to canvas bounds (with margin for edge cases)
+          const coords = validateCoordinates(spec.x, spec.y);
+          
+          // Build shape object
+          const shape = {
+            id: shapeId,
+            type: internalType,
+            x: coords.x,
+            y: coords.y,
+            fill: hexColor,
+            stroke: spec.stroke || '#000000',
+            strokeWidth: spec.strokeWidth || 2,
+            draggable: true,
+            zIndex: baseZIndex + i, // Layer shapes in order
+            createdBy: 'AI',
+          };
+
+          // Add type-specific properties
+          if (internalType === SHAPE_TYPES.CIRCLE) {
+            shape.radius = Math.max(5, Math.min(500, spec.radius)); // Clamp radius
+          } else {
+            // Rectangle and triangle
+            shape.width = Math.max(10, Math.min(1000, spec.width)); // Clamp width
+            shape.height = Math.max(10, Math.min(1000, spec.height)); // Clamp height
+          }
+
+          // Add rotation if specified (ensure 0-359 range)
+          if (spec.rotation !== undefined) {
+            shape.rotation = spec.rotation % 360;
+            if (shape.rotation < 0) shape.rotation += 360;
+          }
+
+          shapes.push(shape);
+
+        } catch (shapeError) {
+          console.error(`Failed to process shape ${i}:`, shapeError);
+          errors.push(`Shape ${i} skipped: ${shapeError.message}`);\n        }
+      }
+
+      // Ensure we have at least some shapes
+      if (shapes.length === 0) {
+        return {
+          success: false,
+          error: 'No valid shapes could be created from plan',
+        };
+      }
+
+      // STEP 4: Batch create all shapes
+      const createStartTime = performance.now();
+      await addShapesBatch(shapes);
+      const createEndTime = performance.now();
+      
+      console.log(`🎨 [Creative Object] Created ${shapes.length} shapes in ${Math.round(createEndTime - createStartTime)}ms`);
+      if (errors.length > 0) {
+        console.warn(`🎨 [Creative Object] ${errors.length} warnings:`, errors);
+      }
+
+      return {
+        success: true,
+        shapeIds: shapes.map(s => s.id),
+        message: `Created ${objectType} with ${shapes.length} shapes!`,
+        totalShapes: shapes.length,
+      };
+
+    } catch (error) {
+      console.error('Plan execution error:', error);
+      return {
+        success: false,
+        error: `Failed to create ${objectType}. Please try again.`,
+      };
+    }
+  }
+
   return {
     executeCreateShape,
     executeGetCanvasState,
@@ -766,6 +994,7 @@ export function createAIToolExecutor({ addShape, addShapesBatch, updateShape, ge
     executeCreateGrid,
     executeCreateShapesVertically,
     executeCreateShapesHorizontally,
+    executeCreateCreativeObject,
   };
 }
 

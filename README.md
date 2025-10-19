@@ -101,7 +101,30 @@ Create organized grids of shapes with a single command:
 - All grid shapes created in a single batch operation
 - Changes sync instantly to all users
 
-### Complex Layout Commands (PR 17 - NEW!)
+### Creative Object Generation (NEW!)
+
+Create fun, recognizable objects with a single command! The AI uses advanced spatial reasoning to design objects using 10-20 primitive shapes.
+
+**Creative Objects:**
+- "Create a dinosaur"
+- "Make a bus"
+- "Build a robot"
+- "Draw a pirate ship"
+- "Create a house"
+- "Make a tree"
+
+**With Customization:**
+- "Create a large robot at 600, 300"
+- "Make a small dinosaur"
+- "Build a castle at 400, 200"
+
+**How It Works:**
+1. **AI Planning**: GPT-4o designs the object using 10-20 shapes
+2. **Smart Composition**: Automatically positions shapes for recognizable objects
+3. **Instant Creation**: All shapes appear together in ~1 second
+4. **Works for Anything**: Try any creative object - animals, vehicles, buildings, characters!
+
+### Complex Layout Commands (PR 17)
 
 The AI can create complex layouts (forms, navigation bars, dashboards) by automatically decomposing your request into individual shapes. No hardcoded templates - GPT-4 handles spatial reasoning and layout logic.
 
