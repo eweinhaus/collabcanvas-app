@@ -1,16 +1,16 @@
 /**
- * CommentsContext - Global state management for collaborative comments
- * Manages comment threads, counts, and real-time subscriptions
+ * CommentsContext - Global state management for board-level comments
+ * Manages a single chat for the entire board
  */
 
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import {
   createComment,
   updateComment,
   deleteComment,
   subscribeToComments,
 } from '../services/commentService';
-import toast from 'react-hot-toast';
+import { useAuth } from './AuthContext';
 
 const CommentsContext = createContext(null);
 
@@ -25,141 +25,88 @@ export const useComments = () => {
 const DEFAULT_BOARD_ID = 'default';
 
 export function CommentsProvider({ children, boardId = DEFAULT_BOARD_ID }) {
-  // Thread panel state
-  const [currentThread, setCurrentThread] = useState({
-    isOpen: false,
-    shapeId: null,
-  });
-
-  // Comments data { [shapeId]: Comment[] }
-  const [commentsMap, setCommentsMap] = useState({});
+  const { user } = useAuth();
   
-  // Comment counts { [shapeId]: number }
-  const [commentCounts, setCommentCounts] = useState({});
+  // Panel state
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+
+  // Comments data (array sorted by creation time)
+  const [comments, setComments] = useState([]);
   
-  // Loading states { [shapeId]: boolean }
-  const [loadingStates, setLoadingStates] = useState({});
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Track active subscriptions to prevent duplicates
-  const subscriptionsRef = useRef({});
-
-  // Subscribe to comments for a specific shape
-  const subscribeToShape = useCallback((shapeId) => {
-    if (!shapeId) {
-      console.warn('[CommentsContext] Cannot subscribe - shapeId is required');
+  // Subscribe to board comments - only when user is authenticated
+  useEffect(() => {
+    if (!user) {
+      console.log('[CommentsContext] Waiting for user authentication before subscribing');
+      setIsLoading(false);
       return;
     }
 
-    if (subscriptionsRef.current[shapeId]) {
-      return; // Already subscribed
-    }
+    console.log('[CommentsContext] User authenticated, subscribing to comments:', user.uid);
+    setIsLoading(true);
 
-    setLoadingStates(prev => ({ ...prev, [shapeId]: true }));
-
-    try {
-      const unsubscribe = subscribeToComments(
-        shapeId, 
-        boardId, 
-        ({ type, comment }) => {
-          // Process the change and update both comments and counts
-          setCommentsMap(prev => {
-            const existing = prev[shapeId] || [];
-            let newComments;
-            let shouldUpdate = true;
-            
-            if (type === 'added') {
-              // Avoid duplicates
-              if (existing.find(c => c.id === comment.id)) {
-                shouldUpdate = false;
-                newComments = existing;
-              } else {
-                newComments = [...existing, comment].sort((a, b) => a.createdAt - b.createdAt);
-              }
-            } else if (type === 'modified') {
-              newComments = existing.map(c => c.id === comment.id ? comment : c);
-            } else if (type === 'removed') {
-              newComments = existing.filter(c => c.id !== comment.id);
-            } else {
-              shouldUpdate = false;
-              newComments = existing;
-            }
-            
-            // Always update count based on actual array length, even if comments didn't change
-            setCommentCounts(prevCounts => ({
-              ...prevCounts,
-              [shapeId]: newComments.length,
-            }));
-            
-            if (!shouldUpdate) {
+    const unsubscribe = subscribeToComments(
+      boardId,
+      ({ type, comment }) => {
+        console.log('[CommentsContext] Received comment update:', { type, comment });
+        setComments(prev => {
+          console.log('[CommentsContext] Current comments:', prev);
+          let newComments;
+          
+          if (type === 'added') {
+            // Avoid duplicates
+            if (prev.find(c => c.id === comment.id)) {
+              console.log('[CommentsContext] Skipping duplicate comment:', comment.id);
               return prev;
             }
-            
-            return {
-              ...prev,
-              [shapeId]: newComments,
-            };
-          });
-        },
-        // onReady callback - clear loading state when subscription is established
-        () => {
-          setLoadingStates(prev => ({ ...prev, [shapeId]: false }));
+            newComments = [...prev, comment].sort((a, b) => a.createdAt - b.createdAt);
+            console.log('[CommentsContext] Added comment, new array:', newComments);
+          } else if (type === 'modified') {
+            newComments = prev.map(c => c.id === comment.id ? comment : c);
+          } else if (type === 'removed') {
+            newComments = prev.filter(c => c.id !== comment.id);
+          } else {
+            return prev;
+          }
           
-          // Ensure count is initialized (even if 0 comments)
-          setCommentCounts(prevCounts => {
-            // Only update if not already set to avoid race conditions
-            if (prevCounts[shapeId] === undefined) {
-              return { ...prevCounts, [shapeId]: 0 };
-            }
-            return prevCounts;
-          });
-        }
-      );
+          return newComments;
+        });
+      },
+      // onReady callback - clear loading state when subscription is established
+      () => {
+        setIsLoading(false);
+      }
+    );
 
-      subscriptionsRef.current[shapeId] = unsubscribe;
-    } catch (error) {
-      console.error('[CommentsContext] Error subscribing to comments:', error);
-      // Clear loading state on error
-      setLoadingStates(prev => ({ ...prev, [shapeId]: false }));
-      // Initialize count to 0 on error
-      setCommentCounts(prev => ({ ...prev, [shapeId]: 0 }));
-    }
-  }, [boardId]);
-
-  // Unsubscribe from a shape
-  const unsubscribeFromShape = useCallback((shapeId) => {
-    const unsubscribe = subscriptionsRef.current[shapeId];
-    if (unsubscribe) {
-      console.log(`[CommentsContext] Unsubscribing from comments for shape: ${shapeId}`);
+    return () => {
+      console.log('[CommentsContext] Unsubscribing from comments');
       unsubscribe();
-      delete subscriptionsRef.current[shapeId];
-    }
+    };
+  }, [boardId, user]);
+
+  // Open comment panel
+  const openPanel = useCallback(() => {
+    setIsPanelOpen(true);
   }, []);
 
-  // Open comment thread for a shape
-  const openThread = useCallback((shapeId) => {
-    if (!shapeId) {
-      console.warn('[CommentsContext] Cannot open thread: shapeId is required');
-      return;
-    }
+  // Close comment panel
+  const closePanel = useCallback(() => {
+    setIsPanelOpen(false);
+  }, []);
 
-    console.log(`[CommentsContext] Opening thread for shape: ${shapeId}`);
-    setCurrentThread({ isOpen: true, shapeId });
-    
-    // Subscribe if not already subscribed
-    subscribeToShape(shapeId);
-  }, [subscribeToShape]);
-
-  // Close comment thread
-  const closeThread = useCallback(() => {
-    console.log('[CommentsContext] Closing thread');
-    setCurrentThread({ isOpen: false, shapeId: null });
+  // Toggle panel
+  const togglePanel = useCallback(() => {
+    setIsPanelOpen(prev => !prev);
   }, []);
 
   // Create a new comment
-  const addComment = useCallback(async (shapeId, text) => {
+  const addComment = useCallback(async (text) => {
     try {
-      await createComment(shapeId, text, boardId);
-      toast.success('Comment added');
+      console.log('[CommentsContext] Creating comment:', { text, boardId });
+      const result = await createComment(text, boardId);
+      console.log('[CommentsContext] Comment created successfully:', result);
       return true;
     } catch (error) {
       console.error('[CommentsContext] Error adding comment:', error);
@@ -169,10 +116,9 @@ export function CommentsProvider({ children, boardId = DEFAULT_BOARD_ID }) {
   }, [boardId]);
 
   // Update an existing comment
-  const editComment = useCallback(async (shapeId, commentId, text) => {
+  const editComment = useCallback(async (commentId, text) => {
     try {
-      await updateComment(shapeId, commentId, text, boardId);
-      toast.success('Comment updated');
+      await updateComment(commentId, text, boardId);
       return true;
     } catch (error) {
       console.error('[CommentsContext] Error updating comment:', error);
@@ -181,10 +127,9 @@ export function CommentsProvider({ children, boardId = DEFAULT_BOARD_ID }) {
   }, [boardId]);
 
   // Delete a comment
-  const removeComment = useCallback(async (shapeId, commentId) => {
+  const removeComment = useCallback(async (commentId) => {
     try {
-      await deleteComment(shapeId, commentId, boardId);
-      toast.success('Comment deleted');
+      await deleteComment(commentId, boardId);
       return true;
     } catch (error) {
       console.error('[CommentsContext] Error deleting comment:', error);
@@ -192,64 +137,34 @@ export function CommentsProvider({ children, boardId = DEFAULT_BOARD_ID }) {
     }
   }, [boardId]);
 
-  // Get comments for a specific shape
-  const getShapeComments = useCallback((shapeId) => {
-    return commentsMap[shapeId] || [];
-  }, [commentsMap]);
-
-  // Get comment count for a shape
-  const getCommentCount = useCallback((shapeId) => {
-    return commentCounts[shapeId] || 0;
-  }, [commentCounts]);
-
-  // Check if comments are loading for a shape
-  const isLoading = useCallback((shapeId) => {
-    return loadingStates[shapeId] || false;
-  }, [loadingStates]);
-
-  // Cleanup all subscriptions on unmount
-  useEffect(() => {
-    return () => {
-      Object.keys(subscriptionsRef.current).forEach(shapeId => {
-        subscriptionsRef.current[shapeId]?.();
-      });
-      subscriptionsRef.current = {};
-    };
-  }, []);
-
   const value = useMemo(
     () => ({
-      // Thread state
-      currentThread,
-      openThread,
-      closeThread,
+      // Panel state
+      isPanelOpen,
+      openPanel,
+      closePanel,
+      togglePanel,
       
       // Comment operations
       addComment,
       editComment,
       removeComment,
       
-      // Data getters
-      getShapeComments,
-      getCommentCount,
+      // Data
+      comments,
+      commentCount: comments.length,
       isLoading,
-      
-      // Subscription management
-      subscribeToShape,
-      unsubscribeFromShape,
     }),
     [
-      currentThread,
-      openThread,
-      closeThread,
+      isPanelOpen,
+      openPanel,
+      closePanel,
+      togglePanel,
       addComment,
       editComment,
       removeComment,
-      getShapeComments,
-      getCommentCount,
+      comments,
       isLoading,
-      subscribeToShape,
-      unsubscribeFromShape,
     ]
   );
 
@@ -259,4 +174,3 @@ export function CommentsProvider({ children, boardId = DEFAULT_BOARD_ID }) {
     </CommentsContext.Provider>
   );
 }
-

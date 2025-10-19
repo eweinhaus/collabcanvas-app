@@ -182,14 +182,8 @@ export const AIProvider = ({ children }) => {
     // Show user feedback for each result
     for (const { name, result, error, success } of results) {
       if (success && result.success) {
-        if (name === 'getCanvasState') {
-          // Silent success for read operations
-          console.log('Canvas state retrieved:', result);
-        } else {
-          // Success messages remain as toasts for now
-          const msg = result.message || (name === 'createGrid' ? 'Grid created successfully' : 'Success');
-          toast.success(msg);
-        }
+        // Silent success for all operations
+        console.log(`Tool ${name} executed successfully:`, result);
       } else {
         allSuccessful = false;
         const errorMsg = error ? error.message : (result.error || 'Tool execution failed');
@@ -200,7 +194,7 @@ export const AIProvider = ({ children }) => {
     }
 
     // Note: We don't persist tool messages to conversation history
-    // Tool results are shown via toast notifications and success messages
+    // Tool results are logged to console; only errors are shown to users via chat messages
 
     return allSuccessful;
   }, [canvas]);
@@ -364,7 +358,6 @@ export const AIProvider = ({ children }) => {
   const clearMessages = useCallback(() => {
     const initialMessages = getInitialMessages(user);
     setMessages(initialMessages);
-    toast.success('Conversation cleared');
   }, [user]);
 
   /**
@@ -375,7 +368,6 @@ export const AIProvider = ({ children }) => {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
       setLoading(false);
-      toast('Request cancelled', { icon: '⏹️' });
     }
   }, []);
 

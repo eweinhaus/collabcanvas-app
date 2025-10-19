@@ -6,11 +6,12 @@ import ConnectionBanner from './components/common/ConnectionBanner'
 import Spinner from './components/common/Spinner'
 import { useCanvas } from './context/CanvasContext'
 import { CanvasProvider } from './context/CanvasContext'
-import { CommentsProvider } from './context/CommentsContext'
+import { CommentsProvider, useComments } from './context/CommentsContext'
 import { AIProvider, useAI } from './context/AIContext'
 import { useAuth } from './context/AuthContext'
 import LayersPanel from './components/layout/LayersPanel'
 import AIPanel from './components/ai/AIPanel'
+import CommentsPanel from './components/collaboration/CommentsPanel'
 
 // Lazy load heavy components (includes Konva - 969KB)
 const Canvas = lazy(() => import('./components/canvas/Canvas'))
@@ -33,6 +34,7 @@ function AppShell() {
   const { state: { onlineUsers, loadingShapes } } = useCanvas();
   const { loading: authLoading } = useAuth();
   const { panelOpen: aiPanelOpen, openPanel: openAIPanel, closePanel: closeAIPanel } = useAI();
+  const { isPanelOpen: commentsPanelOpen, openPanel: openCommentsPanel, closePanel: closeCommentsPanel } = useComments();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [layersPanelOpen, setLayersPanelOpen] = useState(() => {
     const saved = localStorage.getItem('layersPanelOpen');
@@ -58,24 +60,48 @@ function AppShell() {
   const handleToggleLayers = useCallback(() => {
     const newLayersOpen = !layersPanelOpen;
     setLayersPanelOpen(newLayersOpen);
-    // Close AI panel when layers panel opens
-    if (newLayersOpen && aiPanelOpen) {
-      closeAIPanel();
+    // Close other panels when layers panel opens
+    if (newLayersOpen) {
+      if (aiPanelOpen) {
+        closeAIPanel();
+      }
+      if (commentsPanelOpen) {
+        closeCommentsPanel();
+      }
     }
-  }, [layersPanelOpen, aiPanelOpen, closeAIPanel]);
+  }, [layersPanelOpen, aiPanelOpen, commentsPanelOpen, closeAIPanel, closeCommentsPanel]);
 
   const handleToggleAI = useCallback(() => {
     const newAIOpen = !aiPanelOpen;
     if (newAIOpen) {
       openAIPanel();
-      // Close layers panel when AI panel opens
+      // Close other panels when AI panel opens
       if (layersPanelOpen) {
         setLayersPanelOpen(false);
+      }
+      if (commentsPanelOpen) {
+        closeCommentsPanel();
       }
     } else {
       closeAIPanel();
     }
-  }, [aiPanelOpen, layersPanelOpen, openAIPanel, closeAIPanel]);
+  }, [aiPanelOpen, layersPanelOpen, commentsPanelOpen, openAIPanel, closeAIPanel, closeCommentsPanel]);
+
+  const handleToggleComments = useCallback(() => {
+    const newCommentsOpen = !commentsPanelOpen;
+    if (newCommentsOpen) {
+      openCommentsPanel();
+      // Close other panels when comments panel opens
+      if (layersPanelOpen) {
+        setLayersPanelOpen(false);
+      }
+      if (aiPanelOpen) {
+        closeAIPanel();
+      }
+    } else {
+      closeCommentsPanel();
+    }
+  }, [commentsPanelOpen, layersPanelOpen, aiPanelOpen, openCommentsPanel, closeCommentsPanel, closeAIPanel]);
 
   // Persist layers panel state
   useEffect(() => {
@@ -114,8 +140,10 @@ function AppShell() {
                 <Toolbar 
                   onToggleLayers={handleToggleLayers}
                   onToggleAI={handleToggleAI}
+                  onToggleComments={handleToggleComments}
                   layersPanelOpen={layersPanelOpen}
                   aiPanelOpen={aiPanelOpen}
+                  commentsPanelOpen={commentsPanelOpen}
                 />
                 <Canvas 
                   showGrid={true} 
@@ -129,6 +157,7 @@ function AppShell() {
                 onClose={() => setLayersPanelOpen(false)} 
               />
               <AIPanel />
+              <CommentsPanel />
             </Suspense>
           )}
         </main>

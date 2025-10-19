@@ -554,9 +554,6 @@ export const CanvasProvider = ({ children }) => {
 
     const handleOnline = async () => {
       const results = await flushOperationQueue(DEFAULT_BOARD_ID);
-      if (results.success > 0) {
-        toast.success(`Synced ${results.success} operation${results.success === 1 ? '' : 's'}`);
-      }
       if (results.failed > 0) {
         toast.error(`Failed to sync ${results.failed} operation${results.failed === 1 ? '' : 's'}`);
       }
@@ -568,10 +565,7 @@ export const CanvasProvider = ({ children }) => {
         reconnectUnsubscribe = onValue(connectedRef, async (snapshot) => {
           const isConnected = snapshot.val();
           if (isConnected) {
-            const results = await flushOperationQueue(DEFAULT_BOARD_ID);
-            if (results.success > 0) {
-              toast.success(`Synced ${results.success} operation${results.success === 1 ? '' : 's'}`);
-            }
+            await flushOperationQueue(DEFAULT_BOARD_ID);
           }
         });
       } catch (error) {

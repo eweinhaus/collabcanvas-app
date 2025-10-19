@@ -25,8 +25,6 @@ import { auth as mockAuth } from '../firebase';
 
 // Mock Firestore functions
 const mockAddDoc = jest.fn();
-const mockGetDoc = jest.fn();
-const mockGetDocs = jest.fn();
 const mockUpdateDoc = jest.fn();
 const mockDeleteDoc = jest.fn();
 const mockOnSnapshot = jest.fn();
@@ -38,8 +36,6 @@ jest.mock('firebase/firestore', () => {
     collection: jest.fn(() => ({})),
     doc: jest.fn(() => ({})),
     addDoc: (...args) => mockAddDoc(...args),
-    getDoc: (...args) => mockGetDoc(...args),
-    getDocs: (...args) => mockGetDocs(...args),
     updateDoc: (...args) => mockUpdateDoc(...args),
     deleteDoc: (...args) => mockDeleteDoc(...args),
     onSnapshot: (...args) => mockOnSnapshot(...args),
@@ -49,7 +45,7 @@ jest.mock('firebase/firestore', () => {
   };
 });
 
-describe('commentService', () => {
+describe('commentService - Board-level Comments', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Reset auth mock
@@ -64,7 +60,7 @@ describe('commentService', () => {
     it('should create a comment with valid data', async () => {
       mockAddDoc.mockResolvedValue({ id: 'comment-123' });
 
-      const result = await commentService.createComment('shape-1', 'This is a test comment');
+      const result = await commentService.createComment('This is a test comment');
 
       expect(result).toEqual({ id: 'comment-123' });
       expect(mockAddDoc).toHaveBeenCalledWith(
@@ -74,7 +70,6 @@ describe('commentService', () => {
           authorId: 'test-user-123',
           authorName: 'Test User',
           authorEmail: 'test@example.com',
-          edited: false,
         })
       );
       expect(serverTimestamp).toHaveBeenCalled();
@@ -83,7 +78,7 @@ describe('commentService', () => {
     it('should trim whitespace from comment text', async () => {
       mockAddDoc.mockResolvedValue({ id: 'comment-123' });
 
-      await commentService.createComment('shape-1', '  Trimmed text  ');
+      await commentService.createComment('  Trimmed text  ');
 
       expect(mockAddDoc).toHaveBeenCalledWith(
         {},
@@ -97,7 +92,7 @@ describe('commentService', () => {
       mockAuth.currentUser = null;
 
       await expect(
-        commentService.createComment('shape-1', 'Test')
+        commentService.createComment('Test')
       ).rejects.toThrow('User must be authenticated');
 
       expect(toast.error).toHaveBeenCalledWith(
@@ -107,7 +102,7 @@ describe('commentService', () => {
 
     it('should throw error if text is empty', async () => {
       await expect(
-        commentService.createComment('shape-1', '')
+        commentService.createComment('')
       ).rejects.toThrow('non-empty string');
 
       expect(toast.error).toHaveBeenCalledWith('Comment text is required');
@@ -117,7 +112,7 @@ describe('commentService', () => {
       const longText = 'a'.repeat(501);
 
       await expect(
-        commentService.createComment('shape-1', longText)
+        commentService.createComment(longText)
       ).rejects.toThrow('exceeds maximum length');
 
       expect(toast.error).toHaveBeenCalledWith(
@@ -129,15 +124,9 @@ describe('commentService', () => {
       mockAddDoc.mockResolvedValue({ id: 'comment-123' });
       const maxLengthText = 'a'.repeat(500);
 
-      await commentService.createComment('shape-1', maxLengthText);
+      await commentService.createComment(maxLengthText);
 
       expect(mockAddDoc).toHaveBeenCalled();
-    });
-
-    it('should throw error if shapeId is missing', async () => {
-      await expect(
-        commentService.createComment(null, 'Test')
-      ).rejects.toThrow('shapeId is required');
     });
 
     it('should use email prefix if displayName is missing', async () => {
@@ -148,7 +137,7 @@ describe('commentService', () => {
       };
       mockAddDoc.mockResolvedValue({ id: 'comment-123' });
 
-      await commentService.createComment('shape-1', 'Test comment');
+      await commentService.createComment('Test comment');
 
       expect(mockAddDoc).toHaveBeenCalledWith(
         {},
@@ -162,7 +151,7 @@ describe('commentService', () => {
       mockAddDoc.mockRejectedValue({ code: 'permission-denied' });
 
       await expect(
-        commentService.createComment('shape-1', 'Test')
+        commentService.createComment('Test')
       ).rejects.toHaveProperty('code', 'permission-denied');
 
       expect(toast.error).toHaveBeenCalledWith(
@@ -173,63 +162,22 @@ describe('commentService', () => {
 
   describe('updateComment', () => {
     it('should update a comment with valid data', async () => {
-      // Mock getDoc to return comment owned by current user
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({
-          authorId: 'test-user-123',
-          text: 'Old text',
-        }),
-      });
       mockUpdateDoc.mockResolvedValue();
 
-      const result = await commentService.updateComment(
-        'shape-1',
-        'comment-123',
-        'Updated text'
-      );
+      const result = await commentService.updateComment('comment-123', 'Updated text');
 
       expect(result).toEqual({ id: 'comment-123' });
       expect(mockUpdateDoc).toHaveBeenCalledWith(
         {},
         expect.objectContaining({
           text: 'Updated text',
-          edited: true,
         })
       );
     });
 
-    it('should throw error if user is not the author', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({
-          authorId: 'different-user',
-          text: 'Original text',
-        }),
-      });
-
-      await expect(
-        commentService.updateComment('shape-1', 'comment-123', 'New text')
-      ).rejects.toThrow('Unauthorized');
-
-      expect(toast.error).toHaveBeenCalledWith(
-        'You can only edit or delete your own comments'
-      );
-    });
-
-    it('should throw error if comment does not exist', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => false,
-      });
-
-      await expect(
-        commentService.updateComment('shape-1', 'comment-123', 'New text')
-      ).rejects.toThrow('Comment not found');
-    });
-
     it('should throw error if text is empty', async () => {
       await expect(
-        commentService.updateComment('shape-1', 'comment-123', '')
+        commentService.updateComment('comment-123', '')
       ).rejects.toThrow('non-empty string');
     });
 
@@ -237,18 +185,14 @@ describe('commentService', () => {
       const longText = 'a'.repeat(501);
 
       await expect(
-        commentService.updateComment('shape-1', 'comment-123', longText)
+        commentService.updateComment('comment-123', longText)
       ).rejects.toThrow('exceeds maximum length');
     });
 
     it('should trim whitespace from updated text', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ authorId: 'test-user-123' }),
-      });
       mockUpdateDoc.mockResolvedValue();
 
-      await commentService.updateComment('shape-1', 'comment-123', '  Trimmed  ');
+      await commentService.updateComment('comment-123', '  Trimmed  ');
 
       expect(mockUpdateDoc).toHaveBeenCalledWith(
         {},
@@ -257,150 +201,28 @@ describe('commentService', () => {
         })
       );
     });
+
+    it('should throw error if commentId is missing', async () => {
+      await expect(
+        commentService.updateComment(null, 'New text')
+      ).rejects.toThrow('commentId is required');
+    });
   });
 
   describe('deleteComment', () => {
-    it('should delete a comment if user is the author', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ authorId: 'test-user-123' }),
-      });
+    it('should delete a comment', async () => {
       mockDeleteDoc.mockResolvedValue();
 
-      const result = await commentService.deleteComment('shape-1', 'comment-123');
+      const result = await commentService.deleteComment('comment-123');
 
       expect(result).toEqual({ id: 'comment-123' });
       expect(mockDeleteDoc).toHaveBeenCalledWith({});
     });
 
-    it('should throw error if user is not the author', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ authorId: 'different-user' }),
-      });
-
-      await expect(
-        commentService.deleteComment('shape-1', 'comment-123')
-      ).rejects.toThrow('Unauthorized');
-
-      expect(toast.error).toHaveBeenCalledWith(
-        'You can only edit or delete your own comments'
-      );
-    });
-
-    it('should throw error if comment does not exist', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => false,
-      });
-
-      await expect(
-        commentService.deleteComment('shape-1', 'comment-123')
-      ).rejects.toThrow('Comment not found');
-    });
-
-    it('should throw error if shapeId is missing', async () => {
-      await expect(
-        commentService.deleteComment(null, 'comment-123')
-      ).rejects.toThrow('shapeId and commentId are required');
-    });
-
     it('should throw error if commentId is missing', async () => {
       await expect(
-        commentService.deleteComment('shape-1', null)
-      ).rejects.toThrow('shapeId and commentId are required');
-    });
-  });
-
-  describe('getComments', () => {
-    it('should fetch all comments for a shape', async () => {
-      const mockComments = [
-        {
-          id: 'comment-1',
-          data: () => ({
-            text: 'First comment',
-            authorId: 'user-1',
-            authorName: 'User One',
-            authorEmail: 'user1@example.com',
-            createdAt: { toMillis: () => 1000000 },
-            updatedAt: { toMillis: () => 1000000 },
-            edited: false,
-          }),
-        },
-        {
-          id: 'comment-2',
-          data: () => ({
-            text: 'Second comment',
-            authorId: 'user-2',
-            authorName: 'User Two',
-            authorEmail: 'user2@example.com',
-            createdAt: { toMillis: () => 2000000 },
-            updatedAt: { toMillis: () => 2000000 },
-            edited: false,
-          }),
-        },
-      ];
-
-      mockGetDocs.mockResolvedValue({
-        forEach: (callback) => {
-          mockComments.forEach(callback);
-        },
-      });
-
-      const comments = await commentService.getComments('shape-1');
-
-      expect(comments).toHaveLength(2);
-      expect(comments[0]).toEqual({
-        id: 'comment-1',
-        text: 'First comment',
-        authorId: 'user-1',
-        authorName: 'User One',
-        authorEmail: 'user1@example.com',
-        createdAt: 1000000,
-        updatedAt: 1000000,
-        edited: false,
-      });
-    });
-
-    it('should return empty array if no comments', async () => {
-      mockGetDocs.mockResolvedValue({
-        forEach: (callback) => {
-          // No comments
-        },
-      });
-
-      const comments = await commentService.getComments('shape-1');
-
-      expect(comments).toEqual([]);
-    });
-
-    it('should throw error if shapeId is missing', async () => {
-      await expect(commentService.getComments(null)).rejects.toThrow(
-        'shapeId is required'
-      );
-    });
-
-    it('should handle missing timestamp gracefully', async () => {
-      mockGetDocs.mockResolvedValue({
-        forEach: (callback) => {
-          callback({
-            id: 'comment-1',
-            data: () => ({
-              text: 'Comment without timestamp',
-              authorId: 'user-1',
-              authorName: 'User',
-              authorEmail: 'user@example.com',
-              createdAt: null,
-              updatedAt: null,
-              edited: false,
-            }),
-          });
-        },
-      });
-
-      const comments = await commentService.getComments('shape-1');
-
-      expect(comments[0].createdAt).toBeNull();
-      expect(comments[0].updatedAt).toBeNull();
+        commentService.deleteComment(null)
+      ).rejects.toThrow('commentId is required');
     });
   });
 
@@ -424,7 +246,6 @@ describe('commentService', () => {
                   authorEmail: 'user@example.com',
                   createdAt: { toMillis: () => 1000000 },
                   updatedAt: { toMillis: () => 1000000 },
-                  edited: false,
                 }),
               },
             },
@@ -434,7 +255,6 @@ describe('commentService', () => {
       });
 
       const unsubscribe = commentService.subscribeToComments(
-        'shape-1',
         'default',
         mockCallback
       );
@@ -469,7 +289,6 @@ describe('commentService', () => {
                   authorEmail: 'user@example.com',
                   createdAt: { toMillis: () => 1000000 },
                   updatedAt: { toMillis: () => 2000000 },
-                  edited: true,
                 }),
               },
             },
@@ -478,13 +297,12 @@ describe('commentService', () => {
         return jest.fn();
       });
 
-      commentService.subscribeToComments('shape-1', 'default', mockCallback);
+      commentService.subscribeToComments('default', mockCallback);
 
       expect(mockCallback).toHaveBeenCalledWith({
         type: 'modified',
         comment: expect.objectContaining({
           text: 'Updated comment',
-          edited: true,
         }),
       });
     });
@@ -506,7 +324,6 @@ describe('commentService', () => {
                   authorEmail: 'user@example.com',
                   createdAt: { toMillis: () => 1000000 },
                   updatedAt: { toMillis: () => 1000000 },
-                  edited: false,
                 }),
               },
             },
@@ -515,7 +332,7 @@ describe('commentService', () => {
         return jest.fn();
       });
 
-      commentService.subscribeToComments('shape-1', 'default', mockCallback);
+      commentService.subscribeToComments('default', mockCallback);
 
       expect(mockCallback).toHaveBeenCalledWith({
         type: 'removed',
@@ -525,21 +342,14 @@ describe('commentService', () => {
       });
     });
 
-    it('should throw error if shapeId is missing', () => {
-      expect(() =>
-        commentService.subscribeToComments(null, 'default', jest.fn())
-      ).toThrow('shapeId is required');
-    });
-
     it('should throw error if callback is not a function', () => {
       expect(() =>
-        commentService.subscribeToComments('shape-1', 'default', null)
+        commentService.subscribeToComments('default', null)
       ).toThrow('callback must be a function');
     });
 
     it('should handle subscription errors gracefully', () => {
       const mockCallback = jest.fn();
-      const mockErrorHandler = jest.fn();
 
       mockOnSnapshot.mockImplementation((query, callback, errorHandler) => {
         // Simulate error
@@ -547,10 +357,10 @@ describe('commentService', () => {
         return jest.fn();
       });
 
-      commentService.subscribeToComments('shape-1', 'default', mockCallback);
+      commentService.subscribeToComments('default', mockCallback);
 
       expect(toast.error).toHaveBeenCalledWith(
-        'Unable to load comments. Please refresh the page.'
+        'Unable to load comments. Please refresh the page and try again.'
       );
     });
 
@@ -564,7 +374,7 @@ describe('commentService', () => {
         return jest.fn();
       });
 
-      commentService.subscribeToComments('shape-1', 'default', mockCallback);
+      commentService.subscribeToComments('default', mockCallback);
 
       expect(toast.error).toHaveBeenCalledWith(
         'Unable to load comments. Please refresh the page and sign in again.'
@@ -582,10 +392,20 @@ describe('commentService', () => {
       });
 
       toast.error.mockClear();
-      commentService.subscribeToComments('shape-1', 'default', mockCallback);
+      commentService.subscribeToComments('default', mockCallback);
 
       // Should not show error toast for transient issues
       expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it('should return no-op unsubscribe if user is not authenticated', () => {
+      mockAuth.currentUser = null;
+      const mockCallback = jest.fn();
+
+      const unsubscribe = commentService.subscribeToComments('default', mockCallback);
+
+      expect(typeof unsubscribe).toBe('function');
+      expect(mockOnSnapshot).not.toHaveBeenCalled();
     });
   });
 
@@ -600,7 +420,6 @@ describe('commentService', () => {
           authorEmail: 'test@example.com',
           createdAt: { toMillis: () => 1000000 },
           updatedAt: { toMillis: () => 2000000 },
-          edited: true,
         }),
       };
 
@@ -614,7 +433,6 @@ describe('commentService', () => {
         authorEmail: 'test@example.com',
         createdAt: 1000000,
         updatedAt: 2000000,
-        edited: true,
       });
     });
 
@@ -637,7 +455,6 @@ describe('commentService', () => {
         authorEmail: '',
         createdAt: null,
         updatedAt: null,
-        edited: false,
       });
     });
 
@@ -659,4 +476,3 @@ describe('commentService', () => {
     });
   });
 });
-
