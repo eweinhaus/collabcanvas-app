@@ -20,6 +20,7 @@ import { subscribeToDragUpdates } from '../../services/dragBroadcastService';
 import Shape from './Shape';
 import GridBackground from './GridBackground';
 import TextEditor from './TextEditor';
+import TextFormatToolbar from './TextFormatToolbar';
 import InterpolatedRemoteCursor from './InterpolatedRemoteCursor';
 import ShortcutsModal from '../common/ShortcutsModal';
 import ColorPicker from './ColorPicker';
@@ -75,6 +76,37 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
       .filter(shape => !hiddenLayers.has(shape.id))
       .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
   }, [shapes, hiddenLayers]);
+
+  // Viewport culling: only render shapes visible in current view (with padding)
+  const visibleShapes = useMemo(() => {
+    if (!stageSize.width || !stageSize.height) return sortedShapes;
+
+    const viewport = {
+      x: -position.x / scale,
+      y: -position.y / scale,
+      width: stageSize.width / scale,
+      height: stageSize.height / scale,
+    };
+    
+    // Add padding to prevent pop-in at edges
+    const PADDING = 200;
+
+    return sortedShapes.filter(shape => {
+      // Calculate shape bounds
+      const shapeWidth = shape.width ?? (shape.radius ? shape.radius * 2 : 100);
+      const shapeHeight = shape.height ?? (shape.radius ? shape.radius * 2 : 100);
+      const shapeRight = shape.x + shapeWidth;
+      const shapeBottom = shape.y + shapeHeight;
+
+      // Check if shape intersects with viewport (with padding)
+      return (
+        shapeRight > viewport.x - PADDING &&
+        shape.x < viewport.x + viewport.width + PADDING &&
+        shapeBottom > viewport.y - PADDING &&
+        shape.y < viewport.y + viewport.height + PADDING
+      );
+    });
+  }, [sortedShapes, position, scale, stageSize]);
   
   // Handle shape hover state changes
   const handleShapeHover = useCallback((shapeId, isHovered) => {
@@ -568,7 +600,7 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
         
         {/* Main shapes layer */}
         <Layer>
-          {sortedShapes.map((shape) => {
+          {visibleShapes.map((shape) => {
             // Hide shape if it's being edited
             if (shape.id === editingTextId) {
               return null;
@@ -738,7 +770,7 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
         {/* Tooltips layer - renders on top of everything */}
         <Layer listening={false}>
           {/* Tooltips - only visible on hover */}
-          {sortedShapes.map((shape) => {
+          {Object.keys(hoveredShapes).length > 0 && visibleShapes.map((shape) => {
             if (!hoveredShapes[shape.id]) return null;
 
             // Calculate CENTER position of shape (already in canvas coordinates)
@@ -766,16 +798,30 @@ const Canvas = ({ showGrid = false, boardId = 'default', onCanvasClick, onOpenSh
         if (!shape) return null;
         
         return (
-          <TextEditor
-            value={editingText}
-            onChange={handleTextChange}
-            onBlur={handleFinishEdit}
-            x={shape.x}
-            y={shape.y}
-            fontSize={shape.fontSize}
-            scale={scale}
-            stagePosition={position}
-          />
+          <>
+            <TextFormatToolbar
+              fontStyle={shape.fontStyle || 'normal'}
+              textDecoration={shape.textDecoration || ''}
+              x={shape.x}
+              y={shape.y}
+              scale={scale}
+              stagePosition={position}
+              onFormatChange={(updates) => {
+                // Update the shape with new formatting
+                firestoreActions.updateShape(editingTextId, updates);
+              }}
+            />
+            <TextEditor
+              value={editingText}
+              onChange={handleTextChange}
+              onBlur={handleFinishEdit}
+              x={shape.x}
+              y={shape.y}
+              fontSize={shape.fontSize}
+              scale={scale}
+              stagePosition={position}
+            />
+          </>
         );
       })()}
       <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
