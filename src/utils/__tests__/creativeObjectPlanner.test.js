@@ -58,6 +58,22 @@ describe('creativeObjectPlanner', () => {
       expect(plan.shapes[0].type).toBe('triangle');
     });
 
+    it('should extract JSON from text with surrounding content', () => {
+      const json = 'Here is your design:\n{"shapes":[{"type":"circle","x":100,"y":100,"radius":30,"fill":"#0000FF"}]}\nHope you like it!';
+      
+      const plan = parseCreativeObjectPlan(json);
+      expect(plan).toHaveProperty('shapes');
+      expect(plan.shapes[0].type).toBe('circle');
+    });
+
+    it('should handle JSON with nested braces', () => {
+      const json = '{"shapes":[{"type":"rectangle","x":100,"y":100,"width":50,"height":50,"fill":"#FF0000","meta":{"key":"value"}}]}';
+      
+      const plan = parseCreativeObjectPlan(json);
+      expect(plan).toHaveProperty('shapes');
+      expect(plan.shapes[0].type).toBe('rectangle');
+    });
+
     it('should throw on invalid JSON', () => {
       expect(() => parseCreativeObjectPlan('not json')).toThrow();
       expect(() => parseCreativeObjectPlan('')).toThrow();
@@ -84,6 +100,86 @@ describe('creativeObjectPlanner', () => {
 
       const result = validateCreativeObjectPlan(plan);
       expect(result.valid).toBe(true);
+    });
+
+    it('should reject plan with NaN coordinates', () => {
+      const plan = {
+        shapes: Array(10).fill(null).map((_, i) => ({
+          type: 'circle',
+          x: i === 5 ? NaN : i * 10,
+          y: i * 10,
+          radius: 20,
+          fill: '#000000',
+        })),
+      };
+
+      const result = validateCreativeObjectPlan(plan);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('invalid x/y');
+    });
+
+    it('should reject plan with coordinates out of bounds', () => {
+      const plan = {
+        shapes: Array(10).fill(null).map((_, i) => ({
+          type: 'circle',
+          x: i === 5 ? 5000 : i * 10, // Way outside canvas
+          y: i * 10,
+          radius: 20,
+          fill: '#000000',
+        })),
+      };
+
+      const result = validateCreativeObjectPlan(plan);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('out of bounds');
+    });
+
+    it('should reject plan with invalid color format', () => {
+      const plan = {
+        shapes: Array(10).fill(null).map((_, i) => ({
+          type: 'circle',
+          x: i * 10,
+          y: i * 10,
+          radius: 20,
+          fill: i === 5 ? 'not-a-color!' : '#000000', // Invalid color
+        })),
+      };
+
+      const result = validateCreativeObjectPlan(plan);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('invalid color format');
+    });
+
+    it('should accept CSS color names', () => {
+      const plan = {
+        shapes: Array(10).fill(null).map((_, i) => ({
+          type: 'circle',
+          x: i * 10,
+          y: i * 10,
+          radius: 20,
+          fill: 'blue', // CSS color name should be accepted
+        })),
+      };
+
+      const result = validateCreativeObjectPlan(plan);
+      expect(result.valid).toBe(true);
+    });
+
+    it('should reject plan with dimensions too large', () => {
+      const plan = {
+        shapes: Array(10).fill(null).map((_, i) => ({
+          type: 'rectangle',
+          x: i * 10,
+          y: i * 10,
+          width: i === 5 ? 5000 : 50, // Excessive width
+          height: 50,
+          fill: '#000000',
+        })),
+      };
+
+      const result = validateCreativeObjectPlan(plan);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('too large');
     });
 
     it('should reject plan with too few shapes', () => {

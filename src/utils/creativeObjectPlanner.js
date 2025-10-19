@@ -3,6 +3,20 @@
  * Utilities for planning and generating creative objects using LLM
  */
 
+// Constants for validation
+export const CREATIVE_OBJECT_CONSTRAINTS = {
+  MIN_SHAPES: 10,
+  MAX_SHAPES: 20,
+  MIN_SCALE: 0.5,
+  MAX_SCALE: 2.0,
+  CANVAS_WIDTH: 1920,
+  CANVAS_HEIGHT: 1080,
+  MAX_DIMENSION: 1000, // Max width/height/radius
+  MIN_DIMENSION: 1, // Min positive dimension
+  ROTATION_MIN: 0,
+  ROTATION_MAX: 360,
+};
+
 /**
  * Build planning prompt for GPT-4o to design a creative object
  * @param {string} objectType - Type of object (e.g., "dinosaur", "bus", "pirate ship")
@@ -107,12 +121,12 @@ export function validateCreativeObjectPlan(plan) {
   }
 
   // Check shape count (10-20)
-  if (plan.shapes.length < 10) {
-    return { valid: false, error: `Too few shapes: ${plan.shapes.length} (minimum 10 required)` };
+  if (plan.shapes.length < CREATIVE_OBJECT_CONSTRAINTS.MIN_SHAPES) {
+    return { valid: false, error: `Too few shapes: ${plan.shapes.length} (minimum ${CREATIVE_OBJECT_CONSTRAINTS.MIN_SHAPES} required)` };
   }
 
-  if (plan.shapes.length > 20) {
-    return { valid: false, error: `Too many shapes: ${plan.shapes.length} (maximum 20 allowed)` };
+  if (plan.shapes.length > CREATIVE_OBJECT_CONSTRAINTS.MAX_SHAPES) {
+    return { valid: false, error: `Too many shapes: ${plan.shapes.length} (maximum ${CREATIVE_OBJECT_CONSTRAINTS.MAX_SHAPES} allowed)` };
   }
 
   // Validate each shape
@@ -124,26 +138,62 @@ export function validateCreativeObjectPlan(plan) {
       return { valid: false, error: `Shape ${i}: invalid or missing type "${shape.type}"` };
     }
 
-    if (typeof shape.x !== 'number' || typeof shape.y !== 'number') {
-      return { valid: false, error: `Shape ${i}: missing or invalid x/y coordinates` };
+    // Check coordinates (use Number.isFinite to catch NaN, Infinity)
+    if (!Number.isFinite(shape.x) || !Number.isFinite(shape.y)) {
+      return { valid: false, error: `Shape ${i}: invalid x/y coordinates (${shape.x}, ${shape.y})` };
     }
 
+    // Validate coordinates are within reasonable bounds (allow some off-canvas for edge cases)
+    if (shape.x < -CREATIVE_OBJECT_CONSTRAINTS.MAX_DIMENSION || 
+        shape.x > CREATIVE_OBJECT_CONSTRAINTS.CANVAS_WIDTH + CREATIVE_OBJECT_CONSTRAINTS.MAX_DIMENSION) {
+      return { valid: false, error: `Shape ${i}: x coordinate ${shape.x} out of bounds` };
+    }
+    if (shape.y < -CREATIVE_OBJECT_CONSTRAINTS.MAX_DIMENSION || 
+        shape.y > CREATIVE_OBJECT_CONSTRAINTS.CANVAS_HEIGHT + CREATIVE_OBJECT_CONSTRAINTS.MAX_DIMENSION) {
+      return { valid: false, error: `Shape ${i}: y coordinate ${shape.y} out of bounds` };
+    }
+
+    // Validate color format (should be hex color or CSS color name)
     if (!shape.fill || typeof shape.fill !== 'string') {
       return { valid: false, error: `Shape ${i}: missing or invalid fill color` };
+    }
+    // Basic color validation (hex or alpha string)
+    if (!/^#[0-9A-Fa-f]{6}$/.test(shape.fill) && !/^[a-zA-Z]+$/.test(shape.fill)) {
+      return { valid: false, error: `Shape ${i}: invalid color format "${shape.fill}" (use hex like #FF0000)` };
+    }
+
+    // Validate rotation if present
+    if (shape.rotation !== undefined) {
+      if (!Number.isFinite(shape.rotation)) {
+        return { valid: false, error: `Shape ${i}: invalid rotation value` };
+      }
+      if (shape.rotation < CREATIVE_OBJECT_CONSTRAINTS.ROTATION_MIN || 
+          shape.rotation >= CREATIVE_OBJECT_CONSTRAINTS.ROTATION_MAX) {
+        return { valid: false, error: `Shape ${i}: rotation must be ${CREATIVE_OBJECT_CONSTRAINTS.ROTATION_MIN}-${CREATIVE_OBJECT_CONSTRAINTS.ROTATION_MAX - 1} degrees` };
+      }
     }
 
     // Check type-specific requirements
     if (shape.type === 'circle') {
-      if (typeof shape.radius !== 'number' || shape.radius <= 0) {
-        return { valid: false, error: `Shape ${i}: circle requires valid radius` };
+      if (!Number.isFinite(shape.radius) || shape.radius <= CREATIVE_OBJECT_CONSTRAINTS.MIN_DIMENSION) {
+        return { valid: false, error: `Shape ${i}: circle requires valid positive radius` };
+      }
+      if (shape.radius > CREATIVE_OBJECT_CONSTRAINTS.MAX_DIMENSION) {
+        return { valid: false, error: `Shape ${i}: radius ${shape.radius} too large (max ${CREATIVE_OBJECT_CONSTRAINTS.MAX_DIMENSION})` };
       }
     } else {
       // rectangle and triangle need width and height
-      if (typeof shape.width !== 'number' || shape.width <= 0) {
-        return { valid: false, error: `Shape ${i}: ${shape.type} requires valid width` };
+      if (!Number.isFinite(shape.width) || shape.width <= CREATIVE_OBJECT_CONSTRAINTS.MIN_DIMENSION) {
+        return { valid: false, error: `Shape ${i}: ${shape.type} requires valid positive width` };
       }
-      if (typeof shape.height !== 'number' || shape.height <= 0) {
-        return { valid: false, error: `Shape ${i}: ${shape.type} requires valid height` };
+      if (!Number.isFinite(shape.height) || shape.height <= CREATIVE_OBJECT_CONSTRAINTS.MIN_DIMENSION) {
+        return { valid: false, error: `Shape ${i}: ${shape.type} requires valid positive height` };
+      }
+      if (shape.width > CREATIVE_OBJECT_CONSTRAINTS.MAX_DIMENSION) {
+        return { valid: false, error: `Shape ${i}: width ${shape.width} too large (max ${CREATIVE_OBJECT_CONSTRAINTS.MAX_DIMENSION})` };
+      }
+      if (shape.height > CREATIVE_OBJECT_CONSTRAINTS.MAX_DIMENSION) {
+        return { valid: false, error: `Shape ${i}: height ${shape.height} too large (max ${CREATIVE_OBJECT_CONSTRAINTS.MAX_DIMENSION})` };
       }
     }
   }
@@ -154,6 +204,7 @@ export function validateCreativeObjectPlan(plan) {
 /**
  * Parse LLM response and extract JSON plan
  * Handles markdown-wrapped JSON and other common formatting issues
+ * Uses robust JSON extraction to handle text before/after JSON
  * @param {string} responseText - Raw text response from LLM
  * @returns {Object} Parsed plan object
  * @throws {Error} If parsing fails
@@ -169,6 +220,13 @@ export function parseCreativeObjectPlan(responseText) {
   cleaned = cleaned.replace(/^```\s*/i, '');
   cleaned = cleaned.replace(/\s*```$/i, '');
   cleaned = cleaned.trim();
+
+  // Try to extract JSON object using regex (handles text before/after JSON)
+  // Match outermost { ... } with proper nesting
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    cleaned = jsonMatch[0];
+  }
 
   // Try to parse
   try {
