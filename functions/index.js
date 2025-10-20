@@ -258,3 +258,169 @@ exports.openaiChat = onRequest(
       }
     },
 );
+
+/**
+ * DSPy Service Proxy
+ * Proxy for DSPy complex object decomposition service
+ * Adds authentication and rate limiting to Cloud Run service
+ */
+exports.callDSPyService = onRequest(
+    {
+      timeoutSeconds: 10,
+      memory: "256MiB",
+      minInstances: 0, // Scale to zero when not in use
+      maxInstances: 5,
+      cors: true,
+    },
+    async (req, res) => {
+      // CORS headers
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers",
+          "Content-Type, Authorization");
+
+      // Handle preflight
+      if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
+      }
+
+      // Only allow POST
+      if (req.method !== "POST") {
+        res.status(405).json({error: "Method not allowed"});
+        return;
+      }
+
+      try {
+        // 1. Verify Firebase ID token
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+          logger.warn("DSPy proxy: Missing authorization header");
+          res.status(401).json({error: "Unauthorized - missing token"});
+          return;
+        }
+
+        const idToken = authHeader.split("Bearer ")[1];
+        let decodedToken;
+        try {
+          decodedToken = await admin.auth().verifyIdToken(idToken);
+        } catch (error) {
+          logger.warn("DSPy proxy: Invalid token", {error: error.message});
+          res.status(401).json({error: "Unauthorized - invalid token"});
+          return;
+        }
+
+        // 2. Check rate limit
+        const {isLimited, resetTime} = checkRateLimit(decodedToken.uid);
+        if (isLimited) {
+          logger.warn("DSPy proxy: Rate limit exceeded", {
+            uid: decodedToken.uid,
+            resetTime,
+          });
+          res.status(429).json({
+            error: "Rate limit exceeded",
+            resetTime,
+          });
+          return;
+        }
+
+        // 3. Validate request body
+        const {userRequest, position} = req.body;
+        if (!userRequest || typeof userRequest !== "string") {
+          res.status(400).json({
+            error: "Missing or invalid 'userRequest' field",
+          });
+          return;
+        }
+
+        if (userRequest.length > 500) {
+          res.status(400).json({
+            error: "userRequest cannot exceed 500 characters",
+          });
+          return;
+        }
+
+        // 4. Get DSPy service URL from config
+        // Set via: firebase functions:config:set dspy.url="https://..."
+        const dspyServiceUrl = process.env.DSPY_SERVICE_URL ||
+          "https://dspy-service-placeholder.run.app"; // TODO: Update after deployment
+
+        logger.info("DSPy proxy: Calling service", {
+          uid: decodedToken.uid,
+          request: userRequest.substring(0, 50),
+        });
+
+        // 5. Call DSPy service with timeout
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000); // 8s timeout
+
+        try {
+          const response = await fetch(`${dspyServiceUrl}/decompose`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              request: userRequest,
+              position: position || "viewport_center",
+            }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeout);
+
+          // Handle non-2xx responses
+          if (!response.ok) {
+            const errorText = await response.text();
+            logger.error("DSPy service error", {
+              status: response.status,
+              error: errorText,
+            });
+            res.status(response.status).json({
+              error: `DSPy service error: ${response.status}`,
+              details: errorText,
+            });
+            return;
+          }
+
+          // Parse and return result
+          const result = await response.json();
+
+          if (!result.success) {
+            logger.error("DSPy inference failed", {error: result.error});
+            res.status(500).json({
+              error: "DSPy inference failed",
+              details: result.error,
+            });
+            return;
+          }
+
+          logger.info("DSPy proxy: Success", {
+            uid: decodedToken.uid,
+            objectType: result.object_type,
+            shapeCount: result.shapes?.length || 0,
+          });
+
+          res.status(200).json(result);
+        } catch (fetchError) {
+          clearTimeout(timeout);
+
+          if (fetchError.name === "AbortError") {
+            logger.error("DSPy service timeout");
+            res.status(504).json({error: "DSPy service timeout"});
+          } else {
+            logger.error("DSPy service fetch failed", {
+              error: fetchError.message,
+            });
+            res.status(503).json({
+              error: "DSPy service unavailable",
+              details: fetchError.message,
+            });
+          }
+        }
+      } catch (error) {
+        logger.error("DSPy proxy error", {error: error.message});
+        res.status(500).json({error: "Internal server error"});
+      }
+    },
+);

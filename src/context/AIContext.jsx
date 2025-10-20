@@ -12,6 +12,7 @@ import { getToolDefinitions } from '../services/aiTools';
 import { createAIToolExecutor } from '../services/aiToolExecutor';
 import { setupPerformanceTesting } from '../utils/performanceTest';
 import { classifyAndPreprocess } from '../utils/commandClassifier';
+import { isComplexRequest, callDSPyService, convertDSPyToToolCalls, extractObjectName } from '../utils/dspyConverter';
 import toast from 'react-hot-toast';
 
 const AIContext = createContext(null);
@@ -257,6 +258,62 @@ export const AIProvider = ({ children }) => {
       const userMessage = createUserMessage(content.trim());
       setMessages(prev => [...prev, userMessage]);
       
+      // Check if this is a complex request that should use DSPy
+      if (isComplexRequest(content.trim())) {
+        console.log('🎨 [AI] Complex request detected - attempting DSPy service');
+        
+        try {
+          // Get Firebase ID token for authentication
+          const idToken = await user.getIdToken();
+          
+          // Call DSPy service via Firebase Function
+          const dspyStartTime = performance.now();
+          const dspyResult = await callDSPyService(
+            content.trim(),
+            'viewport_center',
+            idToken
+          );
+          const dspyEndTime = performance.now();
+          
+          console.log(`✅ [AI] DSPy service responded (${Math.round(dspyEndTime - dspyStartTime)}ms)`);
+          console.log(`📦 [AI] DSPy result: ${dspyResult.object_type} with ${dspyResult.shapes?.length || 0} shapes`);
+          
+          // Convert DSPy result to tool calls
+          const toolCalls = convertDSPyToToolCalls(dspyResult, canvasContext);
+          
+          // Create assistant message
+          const objectName = extractObjectName(content.trim());
+          const assistantContent = `Creating ${objectName} with ${dspyResult.shapes.length} shapes...`;
+          const assistantMessage = createAssistantMessage(assistantContent, toolCalls);
+          setMessages(prev => [...prev, assistantMessage]);
+          
+          // Execute tool calls
+          const toolStartTime = performance.now();
+          console.log('🔧 [AI] Executing DSPy tool calls');
+          
+          await executeToolCalls(toolCalls, assistantMessage);
+          
+          const toolEndTime = performance.now();
+          console.log(`✅ [AI] DSPy tools executed (${Math.round(toolEndTime - toolStartTime)}ms)`);
+          
+          const endTime = performance.now();
+          console.log(`🏁 [AI] Total time: ${Math.round(endTime - startTime)}ms`);
+          
+          toast.success(`Created ${objectName}!`);
+          setLoading(false);
+          return; // Success - exit early
+          
+        } catch (dspyError) {
+          // DSPy failed - log and fall back to GPT-4
+          console.warn('⚠️ [AI] DSPy service failed, falling back to GPT-4:', dspyError.message);
+          console.log('🔄 [AI] Continuing with standard GPT-4 path...');
+          
+          // Don't show error to user - just fall through to GPT-4 path
+          // The fallback is transparent to the user
+        }
+      }
+      
+      // Standard GPT-4 path (used for simple requests or as fallback)
       // Create message with preprocessed command for API
       const apiUserMessage = classification.needsPreprocessing 
         ? createUserMessage(commandToSend)
